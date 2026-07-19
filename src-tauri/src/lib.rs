@@ -1682,7 +1682,7 @@ async fn download_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -
     std::fs::create_dir_all(&gpu_dir)
         .map_err(|e| format!("Failed to create folder: {}", e))?;
 
-    let url = match provider.as_str() {
+    let primary_url = match provider.as_str() {
         "cuda" => "https://github.com/malashkadev/Aura/releases/download/v1.0.8-assets/sherpa-onnx-v1.13.4-win-x64-cuda.tar.bz2",
         "directml" => "https://github.com/malashkadev/Aura/releases/download/v1.0.8-assets/sherpa-onnx-v1.13.4-win-x64-directml.tar.bz2",
         _ => return Err("Invalid provider".to_string()),
@@ -1695,8 +1695,22 @@ async fn download_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -
 
     eprintln!("Aura Dev Log: Starting download for GPU provider {}...", provider);
     let client = crate::ai_client::build_download_client();
-    let mut response = client.get(url).send().await
+    let mut response = client.get(primary_url).send().await
         .map_err(|e| format!("Failed to fetch URL: {}", e))?;
+
+    if !response.status().is_success() {
+        if provider == "cuda" {
+            eprintln!("Aura Dev Log WARNING: Primary CUDA download failed ({}). Trying official k2-fsa mirror...", response.status());
+            let backup_url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.4/sherpa-onnx-v1.13.4-win-x64-cuda.tar.bz2";
+            response = client.get(backup_url).send().await
+                .map_err(|e| format!("Failed to fetch official CUDA mirror: {}", e))?;
+            if !response.status().is_success() {
+                return Err(format!("Mirror also failed with HTTP status {}", response.status()));
+            }
+        } else {
+            return Err(format!("Download failed with HTTP status {}. If you are the developer, please ensure the release and assets have been uploaded to GitHub.", response.status()));
+        }
+    }
 
     let total_size = response.content_length().unwrap_or(221_905_418);
     let mut total_downloaded = 0u64;
