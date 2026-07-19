@@ -659,6 +659,28 @@ pub async fn download_parakeet_model<R: Runtime>(
 }
 
 pub fn find_sherpa_websocket_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
+    let settings = crate::settings::load_settings(app_handle).unwrap_or_default();
+    
+    let exe_name = if cfg!(target_os = "windows") {
+        "sherpa-onnx-offline-websocket-server.exe"
+    } else {
+        "sherpa-onnx-offline-websocket-server"
+    };
+
+    if settings.local_acceleration != "cpu" {
+        if let Ok(app_local_data) = app_handle.path().app_local_data_dir() {
+            let gpu_exe = app_local_data
+                .join("binaries")
+                .join(&settings.local_acceleration)
+                .join("bin")
+                .join(exe_name);
+            if gpu_exe.exists() {
+                return Ok(gpu_exe);
+            }
+        }
+    }
+
+    // Rest of existing candidate checks:
     #[cfg(target_os = "windows")]
     let target_names = [
         "sherpa-onnx-offline-websocket-server.exe",
@@ -807,7 +829,7 @@ pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Re
             let _ = std::fs::remove_file(&hotwords_path);
         }
 
-        let args = vec![
+        let mut args = vec![
             format!("--encoder={}", short_encoder.to_string_lossy()),
             format!("--decoder={}", short_decoder.to_string_lossy()),
             format!("--joiner={}", short_joiner.to_string_lossy()),
@@ -817,6 +839,14 @@ pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Re
             format!("--num-work-threads={}", n_threads),
             format!("--log-file={}", log_file_path.to_string_lossy()),
         ];
+
+        if settings.local_acceleration == "cuda" {
+            args.push("--provider=cuda".to_string());
+        } else if settings.local_acceleration == "directml" {
+            args.push("--provider=directml".to_string());
+        } else {
+            args.push("--provider=cpu".to_string());
+        }
 
         // Note: We deliberately DO NOT pass --hotwords-file here.
         // sherpa-onnx requires --decoding-method=modified_beam_search for hotwords,
@@ -981,59 +1011,38 @@ pub fn run_parakeet<R: Runtime>(
 }
 
 pub fn find_sherpa_punctuation_exe<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
-    #[cfg(target_os = "windows")]
-    let target_names = [
-        "sherpa-onnx-offline-punctuation.exe",
-    ];
-    #[cfg(not(target_os = "windows"))]
-    let target_names = ["sherpa-onnx-offline-punctuation"];
+    let settings = crate::settings::load_settings(app_handle).unwrap_or_default();
+    let exe_name = if cfg!(target_os = "windows") {
+        "sherpa-onnx-offline-punctuation.exe"
+    } else {
+        "sherpa-onnx-offline-punctuation"
+    };
 
-    let resource_dir = app_handle
-        .path()
-        .resource_dir()
-        .map_err(|e| format!("Failed to get resource dir: {}", e))?;
-
-    let mut candidates: Vec<PathBuf> = Vec::new();
-
-    #[cfg(debug_assertions)]
-    for name in &target_names {
-        candidates.push(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries").join(name),
-        );
-    }
-
-    for name in &target_names {
-        candidates.push(resource_dir.join("binaries").join(name));
-        candidates.push(resource_dir.join("_up_").join("binaries").join(name));
-        candidates.push(resource_dir.join(name));
-        candidates.push(PathBuf::from("binaries").join(name));
-        candidates.push(PathBuf::from("src-tauri").join("binaries").join(name));
-    }
-
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(exe_dir) = exe.parent() {
-            for name in &target_names {
-                candidates.push(exe_dir.join(name));
+    if settings.local_acceleration != "cpu" {
+        if let Ok(app_local_data) = app_handle.path().app_local_data_dir() {
+            let gpu_exe = app_local_data
+                .join("binaries")
+                .join(&settings.local_acceleration)
+                .join("bin")
+                .join(exe_name);
+            if gpu_exe.exists() {
+                return Ok(gpu_exe);
             }
         }
     }
 
-    let existing: Vec<PathBuf> = candidates.into_iter().filter(|p| p.exists()).collect();
-
-    if let Some(path) = existing.first() {
-        return Ok(path.clone());
+    // Default candidate check:
+    let resource_dir = app_handle.path().resource_dir()
+        .map_err(|e| format!("Failed to get resource dir: {}", e))?;
+    let candidates = vec![
+        resource_dir.join("binaries").join(exe_name),
+        resource_dir.join(exe_name),
+        PathBuf::from("binaries").join(exe_name),
+    ];
+    if let Some(path) = candidates.into_iter().find(|p| p.exists()) {
+        return Ok(path);
     }
-
-    for name in &target_names {
-        if let Some(path) = find_file_recursive(&resource_dir, name) {
-            return Ok(path);
-        }
-    }
-
-    Err(format!(
-        "Failed to find punctuation binary '{}' in candidates.",
-        target_names[0]
-    ))
+    Err("Punctuation sidecar executable not found".to_string())
 }
 
 pub async fn download_punctuation_model<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Result<(), String> {
