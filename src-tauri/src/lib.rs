@@ -1676,6 +1676,19 @@ async fn delete_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -> 
     if provider != "cuda" && provider != "directml" {
         return Err("Invalid provider".to_string());
     }
+
+    // Stop and kill any active Parakeet server to release file locks on executables/DLLs
+    whisper_runner::stop_parakeet_server(&app_handle);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let _ = std::process::Command::new("taskkill")
+            .args(&["/F", "/IM", "sherpa-onnx-offline-websocket-server.exe"])
+            .creation_flags(0x08000000)
+            .output();
+    }
+    std::thread::sleep(std::time::Duration::from_millis(200));
+
     let app_local_data = app_handle
         .path()
         .app_local_data_dir()
