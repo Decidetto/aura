@@ -30,6 +30,7 @@ pub struct Settings {
     pub cloud_fallback_enabled: bool, // auto-retry locally when cloud is unreachable (VPN/network/region block)
     pub local_engine: String,         // "whisper" or "parakeet"
     pub copy_context_on_start: bool,  // capture selected text via Ctrl+C when recording starts (disable for terminals)
+    pub local_acceleration: String,   // "cpu" | "cuda" | "directml"
 }
 
 impl Default for Settings {
@@ -55,6 +56,7 @@ impl Default for Settings {
             cloud_fallback_enabled: true,
             local_engine: "whisper".to_string(),
             copy_context_on_start: true,
+            local_acceleration: "cpu".to_string(),
         }
     }
 }
@@ -162,6 +164,7 @@ mod tests {
         assert_eq!(settings.overlay_sound_theme, "zen");
         assert_eq!(settings.overlay_sound_volume, 0.8);
         assert_eq!(settings.local_engine, "whisper");
+        assert_eq!(settings.local_acceleration, "cpu");
     }
 
     #[test]

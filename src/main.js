@@ -1308,6 +1308,7 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
   const footerStatusText = document.getElementById("footer-status-text");
 
   let selectedModelName = "base";
+  let activeLocalAcceleration = "cpu";
 
   let settingsModified = false;
   let isSettingsLoaded = false;
@@ -1427,6 +1428,7 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     // Default true: most users benefit from context capture
     checkboxCopyContext.checked = settings.copy_context_on_start !== false;
   }
+        activeLocalAcceleration = settings.local_acceleration || "cpu";
         if (selectSoundTheme) {
           selectSoundTheme.value = settings.overlay_sound_theme || "zen";
         }
@@ -1537,7 +1539,8 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
         cloud_fallback_enabled: checkboxCloudFallback ? checkboxCloudFallback.checked : true,
         autostart: checkboxAutostart ? checkboxAutostart.checked : false,
         local_engine: selectLocalEngine ? selectLocalEngine.value : "whisper",
-    overlay_sounds: checkboxSounds ? checkboxSounds.checked : true,
+        local_acceleration: activeLocalAcceleration,
+        overlay_sounds: checkboxSounds ? checkboxSounds.checked : true,
     overlay_sound_theme: selectSoundTheme ? selectSoundTheme.value : "zen",
     overlay_sound_volume: soundVolFloat,
     copy_context_on_start: checkboxCopyContext ? checkboxCopyContext.checked : true
