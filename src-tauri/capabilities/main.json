@@ -1,0 +1,30 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Settings window permissions. Secrets remain in the Rust backend.",
+  "windows": ["main"],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "updater:allow-check",
+    "updater:allow-download-and-install",
+    "allow-get-settings",
+    "allow-set-settings",
+    "allow-set-provider-key",
+    "allow-download-model-command",
+    "allow-cancel-model-download",
+    "allow-delete-model-command",
+    "allow-get-downloaded-models",
+    "allow-download-gpu-binaries",
+    "allow-delete-gpu-binaries",
+    "allow-check-gpu-downloaded",
+    "allow-get-history",
+    "allow-clear-history",
+    "allow-copy-to-clipboard",
+    "allow-open-url",
+    "allow-relaunch-app",
+    "allow-minimize-window",
+    "allow-close-window",
+    "allow-start-dragging-command"
+  ]
+}
