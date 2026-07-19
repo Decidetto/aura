@@ -957,14 +957,34 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                 };
                 
                 let url = format!("ws://127.0.0.1:{}", port);
-                let mut socket = match tungstenite::connect(&url) {
-                    Ok((s, _)) => {
-                        eprintln!("Aura Dev Log: Connected to Parakeet server for streaming.");
-                        s
-                    }
-                    Err(e) => {
-                        eprintln!("Aura Dev Log ERROR: Failed to connect to Parakeet WebSocket: {}", e);
-                        return;
+                let mut socket = {
+                    let start_connect = std::time::Instant::now();
+                    loop {
+                        let still_active = app_handle_loop
+                            .try_state::<AppState>()
+                            .map(|s| {
+                                s.is_recording.load(Ordering::SeqCst)
+                                    && s.session_gen.load(Ordering::SeqCst) == my_gen
+                            })
+                            .unwrap_or(false);
+                        if !still_active {
+                            eprintln!("Aura Dev Log: Connection cancelled because recording session ended.");
+                            return;
+                        }
+
+                        match tungstenite::connect(&url) {
+                            Ok((s, _)) => {
+                                eprintln!("Aura Dev Log: Connected to Parakeet server for streaming.");
+                                break s;
+                            }
+                            Err(e) => {
+                                if start_connect.elapsed().as_secs() > 15 {
+                                    eprintln!("Aura Dev Log ERROR: Failed to connect to Parakeet WebSocket (timeout): {}", e);
+                                    return;
+                                }
+                                std::thread::sleep(std::time::Duration::from_millis(200));
+                            }
+                        }
                     }
                 };
 
