@@ -1727,7 +1727,11 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
       const actionEl = document.getElementById(`action-gpu-${provider}`);
       const progressEl = document.getElementById(`progress-gpu-${provider}`);
       if (!actionEl) continue;
-      if (progressEl) progressEl.style.display = "none";
+      if (progressEl) {
+        const cancelBtn = progressEl.querySelector(".btn-cancel-download");
+        if (cancelBtn) cancelBtn.remove();
+        progressEl.style.display = "none";
+      }
       actionEl.style.display = "flex";
 
       if (isDownloaded) {
@@ -1766,18 +1770,40 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     const percentEl = document.getElementById(`pct-gpu-${provider}`);
     
     if (actionEl) actionEl.style.display = "none";
-    if (progressEl) progressEl.style.display = "flex";
+    if (progressEl) {
+      progressEl.style.display = "flex";
+      const oldBtn = progressEl.querySelector(".btn-cancel-download");
+      if (oldBtn) oldBtn.remove();
+      const cancelBtn = document.createElement("button");
+      cancelBtn.type = "button";
+      cancelBtn.className = "btn-cancel-download";
+      const cancelLabel = getTranslation("model_cancel_download") || "Отменить загрузку";
+      cancelBtn.title = cancelLabel;
+      cancelBtn.setAttribute("aria-label", cancelLabel);
+      cancelBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+      cancelBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        cancelBtn.disabled = true;
+        invoke("cancel_model_download", { modelName: `gpu-${provider}` }).catch(e2 => console.error(e2));
+      });
+      progressEl.appendChild(cancelBtn);
+    }
     if (fillEl) fillEl.style.width = "0%";
     if (percentEl) percentEl.textContent = "0%";
 
     try {
+      showStatus(getTranslation("model_downloading_pattern", { model: provider.toUpperCase() }));
       await invoke("download_gpu_binaries", { provider });
       await updateGpuCardStates();
     } catch (err) {
       console.error(err);
-      alert(`Download failed: ${err}`);
-      if (actionEl) actionEl.style.display = "flex";
-      if (progressEl) progressEl.style.display = "none";
+      const errStr = String(err).toLowerCase();
+      if (errStr.includes("cancel")) {
+        showStatus(getTranslation("model_download_cancelled") || "Загрузка отменена");
+      } else {
+        showStatus(`${getTranslation("status_error")}${err}`, true);
+      }
+      await updateGpuCardStates();
     }
   }
 
@@ -1809,10 +1835,23 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     if (!progress) return;
     const fillEl = document.getElementById(`fill-gpu-${progress.provider}`);
     const percentEl = document.getElementById(`pct-gpu-${progress.provider}`);
+    const progressEl = document.getElementById(`progress-gpu-${progress.provider}`);
+    const actionEl = document.getElementById(`action-gpu-${progress.provider}`);
+
     if (fillEl && percentEl) {
       const percentage = typeof progress.percentage === 'number' ? progress.percentage : 0;
       fillEl.style.width = `${percentage.toFixed(1)}%`;
       percentEl.textContent = `${percentage.toFixed(1)}%`;
+    }
+
+    if (progress.done) {
+      if (progressEl) {
+        const cancelBtn = progressEl.querySelector(".btn-cancel-download");
+        if (cancelBtn) cancelBtn.remove();
+        progressEl.style.display = "none";
+      }
+      if (actionEl) actionEl.style.display = "flex";
+      updateGpuCardStates();
     }
   });
 

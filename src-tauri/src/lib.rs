@@ -1706,6 +1706,10 @@ async fn download_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -
     if provider != "cuda" && provider != "directml" {
         return Err("Invalid provider".to_string());
     }
+
+    let cancel_key = format!("gpu-{}", provider);
+    whisper_runner::clear_cancel(&cancel_key);
+
     let app_local_data = app_handle
         .path()
         .app_local_data_dir()
@@ -1741,7 +1745,7 @@ async fn download_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -
                 return Err(format!("Mirror also failed with HTTP status {}", response.status()));
             }
         } else {
-            return Err(format!("Download failed with HTTP status {}. If you are the developer, please ensure the release and assets have been uploaded to GitHub.", response.status()));
+            return Err("Компонент DirectML пока недоступен для автоматической загрузки. Используйте NVIDIA CUDA для видеокарт NVIDIA или стандартный режим CPU.".to_string());
         }
     }
 
@@ -1756,6 +1760,13 @@ async fn download_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -
         while let Some(chunk) = response.chunk().await
             .map_err(|e| format!("Error reading chunk: {}", e))?
         {
+            if whisper_runner::is_cancel_requested(&cancel_key) {
+                whisper_runner::clear_cancel(&cancel_key);
+                drop(file);
+                let _ = tokio::fs::remove_file(&temp_tar_path).await;
+                return Err("Download cancelled".to_string());
+            }
+
             file.write_all(&chunk).await
                 .map_err(|e| format!("Failed to write: {}", e))?;
             total_downloaded += chunk.len() as u64;
@@ -1773,6 +1784,12 @@ async fn download_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -
             );
         }
         file.flush().await.map_err(|e| format!("Failed to flush: {}", e))?;
+    }
+
+    if whisper_runner::is_cancel_requested(&cancel_key) {
+        whisper_runner::clear_cancel(&cancel_key);
+        let _ = std::fs::remove_file(&temp_tar_path);
+        return Err("Download cancelled".to_string());
     }
 
     // Extraction using native tar.exe

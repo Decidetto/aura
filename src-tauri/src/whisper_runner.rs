@@ -19,11 +19,11 @@ pub fn request_cancel_download(model_name: &str) {
     }
 }
 
-fn is_cancel_requested(model_name: &str) -> bool {
+pub fn is_cancel_requested(model_name: &str) -> bool {
     cancel_set().lock().map(|s| s.contains(model_name)).unwrap_or(false)
 }
 
-fn clear_cancel(model_name: &str) {
+pub fn clear_cancel(model_name: &str) {
     if let Ok(mut set) = cancel_set().lock() {
         set.remove(model_name);
     }
