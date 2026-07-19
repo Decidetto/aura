@@ -1631,6 +1631,9 @@ struct GpuDownloadProgress {
 
 #[tauri::command]
 async fn check_gpu_downloaded(app_handle: tauri::AppHandle, provider: String) -> Result<bool, String> {
+    if provider != "cuda" && provider != "directml" {
+        return Err("Invalid provider".to_string());
+    }
     let app_local_data = app_handle
         .path()
         .app_local_data_dir()
@@ -1650,6 +1653,9 @@ async fn check_gpu_downloaded(app_handle: tauri::AppHandle, provider: String) ->
 
 #[tauri::command]
 async fn delete_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -> Result<(), String> {
+    if provider != "cuda" && provider != "directml" {
+        return Err("Invalid provider".to_string());
+    }
     let app_local_data = app_handle
         .path()
         .app_local_data_dir()
@@ -1664,6 +1670,9 @@ async fn delete_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -> 
 
 #[tauri::command]
 async fn download_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -> Result<(), String> {
+    if provider != "cuda" && provider != "directml" {
+        return Err("Invalid provider".to_string());
+    }
     let app_local_data = app_handle
         .path()
         .app_local_data_dir()
@@ -1746,8 +1755,15 @@ async fn download_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -
     // Structure alignment: move binaries out of nested tar folder if necessary
     let nested_dir = gpu_dir.join(format!("sherpa-onnx-v1.13.4-win-x64-{}", provider));
     if nested_dir.exists() {
-        let _ = std::fs::rename(nested_dir.join("bin"), gpu_dir.join("bin"));
-        let _ = std::fs::remove_dir_all(&nested_dir);
+        let target_bin = gpu_dir.join("bin");
+        if target_bin.exists() {
+            std::fs::remove_dir_all(&target_bin)
+                .map_err(|e| format!("Failed to clear existing bin folder: {}", e))?;
+        }
+        std::fs::rename(nested_dir.join("bin"), &target_bin)
+            .map_err(|e| format!("Failed to rename nested bin folder to final location: {}", e))?;
+        std::fs::remove_dir_all(&nested_dir)
+            .map_err(|e| format!("Failed to clean up nested directory: {}", e))?;
     }
 
     let _ = app_handle.emit(
