@@ -601,6 +601,36 @@ async fn run_local_whisper_async(
 /// Types a streaming/final update via simulated keystrokes on a blocking thread.
 /// Re-checks session generation (and, for live previews, the recording flag) under
 /// the lock so a stale task can never corrupt a newer session's text.
+fn type_streaming_update_sync(
+    app_handle: &tauri::AppHandle,
+    my_gen: u64,
+    new_text: &str,
+    require_recording: bool,
+) {
+    let Some(state) = app_handle.try_state::<AppState>() else { return };
+    let state = state.inner();
+
+    // Focus guard: never type into a window the user switched to mid-dictation
+    let start_hwnd = state.start_hwnd.lock().map(|g| *g).unwrap_or(0);
+    if start_hwnd != 0 && keyboard_simulator::get_foreground_window() != start_hwnd {
+        eprintln!("Aura Dev Log: Focus changed since recording started; skipping simulated typing.");
+        return;
+    }
+
+    if let Ok(mut typed_guard) = state.typed_so_far.lock() {
+        let session_ok = state.session_gen.load(Ordering::SeqCst) == my_gen;
+        let recording_ok = !require_recording || state.is_recording.load(Ordering::SeqCst);
+        if session_ok && recording_ok {
+            diff_and_type(&mut typed_guard, new_text);
+        } else {
+            eprintln!("Aura Dev Log: Skipping stale typing update (gen/recording check failed).");
+        }
+    }
+}
+
+/// Types a streaming/final update via simulated keystrokes on a blocking thread.
+/// Re-checks session generation (and, for live previews, the recording flag) under
+/// the lock so a stale task can never corrupt a newer session's text.
 async fn type_streaming_update(
     app_handle: tauri::AppHandle,
     my_gen: u64,
@@ -608,25 +638,7 @@ async fn type_streaming_update(
     require_recording: bool,
 ) {
     let _ = tauri::async_runtime::spawn_blocking(move || {
-        let Some(state) = app_handle.try_state::<AppState>() else { return };
-        let state = state.inner();
-
-        // Focus guard: never type into a window the user switched to mid-dictation
-        let start_hwnd = state.start_hwnd.lock().map(|g| *g).unwrap_or(0);
-        if start_hwnd != 0 && keyboard_simulator::get_foreground_window() != start_hwnd {
-            eprintln!("Aura Dev Log: Focus changed since recording started; skipping simulated typing.");
-            return;
-        }
-
-        if let Ok(mut typed_guard) = state.typed_so_far.lock() {
-            let session_ok = state.session_gen.load(Ordering::SeqCst) == my_gen;
-            let recording_ok = !require_recording || state.is_recording.load(Ordering::SeqCst);
-            if session_ok && recording_ok {
-                diff_and_type(&mut typed_guard, &new_text);
-            } else {
-                eprintln!("Aura Dev Log: Skipping stale typing update (gen/recording check failed).");
-            }
-        }
+        type_streaming_update_sync(&app_handle, my_gen, &new_text, require_recording);
     })
     .await;
 }
@@ -935,7 +947,7 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
         let my_gen = gen;
 
         if session_settings.transcription_mode == "local" && session_settings.local_engine == "parakeet" {
-            tauri::async_runtime::spawn(async move {
+            tauri::async_runtime::spawn_blocking(move || {
                 eprintln!("Aura Dev Log: Spawning background Parakeet real-time streaming loop task...");
                 
                 let port = if let Some(state) = app_handle_loop.try_state::<AppState>() {
@@ -957,10 +969,11 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                 };
 
                 if let tungstenite::stream::MaybeTlsStream::Plain(ref stream) = socket.get_ref() {
-                    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(2)));
+                    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(5)));
                 }
 
-                let mut last_len: usize = 0;
+                let mut last_raw_len: usize = 0;
+                let mut cumulative_16k: Vec<f32> = Vec::new();
                 
                 loop {
                     let still_active = app_handle_loop
@@ -978,25 +991,32 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                     if let Some(state) = app_handle_loop.try_state::<AppState>() {
                         let state = state.inner();
                         if let Ok((samples, sample_rate, channels)) = state.audio_recorder.get_recorded_samples() {
-                            let new_start = last_len.min(samples.len());
+                            let channels_non_zero = channels.max(1) as usize;
+                            let aligned_len = samples.len() - (samples.len() % channels_non_zero);
+                            
+                            let new_start = last_raw_len.min(aligned_len);
                             let has_new_speech = vad::has_speech(&samples[new_start..], sample_rate as i64);
 
-                            // Ensure we have some audio and speech is active
-                            if samples.len() > 2000 && has_new_speech {
-                                last_len = samples.len();
-                                
-                                // Downmix and resample in memory
-                                let samples_16k = audio_recorder::resample_to_16k_mono(&samples, channels, sample_rate);
-                                
-                                if !samples_16k.is_empty() {
-                                    let sample_rate_16k = 16000i32;
-                                    let expected_byte_size = (samples_16k.len() * 4) as i32;
+                            // Always resample and append new audio to maintain the timeline
+                            if aligned_len > last_raw_len {
+                                let new_raw = &samples[last_raw_len..aligned_len];
+                                let resampled_new = audio_recorder::resample_to_16k_mono(new_raw, channels, sample_rate);
+                                cumulative_16k.extend(resampled_new);
+                                last_raw_len = aligned_len;
+                            }
 
+                            // Ensure we have some audio and speech is active
+                            if aligned_len > 2000 && has_new_speech {
+                                if !cumulative_16k.is_empty() {
+                                    let sample_rate_16k = 16000i32;
+                                    let expected_byte_size = (cumulative_16k.len() * 4) as i32;
+
+                                    // 8 bytes equals 4 bytes sample_rate + 4 bytes expected_byte_size
                                     let mut payload = Vec::with_capacity(8 + expected_byte_size as usize);
                                     payload.extend_from_slice(&sample_rate_16k.to_le_bytes());
                                     payload.extend_from_slice(&expected_byte_size.to_le_bytes());
 
-                                    for &sample in &samples_16k {
+                                    for &sample in &cumulative_16k {
                                         payload.extend_from_slice(&sample.to_le_bytes());
                                     }
 
@@ -1026,19 +1046,26 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
 
                                                 eprintln!("Aura Dev Log: Parakeet streaming update: '{}'", trimmed);
                                                 if !trimmed.is_empty() && !is_silence_hallucination(&trimmed) {
-                                                    type_streaming_update(
-                                                        app_handle_loop.clone(),
+                                                    type_streaming_update_sync(
+                                                        &app_handle_loop,
                                                         my_gen,
-                                                        trimmed,
+                                                        &trimmed,
                                                         true,
-                                                    )
-                                                    .await;
+                                                    );
                                                 }
                                             }
                                         }
                                         Err(e) => {
-                                            eprintln!("Aura Dev Log ERROR: Streaming WebSocket read failed: {}", e);
-                                            break;
+                                            match &e {
+                                                tungstenite::Error::Io(io_err) if io_err.kind() == std::io::ErrorKind::WouldBlock || io_err.kind() == std::io::ErrorKind::TimedOut => {
+                                                    eprintln!("Aura Dev Log: Streaming WebSocket read timed out/would block, continuing...");
+                                                    continue;
+                                                }
+                                                _ => {
+                                                    eprintln!("Aura Dev Log ERROR: Streaming WebSocket read failed: {}", e);
+                                                    break;
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1046,7 +1073,7 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                         }
                     }
 
-                    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                    std::thread::sleep(std::time::Duration::from_millis(250));
                 }
 
                 // Cleanly signal termination to WebSocket server
