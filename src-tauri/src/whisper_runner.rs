@@ -675,7 +675,11 @@ pub fn find_sherpa_websocket_server<R: Runtime>(app_handle: &tauri::AppHandle<R>
                 .join("bin")
                 .join(exe_name);
             if gpu_exe.exists() {
-                return Ok(gpu_exe);
+                if let Some(parent) = gpu_exe.parent() {
+                    if parent.join("onnxruntime.dll").exists() {
+                        return Ok(gpu_exe);
+                    }
+                }
             }
         }
     }
@@ -840,13 +844,14 @@ pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Re
             format!("--log-file={}", log_file_path.to_string_lossy()),
         ];
 
-        if settings.local_acceleration == "cuda" {
-            args.push("--provider=cuda".to_string());
-        } else if settings.local_acceleration == "directml" {
-            args.push("--provider=directml".to_string());
+        let resolved_provider = if short_server_path.to_string_lossy().contains("binaries\\cuda") || short_server_path.to_string_lossy().contains("binaries/cuda") {
+            "cuda"
+        } else if short_server_path.to_string_lossy().contains("binaries\\directml") || short_server_path.to_string_lossy().contains("binaries/directml") {
+            "directml"
         } else {
-            args.push("--provider=cpu".to_string());
-        }
+            "cpu"
+        };
+        args.push(format!("--provider={}", resolved_provider));
 
         // Note: We deliberately DO NOT pass --hotwords-file here.
         // sherpa-onnx requires --decoding-method=modified_beam_search for hotwords,
@@ -1026,23 +1031,68 @@ pub fn find_sherpa_punctuation_exe<R: Runtime>(app_handle: &tauri::AppHandle<R>)
                 .join("bin")
                 .join(exe_name);
             if gpu_exe.exists() {
-                return Ok(gpu_exe);
+                if let Some(parent) = gpu_exe.parent() {
+                    if parent.join("onnxruntime.dll").exists() {
+                        return Ok(gpu_exe);
+                    }
+                }
             }
         }
     }
 
-    // Default candidate check:
-    let resource_dir = app_handle.path().resource_dir()
-        .map_err(|e| format!("Failed to get resource dir: {}", e))?;
-    let candidates = vec![
-        resource_dir.join("binaries").join(exe_name),
-        resource_dir.join(exe_name),
-        PathBuf::from("binaries").join(exe_name),
+    #[cfg(target_os = "windows")]
+    let target_names = [
+        "sherpa-onnx-offline-punctuation.exe",
     ];
-    if let Some(path) = candidates.into_iter().find(|p| p.exists()) {
-        return Ok(path);
+    #[cfg(not(target_os = "windows"))]
+    let target_names = ["sherpa-onnx-offline-punctuation"];
+
+    let resource_dir = app_handle
+        .path()
+        .resource_dir()
+        .map_err(|e| format!("Failed to get resource dir: {}", e))?;
+
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    #[cfg(debug_assertions)]
+    for name in &target_names {
+        candidates.push(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries").join(name),
+        );
     }
-    Err("Punctuation sidecar executable not found".to_string())
+
+    for name in &target_names {
+        candidates.push(resource_dir.join("binaries").join(name));
+        candidates.push(resource_dir.join("_up_").join("binaries").join(name));
+        candidates.push(resource_dir.join(name));
+        candidates.push(PathBuf::from("binaries").join(name));
+        candidates.push(PathBuf::from("src-tauri").join("binaries").join(name));
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            for name in &target_names {
+                candidates.push(exe_dir.join(name));
+            }
+        }
+    }
+
+    let existing: Vec<PathBuf> = candidates.into_iter().filter(|p| p.exists()).collect();
+
+    if let Some(path) = existing.first() {
+        return Ok(path.clone());
+    }
+
+    for name in &target_names {
+        if let Some(path) = find_file_recursive(&resource_dir, name) {
+            return Ok(path);
+        }
+    }
+
+    Err(format!(
+        "Failed to find sidecar file '{}' or alternatives in candidates.",
+        target_names[0]
+    ))
 }
 
 pub async fn download_punctuation_model<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Result<(), String> {
