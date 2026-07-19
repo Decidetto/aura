@@ -138,6 +138,55 @@
               </select>
             </div>
 
+            <div class="form-group" id="gpu-acceleration-settings" style="display: none; margin-bottom: 20px;">
+              <label class="field-label" data-i18n="gpu_accel_label">Локальное аппаратное ускорение</label>
+              <div class="model-cards-group" role="radiogroup" aria-label="Выберите режим GPU">
+                <!-- CPU Card -->
+                <div class="model-card" data-gpu="cpu" role="radio" aria-checked="true" tabindex="0">
+                  <div class="model-card-main">
+                    <div class="model-card-info">
+                      <span class="model-name" data-i18n="gpu_accel_cpu_title">CPU (Без ускорения)</span>
+                      <span class="model-meta" data-i18n="gpu_accel_cpu_desc">Стандартный режим. Безопасен, но нагружает процессор.</span>
+                    </div>
+                    <div class="model-card-action" id="action-gpu-cpu">
+                      <span class="status-ready-badge">
+                        <svg class="status-ready-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <span data-i18n="model_status_ready">Установлено</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <!-- CUDA Card -->
+                <div class="model-card" data-gpu="cuda" role="radio" aria-checked="false" tabindex="0">
+                  <div class="model-card-main">
+                    <div class="model-card-info">
+                      <span class="model-name" data-i18n="gpu_accel_cuda_title">NVIDIA CUDA (Макс. скорость)</span>
+                      <span class="model-meta" data-i18n="gpu_accel_cuda_desc">Для видеокарт GeForce RTX/GTX. Использование тензорных ядер.</span>
+                    </div>
+                    <div class="model-card-action" id="action-gpu-cuda"></div>
+                  </div>
+                  <div class="model-card-progress" id="progress-gpu-cuda" style="display: none;">
+                    <div class="progress-bar-bg"><div class="progress-bar-fill" id="fill-gpu-cuda"></div></div>
+                    <span class="progress-pct" id="pct-gpu-cuda">0%</span>
+                  </div>
+                </div>
+                <!-- DirectML Card -->
+                <div class="model-card" data-gpu="directml" role="radio" aria-checked="false" tabindex="0">
+                  <div class="model-card-main">
+                    <div class="model-card-info">
+                      <span class="model-name" data-i18n="gpu_accel_dml_title">DirectML (Универсальный)</span>
+                      <span class="model-meta" data-i18n="gpu_accel_dml_desc">Для видеокарт AMD, Intel и NVIDIA. Базовое ускорение.</span>
+                    </div>
+                    <div class="model-card-action" id="action-gpu-directml"></div>
+                  </div>
+                  <div class="model-card-progress" id="progress-gpu-directml" style="display: none;">
+                    <div class="progress-bar-bg"><div class="progress-bar-fill" id="fill-gpu-directml"></div></div>
+                    <span class="progress-pct" id="pct-gpu-directml">0%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="form-group" id="group-whisper-models">
               <label class="field-label" data-i18n="local_model_label">Размер модели</label>
               <div class="model-cards-group" id="model-cards-container" role="radiogroup" aria-label="Выберите модель">

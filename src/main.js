@@ -116,7 +116,14 @@ const i18nDict = {
     fallback_checkbox: "Включить автопереключение на локальную модель",
     copy_context_title: "Захват выделенного текста",
     copy_context_desc: "При старте записи Aura отправляет Ctrl+C, чтобы захватить выделенный текст как контекст для AI. Отключите, если работаете в терминале — там Ctrl+C прерывает процесс.",
-    copy_context_checkbox: "Захватывать выделение через Ctrl+C"
+    copy_context_checkbox: "Захватывать выделение через Ctrl+C",
+    gpu_accel_label: "Локальное аппаратное ускорение",
+    gpu_accel_cpu_title: "CPU (Без ускорения)",
+    gpu_accel_cpu_desc: "Стандартный режим. Безопасен, но нагружает процессор.",
+    gpu_accel_cuda_title: "NVIDIA CUDA (Макс. скорость)",
+    gpu_accel_cuda_desc: "Для видеокарт GeForce RTX/GTX. Использование тензорных ядер.",
+    gpu_accel_dml_title: "DirectML (Универсальный)",
+    gpu_accel_dml_desc: "Для видеокарт AMD, Intel и NVIDIA. Базовое ускорение."
   },
   en: {
     title_settings: "Settings",
@@ -231,7 +238,14 @@ const i18nDict = {
     fallback_checkbox: "Enable automatic fallback to local model",
     copy_context_title: "Capture Selected Text",
     copy_context_desc: "When recording starts, Aura sends Ctrl+C to capture selected text as AI context. Disable this if you dictate into terminals — Ctrl+C kills processes there.",
-    copy_context_checkbox: "Capture selection via Ctrl+C"
+    copy_context_checkbox: "Capture selection via Ctrl+C",
+    gpu_accel_label: "Local Hardware Acceleration",
+    gpu_accel_cpu_title: "CPU (No Acceleration)",
+    gpu_accel_cpu_desc: "Standard mode. Safe, but loads the CPU.",
+    gpu_accel_cuda_title: "NVIDIA CUDA (Max Speed)",
+    gpu_accel_cuda_desc: "For GeForce RTX/GTX GPUs. Uses Tensor Cores.",
+    gpu_accel_dml_title: "DirectML (Universal)",
+    gpu_accel_dml_desc: "For AMD, Intel, and NVIDIA GPUs. Basic acceleration."
   },
   de: {
     title_settings: "Einstellungen",
@@ -1110,7 +1124,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function updateLocalEngineUI() {
     if (!selectLocalEngine || !groupWhisperModels || !groupParakeetModels) return;
-    if (selectLocalEngine.value === "parakeet") {
+    const isParakeet = selectLocalEngine.value === "parakeet";
+    const gpuSettings = document.getElementById("gpu-acceleration-settings");
+    if (gpuSettings) {
+      gpuSettings.style.display = isParakeet ? "block" : "none";
+    }
+    if (isParakeet) {
       groupWhisperModels.style.display = "none";
       groupParakeetModels.style.display = "block";
       selectModelCard("parakeet-v3");
@@ -1336,7 +1355,7 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
       }
     });
   }
-  const modelCards = document.querySelectorAll(".model-card");
+  const modelCards = document.querySelectorAll(".model-card[data-model]");
 
   modelCards.forEach(card => {
     card.addEventListener("click", (e) => {
@@ -1443,6 +1462,10 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
  
         updateEngineUI();
         await refreshDownloadedModels();
+
+        activeLocalAcceleration = settings.local_acceleration || "cpu";
+        selectGpuProvider(activeLocalAcceleration);
+        await updateGpuCardStates();
         
         isSettingsLoaded = true;
         settingsModified = false;
@@ -1664,6 +1687,151 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
       if (actionEl) actionEl.style.display = "flex";
       refreshDownloadedModels();
     }
+  });
+
+  // --- Local GPU Acceleration Logic ---
+  async function checkGpuInstalled(provider) {
+    if (provider === "cpu") return true;
+    try {
+      return await invoke("check_gpu_downloaded", { provider });
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  }
+
+  function selectGpuProvider(provider) {
+    if (activeLocalAcceleration !== provider) {
+      activeLocalAcceleration = provider;
+      markSettingsModified();
+    }
+    document.querySelectorAll("[data-gpu]").forEach(card => {
+      const isSelected = card.getAttribute("data-gpu") === provider;
+      card.setAttribute("aria-checked", isSelected ? "true" : "false");
+      card.classList.toggle("active", isSelected);
+    });
+  }
+
+  async function updateGpuCardStates() {
+    const providers = ["cuda", "directml"];
+    const dict = i18nDict[currentLanguage] || i18nDict.ru;
+    for (const provider of providers) {
+      const isDownloaded = await checkGpuInstalled(provider);
+      const actionEl = document.getElementById(`action-gpu-${provider}`);
+      const progressEl = document.getElementById(`progress-gpu-${provider}`);
+      if (!actionEl) continue;
+      if (progressEl) progressEl.style.display = "none";
+
+      if (isDownloaded) {
+        actionEl.innerHTML = `
+          <span class="status-ready-badge">
+            <svg class="status-ready-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <span data-i18n="model_status_ready">${dict.model_status_ready || "Установлено"}</span>
+          </span>
+          <button type="button" class="btn-delete-card-model" title="${dict.model_action_delete || "Удалить"}" data-gpu="${provider}">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+          </button>
+        `;
+        actionEl.querySelector(".btn-delete-card-model").addEventListener("click", (e) => {
+          e.stopPropagation();
+          deleteGpuBinaries(provider);
+        });
+      } else {
+        actionEl.innerHTML = `
+          <button type="button" class="btn-download-card-model" data-gpu="${provider}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            ${dict.model_action_download || "Скачать"}
+          </button>
+        `;
+        actionEl.querySelector(".btn-download-card-model").addEventListener("click", (e) => {
+          e.stopPropagation();
+          downloadGpuBinaries(provider);
+        });
+      }
+    }
+  }
+
+  async function downloadGpuBinaries(provider) {
+    const actionEl = document.getElementById(`action-gpu-${provider}`);
+    const progressEl = document.getElementById(`progress-gpu-${provider}`);
+    const fillEl = document.getElementById(`fill-gpu-${provider}`);
+    const percentEl = document.getElementById(`pct-gpu-${provider}`);
+    
+    if (actionEl) actionEl.style.display = "none";
+    if (progressEl) progressEl.style.display = "flex";
+    if (fillEl) fillEl.style.width = "0%";
+    if (percentEl) percentEl.textContent = "0%";
+
+    try {
+      await invoke("download_gpu_binaries", { provider });
+      await updateGpuCardStates();
+    } catch (err) {
+      console.error(err);
+      alert(`Download failed: ${err}`);
+      if (actionEl) actionEl.style.display = "flex";
+      if (progressEl) progressEl.style.display = "none";
+    }
+  }
+
+  async function deleteGpuBinaries(provider) {
+    const dict = i18nDict[currentLanguage] || i18nDict.ru;
+    const title = dict.delete_model_title || "Удаление";
+    const message = dict.confirm_message || "Вы действительно хотите выполнить это действие?";
+    const confirmText = dict.confirm_ok || "Удалить";
+    const cancelText = dict.confirm_cancel || "Отмена";
+    
+    const confirmed = await showConfirm(title, message, confirmText, cancelText);
+    if (confirmed) {
+      try {
+        await invoke("delete_gpu_binaries", { provider });
+        if (activeLocalAcceleration === provider) {
+          selectGpuProvider("cpu");
+        }
+        await updateGpuCardStates();
+      } catch (err) {
+        console.error(err);
+        showStatus(`Error deleting binaries: ${err}`, true);
+      }
+    }
+  }
+
+  // Listen to GPU download progress events
+  listen("gpu-download-progress", event => {
+    const progress = event.payload;
+    if (!progress) return;
+    const fillEl = document.getElementById(`fill-gpu-${progress.provider}`);
+    const percentEl = document.getElementById(`pct-gpu-${progress.provider}`);
+    if (fillEl && percentEl) {
+      const percentage = typeof progress.percentage === 'number' ? progress.percentage : 0;
+      fillEl.style.width = `${percentage.toFixed(1)}%`;
+      percentEl.textContent = `${percentage.toFixed(1)}%`;
+    }
+  });
+
+  // Bind GPU card event listeners
+  document.querySelectorAll("[data-gpu]").forEach(card => {
+    card.addEventListener("click", async (e) => {
+      // Prevent selection trigger when clicking delete/download buttons inside the card
+      if (e.target.closest(".btn-delete-card-model") || e.target.closest(".btn-download-card-model")) {
+        return;
+      }
+      const provider = card.getAttribute("data-gpu");
+      const installed = await checkGpuInstalled(provider);
+      if (installed) {
+        selectGpuProvider(provider);
+      }
+    });
+
+    card.addEventListener("keydown", async (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        const provider = card.getAttribute("data-gpu");
+        const installed = await checkGpuInstalled(provider);
+        if (installed) {
+          selectGpuProvider(provider);
+        }
+      }
+    });
   });
 
   // --- Asynchronous Custom Confirm Dialog ---
@@ -1964,6 +2132,7 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     
     // Refresh model cards status/actions
     refreshDownloadedModels();
+    updateGpuCardStates();
     
     // If settings modified status is showing, update it
     if (settingsModified) {
