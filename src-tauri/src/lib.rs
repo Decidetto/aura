@@ -1606,7 +1606,10 @@ pub fn run() {
             minimize_window,
             close_window,
             start_dragging_command,
-            hide_overlay_window
+            hide_overlay_window,
+            download_gpu_binaries,
+            delete_gpu_binaries,
+            check_gpu_downloaded
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -1615,6 +1618,150 @@ pub fn run() {
                 whisper_runner::stop_parakeet_server(app_handle);
             }
         });
+}
+
+#[derive(Clone, serde::Serialize)]
+struct GpuDownloadProgress {
+    provider: String,
+    downloaded: u64,
+    total: Option<u64>,
+    percentage: f64,
+    done: bool,
+}
+
+#[tauri::command]
+async fn check_gpu_downloaded(app_handle: tauri::AppHandle, provider: String) -> Result<bool, String> {
+    let app_local_data = app_handle
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Failed to get app local data: {}", e))?;
+    let exe_name = if cfg!(target_os = "windows") {
+        "sherpa-onnx-offline-websocket-server.exe"
+    } else {
+        "sherpa-onnx-offline-websocket-server"
+    };
+    let exe_path = app_local_data
+        .join("binaries")
+        .join(&provider)
+        .join("bin")
+        .join(exe_name);
+    Ok(exe_path.exists())
+}
+
+#[tauri::command]
+async fn delete_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -> Result<(), String> {
+    let app_local_data = app_handle
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Failed to get app local data: {}", e))?;
+    let provider_dir = app_local_data.join("binaries").join(&provider);
+    if provider_dir.exists() {
+        std::fs::remove_dir_all(&provider_dir)
+            .map_err(|e| format!("Failed to delete binaries: {}", e))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn download_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -> Result<(), String> {
+    let app_local_data = app_handle
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Failed to get app local data: {}", e))?;
+    
+    let gpu_dir = app_local_data.join("binaries").join(&provider);
+    std::fs::create_dir_all(&gpu_dir)
+        .map_err(|e| format!("Failed to create folder: {}", e))?;
+
+    let url = match provider.as_str() {
+        "cuda" => "https://github.com/malashkadev/Aura/releases/download/v1.0.8-assets/sherpa-onnx-v1.13.4-win-x64-cuda.tar.bz2",
+        "directml" => "https://github.com/malashkadev/Aura/releases/download/v1.0.8-assets/sherpa-onnx-v1.13.4-win-x64-directml.tar.bz2",
+        _ => return Err("Invalid provider".to_string()),
+    };
+
+    let temp_tar_path = gpu_dir.join(format!("temp_{}.tar.bz2", provider));
+    if temp_tar_path.exists() {
+        let _ = std::fs::remove_file(&temp_tar_path);
+    }
+
+    eprintln!("Aura Dev Log: Starting download for GPU provider {}...", provider);
+    let client = crate::ai_client::build_download_client();
+    let mut response = client.get(url).send().await
+        .map_err(|e| format!("Failed to fetch URL: {}", e))?;
+
+    let total_size = response.content_length().unwrap_or(221_905_418);
+    let mut total_downloaded = 0u64;
+
+    {
+        use tokio::io::AsyncWriteExt;
+        let mut file = tokio::fs::File::create(&temp_tar_path).await
+            .map_err(|e| format!("Failed to create temp file: {}", e))?;
+
+        while let Some(chunk) = response.chunk().await
+            .map_err(|e| format!("Error reading chunk: {}", e))?
+        {
+            file.write_all(&chunk).await
+                .map_err(|e| format!("Failed to write: {}", e))?;
+            total_downloaded += chunk.len() as u64;
+
+            let percentage = (total_downloaded as f64 / total_size as f64 * 100.0).min(99.9);
+            let _ = app_handle.emit(
+                "gpu-download-progress",
+                GpuDownloadProgress {
+                    provider: provider.clone(),
+                    downloaded: total_downloaded,
+                    total: Some(total_size),
+                    percentage,
+                    done: false,
+                },
+            );
+        }
+        file.flush().await.map_err(|e| format!("Failed to flush: {}", e))?;
+    }
+
+    // Extraction using native tar.exe
+    eprintln!("Aura Dev Log: Extracting package...");
+    use std::process::Command;
+    let mut cmd = Command::new("tar");
+    cmd.args(&[
+        "-xf",
+        temp_tar_path.to_str().unwrap_or_default(),
+        "-C",
+        gpu_dir.to_str().unwrap_or_default(),
+    ]);
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+    
+    let status = cmd.status().map_err(|e| format!("Failed to run tar: {}", e))?;
+    if !status.success() {
+        let _ = std::fs::remove_file(&temp_tar_path);
+        return Err("Extraction failed".to_string());
+    }
+
+    let _ = std::fs::remove_file(&temp_tar_path);
+
+    // Structure alignment: move binaries out of nested tar folder if necessary
+    let nested_dir = gpu_dir.join(format!("sherpa-onnx-v1.13.4-win-x64-{}", provider));
+    if nested_dir.exists() {
+        let _ = std::fs::rename(nested_dir.join("bin"), gpu_dir.join("bin"));
+        let _ = std::fs::remove_dir_all(&nested_dir);
+    }
+
+    let _ = app_handle.emit(
+        "gpu-download-progress",
+        GpuDownloadProgress {
+            provider: provider.clone(),
+            downloaded: total_size,
+            total: Some(total_size),
+            percentage: 100.0,
+            done: true,
+        },
+    );
+
+    Ok(())
 }
 
 #[cfg(test)]
