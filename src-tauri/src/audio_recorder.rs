@@ -246,15 +246,14 @@ fn antialiasing_lowpass(samples: &[f32], input_rate: u32, output_rate: u32) -> V
     out
 }
 
-/// Downmixes raw samples to mono, resamples to 16kHz, converts to 16-bit PCM, and writes to a WAV file.
-pub fn process_and_write_wav(
+/// Downmixes raw samples to mono and resamples to 16000Hz using linear interpolation and anti-aliasing.
+pub fn resample_to_16k_mono(
     raw_samples: &[f32],
     channels: u16,
     input_sample_rate: u32,
-    output_path: &str,
-) -> Result<(), String> {
+) -> Vec<f32> {
     if raw_samples.is_empty() {
-        return Err("No audio samples were recorded".to_string());
+        return Vec::new();
     }
 
     // 1. Downmix to mono (average all channels)
@@ -266,8 +265,6 @@ pub fn process_and_write_wav(
     }
 
     // 2. Anti-aliasing: remove frequencies above the output Nyquist (8 kHz) before downsampling.
-    //    Without this filter, linear interpolation aliases high-frequency speech energy
-    //    (especially sibilants like "с", "ш", "ch") into the passband and degrades accuracy.
     let mono = if input_sample_rate > 16000 {
         antialiasing_lowpass(&mono, input_sample_rate, 16000)
     } else {
@@ -291,6 +288,22 @@ pub fn process_and_write_wav(
             resampled.push(0.0);
         }
     }
+    resampled
+}
+
+/// Downmixes raw samples to mono, resamples to 16kHz, converts to 16-bit PCM, and writes to a WAV file.
+pub fn process_and_write_wav(
+    raw_samples: &[f32],
+    channels: u16,
+    input_sample_rate: u32,
+    output_path: &str,
+) -> Result<(), String> {
+    if raw_samples.is_empty() {
+        return Err("No audio samples were recorded".to_string());
+    }
+
+    // Reuse the new resampler
+    let resampled = resample_to_16k_mono(raw_samples, channels, input_sample_rate);
 
     // 4. Convert resampled f32 to i16 PCM, clamping to range
     let mut i16_samples = Vec::with_capacity(resampled.len());
@@ -379,4 +392,12 @@ mod tests {
         // Clean up
         let _ = fs::remove_file(temp_path_str);
     }
+
+    #[test]
+    fn test_resample_to_16k_mono() {
+        let input_samples = vec![0.5f32, -0.5f32, 0.1f32, -0.1f32];
+        let resampled = resample_to_16k_mono(&input_samples, 2, 32000);
+        assert_eq!(resampled.len(), 1);
+    }
 }
+
