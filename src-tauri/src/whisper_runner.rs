@@ -675,10 +675,17 @@ pub fn find_sherpa_websocket_server<R: Runtime>(app_handle: &tauri::AppHandle<R>
                 .join("bin")
                 .join(exe_name);
             if gpu_exe.exists() {
-                if let Some(parent) = gpu_exe.parent() {
-                    if parent.join("onnxruntime.dll").exists() {
-                        return Ok(gpu_exe);
+                #[cfg(target_os = "windows")]
+                {
+                    if let Some(parent) = gpu_exe.parent() {
+                        if parent.join("onnxruntime.dll").exists() {
+                            return Ok(gpu_exe);
+                        }
                     }
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    return Ok(gpu_exe);
                 }
             }
         }
@@ -844,9 +851,10 @@ pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Re
             format!("--log-file={}", log_file_path.to_string_lossy()),
         ];
 
-        let resolved_provider = if short_server_path.to_string_lossy().contains("binaries\\cuda") || short_server_path.to_string_lossy().contains("binaries/cuda") {
+        let path_str = server_path.to_string_lossy().to_lowercase();
+        let resolved_provider = if path_str.contains("binaries\\cuda") || path_str.contains("binaries/cuda") {
             "cuda"
-        } else if short_server_path.to_string_lossy().contains("binaries\\directml") || short_server_path.to_string_lossy().contains("binaries/directml") {
+        } else if path_str.contains("binaries\\directml") || path_str.contains("binaries/directml") {
             "directml"
         } else {
             "cpu"
@@ -1031,10 +1039,17 @@ pub fn find_sherpa_punctuation_exe<R: Runtime>(app_handle: &tauri::AppHandle<R>)
                 .join("bin")
                 .join(exe_name);
             if gpu_exe.exists() {
-                if let Some(parent) = gpu_exe.parent() {
-                    if parent.join("onnxruntime.dll").exists() {
-                        return Ok(gpu_exe);
+                #[cfg(target_os = "windows")]
+                {
+                    if let Some(parent) = gpu_exe.parent() {
+                        if parent.join("onnxruntime.dll").exists() {
+                            return Ok(gpu_exe);
+                        }
                     }
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    return Ok(gpu_exe);
                 }
             }
         }
