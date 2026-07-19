@@ -933,116 +933,231 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
     if streaming_enabled {
         let app_handle_loop = app_handle.clone();
         let my_gen = gen;
-        tauri::async_runtime::spawn(async move {
-            eprintln!("Aura Dev Log: Spawning background streaming loop task...");
-            // 2 s initial wait: enough to capture a first meaningful phrase without
-            // burning API quota on a near-empty audio buffer. (Was 4 000 ms.)
-            tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
 
-            let chunk_path = chunk_wav_path(my_gen);
-            let chunk_path_str = chunk_path.to_string_lossy().to_string();
-            let mut last_len: usize = 0;
+        if session_settings.transcription_mode == "local" && session_settings.local_engine == "parakeet" {
+            tauri::async_runtime::spawn(async move {
+                eprintln!("Aura Dev Log: Spawning background Parakeet real-time streaming loop task...");
+                
+                let port = if let Some(state) = app_handle_loop.try_state::<AppState>() {
+                    state.parakeet_port.load(Ordering::SeqCst)
+                } else {
+                    3033
+                };
+                
+                let url = format!("ws://127.0.0.1:{}", port);
+                let mut socket = match tungstenite::connect(&url) {
+                    Ok((s, _)) => {
+                        eprintln!("Aura Dev Log: Connected to Parakeet server for streaming.");
+                        s
+                    }
+                    Err(e) => {
+                        eprintln!("Aura Dev Log ERROR: Failed to connect to Parakeet WebSocket: {}", e);
+                        return;
+                    }
+                };
 
-            loop {
-                let still_active = app_handle_loop
-                    .try_state::<AppState>()
-                    .map(|s| {
-                        s.is_recording.load(Ordering::SeqCst)
-                            && s.session_gen.load(Ordering::SeqCst) == my_gen
-                    })
-                    .unwrap_or(false);
-                if !still_active {
-                    eprintln!("Aura Dev Log: Streaming session ended. Exiting streaming loop.");
-                    break;
+                if let tungstenite::stream::MaybeTlsStream::Plain(ref stream) = socket.get_ref() {
+                    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(2)));
                 }
 
-                let mut sleep_ms: u64 = 4000;
-                let Some(state) = app_handle_loop.try_state::<AppState>() else { break };
-                let state = state.inner();
-                if let Ok((samples, sample_rate, channels)) = state.audio_recorder.get_recorded_samples() {
-                    // VAD-lite: skip the API call when nothing new was said in this chunk
-                    let new_start = last_len.min(samples.len());
-                    let has_new_speech = vad::has_speech(&samples[new_start..], sample_rate as i64);
+                let mut last_len: usize = 0;
+                
+                loop {
+                    let still_active = app_handle_loop
+                        .try_state::<AppState>()
+                        .map(|s| {
+                            s.is_recording.load(Ordering::SeqCst)
+                                && s.session_gen.load(Ordering::SeqCst) == my_gen
+                        })
+                        .unwrap_or(false);
+                    if !still_active {
+                        eprintln!("Aura Dev Log: Streaming session ended. Exiting streaming loop.");
+                        break;
+                    }
 
-                    // Ensure we have at least 0.5s of audio (8000 samples at 16kHz)
-                    if samples.len() > 8000 && has_new_speech {
-                        last_len = samples.len();
-                        let write_res = audio_recorder::process_and_write_wav(
-                            &samples, channels, sample_rate, &chunk_path_str,
-                        );
-                        if write_res.is_ok() {
-                            if let Ok(settings) = settings::load_settings(&app_handle_loop) {
-                                let layout_lang = state
-                                    .selected_language
-                                    .lock()
-                                    .map(|g| g.clone())
-                                    .unwrap_or_default();
-                                let language = effective_language(&settings, &layout_lang);
+                    if let Some(state) = app_handle_loop.try_state::<AppState>() {
+                        let state = state.inner();
+                        if let Ok((samples, sample_rate, channels)) = state.audio_recorder.get_recorded_samples() {
+                            let new_start = last_len.min(samples.len());
+                            let has_new_speech = vad::has_speech(&samples[new_start..], sample_rate as i64);
 
-                                // Fast verbatim preview (clean=false); the final pass does the cleanup
-                                let transcription_result = if settings.transcription_mode == "local" {
-                                    run_local_whisper_async(
-                                        app_handle_loop.clone(),
-                                        settings.model_name.clone(),
-                                        chunk_path_str.clone(),
-                                        language.clone(),
-                                        settings.dictionary.clone(),
-                                    )
-                                    .await
-                                } else {
-                                    ai_client::transcribe_and_clean(
-                                        provider_from(&settings),
-                                        &settings.api_key,
-                                        &chunk_path_str,
-                                        "", // No selected text during live streaming
-                                        &language,
-                                        &settings.dictionary,
-                                        false,
-                                    )
-                                    .await
-                                };
+                            // Ensure we have some audio and speech is active
+                            if samples.len() > 2000 && has_new_speech {
+                                last_len = samples.len();
+                                
+                                // Downmix and resample in memory
+                                let samples_16k = audio_recorder::resample_to_16k_mono(&samples, channels, sample_rate);
+                                
+                                if !samples_16k.is_empty() {
+                                    let sample_rate_16k = 16000i32;
+                                    let expected_byte_size = (samples_16k.len() * 4) as i32;
 
-                                match transcription_result {
-                                    Ok(text) => {
-                                        let cleaned_text = clean_hallucinated_brackets(&text);
-                                        let trimmed = cleaned_text.trim().to_string();
-                                        eprintln!("Aura Dev Log: Streaming transcription success: '{}'", trimmed);
-                                        if !trimmed.is_empty() && !is_silence_hallucination(&trimmed) {
-                                            type_streaming_update(
-                                                app_handle_loop.clone(),
-                                                my_gen,
-                                                trimmed,
-                                                true,
-                                            )
-                                            .await;
-                                        }
+                                    let mut payload = Vec::with_capacity(8 + expected_byte_size as usize);
+                                    payload.extend_from_slice(&sample_rate_16k.to_le_bytes());
+                                    payload.extend_from_slice(&expected_byte_size.to_le_bytes());
+
+                                    for &sample in &samples_16k {
+                                        payload.extend_from_slice(&sample.to_le_bytes());
                                     }
-                                    Err(e) => {
-                                        eprintln!("Aura Dev Log ERROR: Streaming transcription failed: {}", e);
+
+                                    if let Err(e) = socket.send(tungstenite::Message::Binary(payload)) {
+                                        eprintln!("Aura Dev Log ERROR: Streaming WebSocket send failed: {}", e);
+                                        break;
+                                    }
+
+                                    match socket.read() {
+                                        Ok(msg) => {
+                                            if let tungstenite::Message::Text(response_text) = msg {
+                                                let mut transcript = response_text.clone();
+                                                if let Ok(val) = serde_json::from_str::<serde_json::Value>(&response_text) {
+                                                    if let Some(t) = val.get("text").and_then(|v| v.as_str()) {
+                                                        transcript = t.trim().to_string();
+                                                    }
+                                                }
+
+                                                let has_cyrillic = transcript
+                                                    .chars()
+                                                    .any(|c| ('\u{0400}'..='\u{04FF}').contains(&c));
+                                                let trimmed = if has_cyrillic {
+                                                    transcript.replace("<unk>", "ё")
+                                                } else {
+                                                    transcript.replace("<unk>", "")
+                                                };
+
+                                                eprintln!("Aura Dev Log: Parakeet streaming update: '{}'", trimmed);
+                                                if !trimmed.is_empty() && !is_silence_hallucination(&trimmed) {
+                                                    type_streaming_update(
+                                                        app_handle_loop.clone(),
+                                                        my_gen,
+                                                        trimmed,
+                                                        true,
+                                                    )
+                                                    .await;
+                                                }
+                                            }
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Aura Dev Log ERROR: Streaming WebSocket read failed: {}", e);
+                                            break;
+                                        }
                                     }
                                 }
                             }
                         }
                     }
 
-                    // Adaptive interval: the full recording is re-sent each chunk, so
-                    // slow down as it grows to keep traffic and rate limits sane.
-                    let recorded_secs =
-                        samples.len() as f64 / (sample_rate.max(1) as f64 * channels.max(1) as f64);
-                    sleep_ms = if recorded_secs < 60.0 {
-                        4000
-                    } else if recorded_secs < 150.0 {
-                        8000
-                    } else {
-                        12000
-                    };
+                    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
                 }
 
-                tokio::time::sleep(std::time::Duration::from_millis(sleep_ms)).await;
-            }
+                // Cleanly signal termination to WebSocket server
+                let _ = socket.send(tungstenite::Message::Text("Done".to_string()));
+            });
+        } else {
+            // Existing batch streaming loop
+            tauri::async_runtime::spawn(async move {
+                eprintln!("Aura Dev Log: Spawning background streaming loop task...");
+                tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
 
-            let _ = std::fs::remove_file(&chunk_path);
-        });
+                let chunk_path = chunk_wav_path(my_gen);
+                let chunk_path_str = chunk_path.to_string_lossy().to_string();
+                let mut last_len: usize = 0;
+
+                loop {
+                    let still_active = app_handle_loop
+                        .try_state::<AppState>()
+                        .map(|s| {
+                            s.is_recording.load(Ordering::SeqCst)
+                                && s.session_gen.load(Ordering::SeqCst) == my_gen
+                        })
+                        .unwrap_or(false);
+                    if !still_active {
+                        eprintln!("Aura Dev Log: Streaming session ended. Exiting streaming loop.");
+                        break;
+                    }
+
+                    let mut sleep_ms: u64 = 4000;
+                    let Some(state) = app_handle_loop.try_state::<AppState>() else { break };
+                    let state = state.inner();
+                    if let Ok((samples, sample_rate, channels)) = state.audio_recorder.get_recorded_samples() {
+                        let new_start = last_len.min(samples.len());
+                        let has_new_speech = vad::has_speech(&samples[new_start..], sample_rate as i64);
+
+                        if samples.len() > 8000 && has_new_speech {
+                            last_len = samples.len();
+                            let write_res = audio_recorder::process_and_write_wav(
+                                &samples, channels, sample_rate, &chunk_path_str,
+                            );
+                            if write_res.is_ok() {
+                                if let Ok(settings) = settings::load_settings(&app_handle_loop) {
+                                    let layout_lang = state
+                                        .selected_language
+                                        .lock()
+                                        .map(|g| g.clone())
+                                        .unwrap_or_default();
+                                    let language = effective_language(&settings, &layout_lang);
+
+                                    let transcription_result = if settings.transcription_mode == "local" {
+                                        run_local_whisper_async(
+                                            app_handle_loop.clone(),
+                                            settings.model_name.clone(),
+                                            chunk_path_str.clone(),
+                                            language.clone(),
+                                            settings.dictionary.clone(),
+                                        )
+                                        .await
+                                    } else {
+                                        ai_client::transcribe_and_clean(
+                                            provider_from(&settings),
+                                            &settings.api_key,
+                                            &chunk_path_str,
+                                            "",
+                                            &language,
+                                            &settings.dictionary,
+                                            false,
+                                        )
+                                        .await
+                                    };
+
+                                    match transcription_result {
+                                        Ok(text) => {
+                                            let cleaned_text = clean_hallucinated_brackets(&text);
+                                            let trimmed = cleaned_text.trim().to_string();
+                                            eprintln!("Aura Dev Log: Streaming transcription success: '{}'", trimmed);
+                                            if !trimmed.is_empty() && !is_silence_hallucination(&trimmed) {
+                                                type_streaming_update(
+                                                    app_handle_loop.clone(),
+                                                    my_gen,
+                                                    trimmed,
+                                                    true,
+                                                )
+                                                .await;
+                                            }
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Aura Dev Log ERROR: Streaming transcription failed: {}", e);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        let recorded_secs =
+                            samples.len() as f64 / (sample_rate.max(1) as f64 * channels.max(1) as f64);
+                        sleep_ms = if recorded_secs < 60.0 {
+                            4000
+                        } else if recorded_secs < 150.0 {
+                            8000
+                        } else {
+                            12000
+                        };
+                    }
+
+                    tokio::time::sleep(std::time::Duration::from_millis(sleep_ms)).await;
+                }
+
+                let _ = std::fs::remove_file(&chunk_path);
+            });
+        }
     }
 }
 
