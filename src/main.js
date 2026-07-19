@@ -248,6 +248,13 @@ const i18nDict = {
     gpu_accel_dml_desc: "For AMD, Intel, and NVIDIA GPUs. Basic acceleration."
   },
   de: {
+    gpu_accel_label: "Lokale Hardware-Beschleunigung",
+    gpu_accel_cpu_title: "CPU (Keine Beschleunigung)",
+    gpu_accel_cpu_desc: "Standardmodus. Sicher, aber beansprucht die CPU.",
+    gpu_accel_cuda_title: "NVIDIA CUDA (Max. Geschwindigkeit)",
+    gpu_accel_cuda_desc: "Für GeForce RTX/GTX Grafikkarten. Nutzt Tensor Cores.",
+    gpu_accel_dml_title: "DirectML (Universell)",
+    gpu_accel_dml_desc: "Für AMD, Intel und NVIDIA Grafikkarten. Einfache Beschleunigung.",
     title_settings: "Einstellungen",
     tab_general: "Allgemein",
     tab_speech: "Diktat",
@@ -1721,6 +1728,7 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
       const progressEl = document.getElementById(`progress-gpu-${provider}`);
       if (!actionEl) continue;
       if (progressEl) progressEl.style.display = "none";
+      actionEl.style.display = "flex";
 
       if (isDownloaded) {
         actionEl.innerHTML = `
@@ -1823,6 +1831,9 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     });
 
     card.addEventListener("keydown", async (e) => {
+      if (e.target.tagName === "BUTTON" || e.target.closest("button")) {
+        return;
+      }
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         const provider = card.getAttribute("data-gpu");
