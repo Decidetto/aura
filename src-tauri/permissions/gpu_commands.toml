@@ -1,0 +1,14 @@
+[[permission]]
+identifier = "allow-download-gpu-binaries"
+description = "Enables the download_gpu_binaries command."
+commands.allow = ["download_gpu_binaries"]
+
+[[permission]]
+identifier = "allow-delete-gpu-binaries"
+description = "Enables the delete_gpu_binaries command."
+commands.allow = ["delete_gpu_binaries"]
+
+[[permission]]
+identifier = "allow-check-gpu-downloaded"
+description = "Enables the check_gpu_downloaded command."
+commands.allow = ["check_gpu_downloaded"]
