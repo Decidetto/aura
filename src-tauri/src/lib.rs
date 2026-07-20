@@ -271,9 +271,9 @@ fn sync_autostart(app_handle: &tauri::AppHandle, enabled: bool) {
             || err_str.contains("not found");
 
         if !enabled && is_not_found {
-            eprintln!("Aura Dev Log: Autostart was already disabled.");
+            crate::logger::log("INFO", "Autostart", None, "Autostart was already disabled.");
         } else {
-            eprintln!("Aura Dev Log ERROR: Failed to update autostart ({}): {}", enabled, e);
+            crate::logger::log("ERROR", "Autostart", None, &format!("Failed to update autostart ({}): {}", enabled, e));
         }
     }
 }
@@ -613,8 +613,9 @@ fn type_streaming_update_sync(
 
     // Focus guard: never type into a window the user switched to mid-dictation
     let start_hwnd = state.start_hwnd.lock().map(|g| *g).unwrap_or(0);
+    let session_tag = crate::logger::format_session_tag(my_gen);
     if start_hwnd != 0 && keyboard_simulator::get_foreground_window() != start_hwnd {
-        eprintln!("Aura Dev Log: Focus changed since recording started; skipping simulated typing.");
+        crate::logger::log("WARN", "Typing", Some(&session_tag), "Focus changed since recording started; skipping simulated typing.");
         return;
     }
 
@@ -624,7 +625,7 @@ fn type_streaming_update_sync(
         if session_ok && recording_ok {
             diff_and_type(&mut typed_guard, new_text);
         } else {
-            eprintln!("Aura Dev Log: Skipping stale typing update (gen/recording check failed).");
+            crate::logger::log("WARN", "Typing", Some(&session_tag), "Skipping stale typing update (gen/recording check failed).");
         }
     }
 }
@@ -801,12 +802,13 @@ fn discard_recording(app_handle: &tauri::AppHandle) {
 
 /// Esc pressed during recording: discard audio and erase any streamed preview text.
 async fn cancel_recording(app_handle: tauri::AppHandle) {
-    eprintln!("Aura Dev Log: Esc pressed — cancelling recording session");
     let my_gen = if let Some(state) = app_handle.try_state::<AppState>() {
         state.session_gen.load(Ordering::SeqCst)
     } else {
         return;
     };
+    let session_tag = crate::logger::format_session_tag(my_gen);
+    crate::logger::log("INFO", "Session", Some(&session_tag), "Esc pressed — cancelling recording session");
     discard_recording(&app_handle);
 
     // Erase live-preview text that was already typed, if any
@@ -823,12 +825,13 @@ async fn cancel_recording(app_handle: tauri::AppHandle) {
 /// (focus window, keyboard layout, selected text), starts audio capture, shows the
 /// overlay, and spawns the live-streaming loop when enabled.
 async fn start_recording_session(app_handle: tauri::AppHandle) {
-    eprintln!("Aura Dev Log: Hotkey pressed — starting recording session");
     let Some(state) = app_handle.try_state::<AppState>() else { return };
     let state = state.inner();
 
     // A new generation invalidates every task left over from previous sessions
     let gen = state.session_gen.fetch_add(1, Ordering::SeqCst) + 1;
+    let session_tag = crate::logger::format_session_tag(gen);
+    crate::logger::log("INFO", "Session", Some(&session_tag), "Hotkey pressed — starting recording session");
 
     // Remember the focused window for the typing focus guard
     let hwnd = keyboard_simulator::get_foreground_window();
@@ -838,7 +841,7 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
 
     // Detect active keyboard language at the moment of press
     let lang = keyboard_simulator::get_active_layout_language();
-    eprintln!("Aura Dev Log: Active layout language = {}", lang);
+    crate::logger::log("INFO", "Layout", Some(&session_tag), &format!("Active layout language = {}", lang));
     if let Ok(mut guard) = state.selected_language.lock() {
         *guard = lang;
     }
@@ -867,6 +870,7 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
 
     if copy_context {
         let app_handle_copy = app_handle.clone();
+        let session_tag_copy = session_tag.clone();
         tauri::async_runtime::spawn(async move {
             // Sleep 50ms to let the OS keyboard state settle after the physical hotkey down
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -889,7 +893,7 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
             if let Some(state) = app_handle_copy.try_state::<AppState>() {
                 if let Ok(mut guard) = state.inner().selected_text.lock() {
                     *guard = copied.clone();
-                    eprintln!("Aura Dev Log: Captured selected text ({} chars)", copied.chars().count());
+                    crate::logger::log("INFO", "Context", Some(&session_tag_copy), &format!("Captured selected text ({} chars)", copied.chars().count()));
                 }
             }
         });
@@ -898,13 +902,13 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
     // Start recording to a session-unique temporary WAV path
     let temp_path = recording_wav_path(gen);
     let temp_path_str = temp_path.to_string_lossy().to_string();
-    eprintln!("Aura Dev Log: Starting audio recording to {}", temp_path_str);
+    crate::logger::log("INFO", "Audio", Some(&session_tag), &format!("Starting audio recording to {}", temp_path_str));
 
     let app_handle_vol = app_handle.clone();
     if let Err(e) = state.audio_recorder.start_recording(&temp_path_str, move |vol| {
         let _ = app_handle_vol.emit("volume-level", vol);
     }) {
-        eprintln!("Aura Dev Log ERROR: Failed to start recording: {}", e);
+        crate::logger::log("ERROR", "Audio", Some(&session_tag), &format!("Failed to start recording: {}", e));
         state.is_recording.store(false, Ordering::SeqCst);
         keyboard_hook::set_recording_active(false);
         show_overlay_error(&app_handle, gen, "Microphone start error").await;
@@ -949,7 +953,8 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
 
         if session_settings.transcription_mode == "local" && session_settings.local_engine == "parakeet" {
             tauri::async_runtime::spawn_blocking(move || {
-                eprintln!("Aura Dev Log: Spawning background Parakeet real-time streaming loop task...");
+                let session_tag = crate::logger::format_session_tag(my_gen);
+                crate::logger::log("INFO", "ASR", Some(&session_tag), "Spawning background Parakeet real-time streaming loop task...");
                 
                 let port = if let Some(state) = app_handle_loop.try_state::<AppState>() {
                     state.parakeet_port.load(Ordering::SeqCst)
@@ -969,18 +974,18 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                             })
                             .unwrap_or(false);
                         if !still_active {
-                            eprintln!("Aura Dev Log: Connection cancelled because recording session ended.");
+                            crate::logger::log("INFO", "ASR", Some(&session_tag), "Connection cancelled because recording session ended.");
                             return;
                         }
 
                         match tungstenite::connect(&url) {
                             Ok((s, _)) => {
-                                eprintln!("Aura Dev Log: Connected to Parakeet server for streaming.");
+                                crate::logger::log("INFO", "ASR", Some(&session_tag), "Connected to Parakeet server for streaming.");
                                 break s;
                             }
                             Err(e) => {
                                 if start_connect.elapsed().as_secs() > 15 {
-                                    eprintln!("Aura Dev Log ERROR: Failed to connect to Parakeet WebSocket (timeout): {}", e);
+                                    crate::logger::log("ERROR", "ASR", Some(&session_tag), &format!("Failed to connect to Parakeet WebSocket (timeout): {}", e));
                                     return;
                                 }
                                 std::thread::sleep(std::time::Duration::from_millis(200));
@@ -1005,7 +1010,7 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                         })
                         .unwrap_or(false);
                     if !still_active {
-                        eprintln!("Aura Dev Log: Streaming session ended. Exiting streaming loop.");
+                        crate::logger::log("INFO", "ASR", Some(&session_tag), "Streaming session ended. Exiting streaming loop.");
                         break;
                     }
 
@@ -1042,7 +1047,7 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                                     }
 
                                     if let Err(e) = socket.send(tungstenite::Message::Binary(payload)) {
-                                        eprintln!("Aura Dev Log ERROR: Streaming WebSocket send failed: {}", e);
+                                        crate::logger::log("ERROR", "ASR", Some(&session_tag), &format!("Streaming WebSocket send failed: {}", e));
                                         break;
                                     }
 
@@ -1065,7 +1070,7 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                                                     transcript.replace("<unk>", "")
                                                 };
 
-                                                eprintln!("Aura Dev Log: Parakeet streaming update: '{}'", trimmed);
+                                                crate::logger::log("INFO", "ASR", Some(&session_tag), &format!("Parakeet streaming update: '{}'", crate::logger::anonymize_speech(&trimmed, session_settings.log_speech_text)));
                                                 if !trimmed.is_empty() && !is_silence_hallucination(&trimmed) {
                                                     type_streaming_update_sync(
                                                         &app_handle_loop,
@@ -1079,11 +1084,11 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                                         Err(e) => {
                                             match &e {
                                                 tungstenite::Error::Io(io_err) if io_err.kind() == std::io::ErrorKind::WouldBlock || io_err.kind() == std::io::ErrorKind::TimedOut => {
-                                                    eprintln!("Aura Dev Log: Streaming WebSocket read timed out/would block, continuing...");
+                                                    crate::logger::log("INFO", "ASR", Some(&session_tag), "Streaming WebSocket read timed out/would block, continuing...");
                                                     continue;
                                                 }
                                                 _ => {
-                                                    eprintln!("Aura Dev Log ERROR: Streaming WebSocket read failed: {}", e);
+                                                    crate::logger::log("ERROR", "ASR", Some(&session_tag), &format!("Streaming WebSocket read failed: {}", e));
                                                     break;
                                                 }
                                             }
@@ -1103,7 +1108,8 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
         } else {
             // Existing batch streaming loop
             tauri::async_runtime::spawn(async move {
-                eprintln!("Aura Dev Log: Spawning background streaming loop task...");
+                let session_tag = crate::logger::format_session_tag(my_gen);
+                crate::logger::log("INFO", "ASR", Some(&session_tag), "Spawning background streaming loop task...");
                 tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
 
                 let chunk_path = chunk_wav_path(my_gen);
@@ -1119,7 +1125,7 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                         })
                         .unwrap_or(false);
                     if !still_active {
-                        eprintln!("Aura Dev Log: Streaming session ended. Exiting streaming loop.");
+                        crate::logger::log("INFO", "ASR", Some(&session_tag), "Streaming session ended. Exiting streaming loop.");
                         break;
                     }
 
@@ -1170,7 +1176,7 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                                         Ok(text) => {
                                             let cleaned_text = clean_hallucinated_brackets(&text);
                                             let trimmed = cleaned_text.trim().to_string();
-                                            eprintln!("Aura Dev Log: Streaming transcription success: '{}'", trimmed);
+                                            crate::logger::log("INFO", "ASR", Some(&session_tag), &format!("Streaming transcription success: '{}'", crate::logger::anonymize_speech(&trimmed, settings.log_speech_text)));
                                             if !trimmed.is_empty() && !is_silence_hallucination(&trimmed) {
                                                 type_streaming_update(
                                                     app_handle_loop.clone(),
@@ -1182,7 +1188,7 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                                             }
                                         }
                                         Err(e) => {
-                                            eprintln!("Aura Dev Log ERROR: Streaming transcription failed: {}", e);
+                                            crate::logger::log("ERROR", "ASR", Some(&session_tag), &format!("Streaming transcription failed: {}", e));
                                         }
                                     }
                                 }
@@ -1214,14 +1220,15 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
     let Some(state) = app_handle.try_state::<AppState>() else { return };
     let state = state.inner();
 
-    // Use lock().ok() instead of unwrap() to avoid panicking if a previous thread
-    // poisoned this mutex; an empty string means we fall back to auto-detect.
     let active_layout_lang = state
         .selected_language
         .lock()
         .map(|g| g.clone())
         .unwrap_or_default();
     let my_gen = state.session_gen.load(Ordering::SeqCst);
+    let session_tag = crate::logger::format_session_tag(my_gen);
+    crate::logger::log("INFO", "Session", Some(&session_tag), "Finalizing recording session");
+
     state.is_recording.store(false, Ordering::SeqCst);
     state.latched.store(false, Ordering::SeqCst);
     keyboard_hook::set_recording_active(false);
@@ -1229,31 +1236,29 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
     let _ = app_handle.emit("recording-state", "processing");
 
     let stop_res = state.audio_recorder.stop_recording();
-    eprintln!("Aura Dev Log: stop_recording result = {:?}", stop_res);
+    crate::logger::log("INFO", "Audio", Some(&session_tag), &format!("stop_recording result = {:?}", stop_res));
     if let Err(e) = stop_res {
-        eprintln!("Aura Dev Log ERROR: Failed to stop recording: {}", e);
+        crate::logger::log("ERROR", "Audio", Some(&session_tag), &format!("Failed to stop recording: {}", e));
         show_overlay_error(&app_handle, my_gen, "Recording stop error").await;
         return;
     }
 
-    // Perform final transcription in a background task
     let app_handle_clone = app_handle.clone();
+    let session_tag_clone = session_tag.clone();
     tauri::async_runtime::spawn(async move {
         let start_time = std::time::Instant::now();
 
         let temp_path = recording_wav_path(my_gen);
         let temp_path_str = temp_path.to_string_lossy().to_string();
 
-        // Trim silence using Silero VAD before transcribing
         if let Err(e) = vad::trim_wav_file(&temp_path_str) {
-            eprintln!("Aura Dev Log: VAD trimming failed or skipped: {}", e);
+            crate::logger::log("WARN", "VAD", Some(&session_tag_clone), &format!("VAD trimming failed or skipped: {}", e));
         }
 
-        // Load settings
         let settings = match settings::load_settings(&app_handle_clone) {
             Ok(s) => s,
             Err(e) => {
-                eprintln!("Aura Dev Log ERROR: Failed to load settings: {}", e);
+                crate::logger::log("ERROR", "Settings", Some(&session_tag_clone), &format!("Failed to load settings: {}", e));
                 show_overlay_error(&app_handle_clone, my_gen, "Settings load error").await;
                 return;
             }
@@ -1269,7 +1274,7 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
         };
         let language = effective_language(&settings, &layout_lang);
 
-        eprintln!("Aura Dev Log: Calling final transcription...");
+        crate::logger::log("INFO", "ASR", Some(&session_tag_clone), "Calling final transcription...");
         let api_call_start = std::time::Instant::now();
         let mut used_local_fallback = false;
         let mut transcription_result = if settings.transcription_mode == "local" {
@@ -1298,8 +1303,6 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
             }
         };
 
-        // Cloud unreachable (VPN block / no network / region block)? Retry once with
-        // whichever local model is already downloaded, instead of failing outright.
         if settings.transcription_mode != "local" && settings.cloud_fallback_enabled {
             if let Err(cloud_err) = &transcription_result {
                 if is_cloud_unreachable(cloud_err) {
@@ -1310,7 +1313,7 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
                             downloaded.first().cloned()
                         };
                         if let Some(model) = fallback_model {
-                            eprintln!("Aura Dev Log: Cloud unreachable, falling back to local model '{}'", model);
+                            crate::logger::log("WARN", "ASR", Some(&session_tag_clone), &format!("Cloud unreachable, falling back to local model '{}'", model));
                             let local_result = run_local_whisper_async(
                                 app_handle_clone.clone(),
                                 model,
@@ -1333,9 +1336,8 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
                 }
             }
         }
-        eprintln!("Aura Dev Log: Transcription call duration = {} ms", api_call_start.elapsed().as_millis());
+        crate::logger::log("INFO", "ASR", Some(&session_tag_clone), &format!("Transcription call duration = {} ms", api_call_start.elapsed().as_millis()));
 
-        // The temporary WAV is no longer needed
         let _ = std::fs::remove_file(&temp_path);
 
         let mut had_error = None;
@@ -1343,7 +1345,15 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
             Ok(text) => {
                 let cleaned_text = clean_hallucinated_brackets(&text);
                 let trimmed = cleaned_text.trim().to_string();
-                eprintln!("Aura Dev Log: Final transcription success: '{}'", trimmed);
+                crate::logger::log(
+                    "INFO",
+                    "ASR",
+                    Some(&session_tag_clone),
+                    &format!(
+                        "Final result: {}",
+                        crate::logger::anonymize_speech(&trimmed, settings.log_speech_text)
+                    ),
+                );
                 if !trimmed.is_empty() && !is_silence_hallucination(&trimmed) {
                     let text_after_voice_punc = if settings.voice_punctuation {
                         apply_voice_punctuation(&trimmed)
@@ -1365,7 +1375,7 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
                             match whisper_runner::run_punctuation(&app_handle_clone, &text_after_voice_punc) {
                                 Ok(punctuated) => punctuated,
                                 Err(e) => {
-                                    eprintln!("Aura Dev Log: Offline punctuation model failed or not found: {}", e);
+                                    crate::logger::log("WARN", "Punctuation", Some(&session_tag_clone), &format!("Offline punctuation model failed or not found: {}", e));
                                     text_after_voice_punc
                                 }
                             }
@@ -1376,21 +1386,18 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
                         text_after_voice_punc
                     };
 
-                    // Save to history and notify the settings UI
                     let history_mode = if used_local_fallback { "local (cloud fallback)" } else { settings.transcription_mode.as_str() };
                     match history::add_entry(&app_handle_clone, &final_text, history_mode) {
                         Ok(()) => {
                             let _ = app_handle_clone.emit("history-updated", ());
                         }
-                        Err(e) => eprintln!("Aura Dev Log ERROR: Failed to save history: {}", e),
+                        Err(e) => crate::logger::log("ERROR", "History", Some(&session_tag_clone), &format!("Failed to save history: {}", e)),
                     }
 
                     let paste_start = std::time::Instant::now();
                     if settings.streaming_enabled {
-                        // Smart diff replacement of the live preview with the final text
                         type_streaming_update(app_handle_clone.clone(), my_gen, final_text, false).await;
                     } else {
-                        // Classic mode: instantaneous clipboard paste
                         let session_ok = app_handle_clone
                             .try_state::<AppState>()
                             .map(|s| s.session_gen.load(Ordering::SeqCst) == my_gen)
@@ -1411,31 +1418,28 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
                             tokio::time::sleep(std::time::Duration::from_millis(800)).await;
                             restore_clipboard(original_clipboard);
                         } else {
-                            // Don't paste into the wrong window/session; leave the text in
-                            // the clipboard so the user can paste it manually (also in history).
-                            eprintln!("Aura Dev Log: Focus/session changed; leaving text in clipboard instead of pasting.");
+                            crate::logger::log("WARN", "Paste", Some(&session_tag_clone), "Focus/session changed; leaving text in clipboard instead of pasting.");
                             if let Ok(mut cb) = arboard::Clipboard::new() {
                                 let _ = cb.set_text(final_text.clone());
                             }
                         }
                     }
-                    eprintln!("Aura Dev Log: Paste duration = {} ms", paste_start.elapsed().as_millis());
+                    crate::logger::log("INFO", "Paste", Some(&session_tag_clone), &format!("Paste duration = {} ms", paste_start.elapsed().as_millis()));
                 }
             }
             Err(e) => {
-                eprintln!("Aura Dev Log ERROR: Final transcription failed: {}", e);
+                crate::logger::log("ERROR", "ASR", Some(&session_tag_clone), &format!("Final transcription failed: {}", e));
                 if let Ok(dir) = app_handle_clone.path().app_local_data_dir() {
                     let _ = std::fs::write(dir.join("last_transcription_error.txt"), &e);
                 }
                 had_error = Some(categorize_error(&e));
             }
         }
-        eprintln!("Aura Dev Log: Total processing duration from release = {} ms", start_time.elapsed().as_millis());
+        crate::logger::log("INFO", "Session", Some(&session_tag_clone), &format!("Total processing duration from release = {} ms", start_time.elapsed().as_millis()));
 
         if let Some(msg) = had_error {
             show_overlay_error(&app_handle_clone, my_gen, &msg).await;
         } else {
-            // Hide overlay window via animated request
             let session_ok = app_handle_clone
                 .try_state::<AppState>()
                 .map(|s| s.session_gen.load(Ordering::SeqCst) == my_gen)
@@ -1465,6 +1469,13 @@ pub fn run() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             let app_handle = app.handle().clone();
+
+            // Initialize diagnostics logger
+            if let Ok(log_dir) = app.path().app_log_dir().or_else(|_| app.path().app_local_data_dir()) {
+                let _ = std::fs::create_dir_all(&log_dir);
+                crate::logger::init(log_dir);
+                crate::logger::log("INFO", "App", None, "Aura diagnostics logging initialized");
+            }
 
             // Load settings, apply configured hotkey and autostart state on startup
             if let Ok(settings) = settings::load_settings(&app_handle) {
@@ -1556,7 +1567,7 @@ pub fn run() {
                     let Some(state) = app_handle.try_state::<AppState>() else { return };
 
                     if is_down {
-                        eprintln!("Aura Dev Log: Hotkey down");
+                        crate::logger::log("INFO", "Hotkey", None, "Hotkey down");
                         let recording = state.is_recording.load(Ordering::SeqCst);
                         if recording && state.latched.load(Ordering::SeqCst) {
                             // Second tap in toggle mode stops the recording
@@ -1567,7 +1578,7 @@ pub fn run() {
                             start_recording_session(app_handle.clone()).await;
                         }
                     } else {
-                        eprintln!("Aura Dev Log: Hotkey up");
+                        crate::logger::log("INFO", "Hotkey", None, "Hotkey up");
                         // Alt-menu disarming is handled synchronously inside the
                         // keyboard hook (send_disarmed_alt_up / dummy Ctrl tap).
 
@@ -1586,7 +1597,7 @@ pub fn run() {
                             .map(|t| t.elapsed());
 
                         if let Some(d) = press_duration {
-                            eprintln!("Aura Dev Log: Press duration = {} ms", d.as_millis());
+                            crate::logger::log("INFO", "Hotkey", None, &format!("Press duration = {} ms", d.as_millis()));
                             if d.as_millis() < 300 {
                                 // Read toggle setting with a single file-read; it's cheap but
                             // calling load_settings on every key-up adds ~1ms latency.
@@ -1595,10 +1606,10 @@ pub fn run() {
                                 .unwrap_or(false);
                                 if toggle_enabled {
                                     // Short tap latches the recording until the next tap or Esc
-                                    eprintln!("Aura Dev Log: Short tap — latching recording (toggle mode).");
+                                    crate::logger::log("INFO", "Hotkey", None, "Short tap — latching recording (toggle mode).");
                                     state.latched.store(true, Ordering::SeqCst);
                                 } else {
-                                    eprintln!("Aura Dev Log: Press too short (< 300ms), discarding.");
+                                    crate::logger::log("INFO", "Hotkey", None, "Press too short (< 300ms), discarding.");
                                     discard_recording(&app_handle);
                                 }
                                 return;
@@ -1752,14 +1763,14 @@ async fn download_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -
         let _ = std::fs::remove_file(&temp_tar_path);
     }
 
-    eprintln!("Aura Dev Log: Starting download for GPU provider {}...", provider);
+    crate::logger::log("INFO", "GPU", None, &format!("Starting download for GPU provider {}...", provider));
     let client = crate::ai_client::build_download_client();
     let mut response = client.get(primary_url).send().await
         .map_err(|e| format!("Failed to fetch URL: {}", e))?;
 
     if !response.status().is_success() {
         if provider == "cuda" {
-            eprintln!("Aura Dev Log WARNING: Primary CUDA download failed ({}). Trying official k2-fsa mirror...", response.status());
+            crate::logger::log("WARN", "GPU", None, &format!("Primary CUDA download failed ({}). Trying official k2-fsa mirror...", response.status()));
             let backup_url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.4/sherpa-onnx-v1.13.4-win-x64-cuda.tar.bz2";
             response = client.get(backup_url).send().await
                 .map_err(|e| format!("Failed to fetch official CUDA mirror: {}", e))?;
@@ -1815,7 +1826,7 @@ async fn download_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -
     }
 
     // Extraction using native tar.exe
-    eprintln!("Aura Dev Log: Extracting package...");
+    crate::logger::log("INFO", "GPU", None, "Extracting package...");
     use std::process::Command;
     let mut cmd = Command::new("tar");
     cmd.args(&[
@@ -1906,7 +1917,7 @@ fn ensure_cuda_dlls(gpu_bin_dir: &std::path::Path, app_handle: &tauri::AppHandle
 
     for source_dir in search_paths {
         if source_dir.exists() && source_dir.join("cudart64_110.dll").exists() {
-            eprintln!("Aura Dev Log: Copying bundled CUDA DLLs from {:?} to {:?}", source_dir, gpu_bin_dir);
+            crate::logger::log("INFO", "GPU", None, &format!("Copying bundled CUDA DLLs from {:?} to {:?}", source_dir, gpu_bin_dir));
             if let Ok(entries) = std::fs::read_dir(&source_dir) {
                 for entry in entries.flatten() {
                     let path = entry.path();
