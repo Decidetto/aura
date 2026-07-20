@@ -315,21 +315,103 @@ fn effective_language(settings: &settings::Settings, layout_language: &str) -> S
     }
 }
 
-fn diff_and_type(typed_so_far: &mut String, new_text: &str) {
+struct WordSpan {
+    _start: usize,
+    end: usize,
+    text: String,
+}
+
+fn extract_word_spans(chars: &[char]) -> Vec<WordSpan> {
+    let mut spans = Vec::new();
+    let mut in_word = false;
+    let mut start = 0;
+
+    for (i, &ch) in chars.iter().enumerate() {
+        if !ch.is_whitespace() {
+            if !in_word {
+                in_word = true;
+                start = i;
+            }
+        } else if in_word {
+            in_word = false;
+            let word_str: String = chars[start..i].iter().collect();
+            spans.push(WordSpan {
+                _start: start,
+                end: i,
+                text: word_str,
+            });
+        }
+    }
+    if in_word {
+        let word_str: String = chars[start..chars.len()].iter().collect();
+        spans.push(WordSpan {
+            _start: start,
+            end: chars.len(),
+            text: word_str,
+        });
+    }
+    spans
+}
+
+fn normalize_word_for_matching(w: &str) -> String {
+    w.trim_matches(|c: char| c.is_ascii_punctuation() || ".,!?:;-—\"'«»()[]{}".contains(c))
+        .to_lowercase()
+}
+
+fn diff_and_type(typed_so_far: &mut String, new_text: &str, is_live: bool) {
     let typed_chars: Vec<char> = typed_so_far.chars().collect();
     let new_chars: Vec<char> = new_text.chars().collect();
 
-    let mut common_prefix_len = 0;
-    for (c1, c2) in typed_chars.iter().zip(new_chars.iter()) {
-        if c1 == c2 {
-            common_prefix_len += 1;
-        } else {
-            break;
-        }
-    }
+    let (common_typed_end, common_new_end) = if is_live {
+        let typed_spans = extract_word_spans(&typed_chars);
+        let new_spans = extract_word_spans(&new_chars);
 
-    let chars_to_delete = typed_chars.len() - common_prefix_len;
-    let suffix: String = new_chars[common_prefix_len..].iter().collect();
+        let mut matched_typed_end = 0;
+        let mut matched_new_end = 0;
+
+        for (tw, nw) in typed_spans.iter().zip(new_spans.iter()) {
+            let norm_t = normalize_word_for_matching(&tw.text);
+            let norm_n = normalize_word_for_matching(&nw.text);
+
+            if !norm_t.is_empty() && norm_t == norm_n {
+                matched_typed_end = tw.end;
+                matched_new_end = nw.end;
+            } else {
+                break;
+            }
+        }
+
+        while matched_typed_end < typed_chars.len()
+            && matched_new_end < new_chars.len()
+            && typed_chars[matched_typed_end].is_whitespace()
+            && new_chars[matched_new_end].is_whitespace()
+            && typed_chars[matched_typed_end] == new_chars[matched_new_end]
+        {
+            matched_typed_end += 1;
+            matched_new_end += 1;
+        }
+
+        (matched_typed_end, matched_new_end)
+    } else {
+        let mut common_len = 0;
+        for (c1, c2) in typed_chars.iter().zip(new_chars.iter()) {
+            if c1 == c2 {
+                common_len += 1;
+            } else {
+                break;
+            }
+        }
+        (common_len, common_len)
+    };
+
+    let raw_chars_to_delete = typed_chars.len() - common_typed_end;
+    let chars_to_delete = if is_live {
+        raw_chars_to_delete.min(35)
+    } else {
+        raw_chars_to_delete
+    };
+
+    let suffix: String = new_chars[common_new_end..].iter().collect();
 
     if chars_to_delete > 0 || !suffix.is_empty() {
         keyboard_simulator::replace_text(chars_to_delete, &suffix);
@@ -634,7 +716,7 @@ fn type_streaming_update_sync(
         let session_ok = state.session_gen.load(Ordering::SeqCst) == my_gen;
         let recording_ok = !require_recording || state.is_recording.load(Ordering::SeqCst);
         if session_ok && recording_ok {
-            diff_and_type(&mut typed_guard, new_text);
+            diff_and_type(&mut typed_guard, new_text, require_recording);
         } else {
             crate::logger::log("WARN", "Typing", Some(&session_tag), "Skipping stale typing update (gen/recording check failed).");
         }
