@@ -356,6 +356,7 @@ fn extract_word_spans(chars: &[char]) -> Vec<WordSpan> {
 fn normalize_word_for_matching(w: &str) -> String {
     w.trim_matches(|c: char| c.is_ascii_punctuation() || ".,!?:;-—\"'«»()[]{}".contains(c))
         .to_lowercase()
+        .replace('ё', "е")
 }
 
 fn diff_and_type(typed_so_far: &mut String, new_text: &str, is_live: bool) {
@@ -404,12 +405,22 @@ fn diff_and_type(typed_so_far: &mut String, new_text: &str, is_live: bool) {
         (common_len, common_len)
     };
 
-    let raw_chars_to_delete = typed_chars.len() - common_typed_end;
-    let chars_to_delete = if is_live {
-        raw_chars_to_delete.min(35)
-    } else {
-        raw_chars_to_delete
-    };
+    let chars_to_delete = typed_chars.len() - common_typed_end;
+
+    // Safety check for live preview updates to prevent massive backspacing and keyboard conflicts
+    if is_live && chars_to_delete > 25 {
+        // Log that we skipped this live update to stay in sync
+        crate::logger::log(
+            "INFO",
+            "Typing",
+            None,
+            &format!(
+                "Skipping live update: too many backspaces needed ({} > 25) to prevent state desync.",
+                chars_to_delete
+            ),
+        );
+        return;
+    }
 
     let suffix: String = new_chars[common_new_end..].iter().collect();
 
@@ -2136,5 +2147,34 @@ mod tests {
         assert_eq!(clean_hallucinated_brackets("[тишина]"), "");
         assert_eq!(clean_hallucinated_brackets("   [смех]   "), "");
         assert_eq!(clean_hallucinated_brackets("Обычный текст без шума"), "Обычный текст без шума");
+    }
+
+    #[test]
+    fn test_diff_and_type_logic() {
+        // Test word-normalized matching for 'ё' -> 'е'
+        let mut typed = "Все хорошо".to_string();
+        diff_and_type(&mut typed, "Всё хорошо", true);
+        assert_eq!(typed, "Всё хорошо");
+
+        // Test space matching and trailing punctuation ignore
+        let mut typed2 = "Привет как дела".to_string();
+        diff_and_type(&mut typed2, "Привет, как дела", true);
+        assert_eq!(typed2, "Привет, как дела");
+
+        // Test normal suffix append
+        let mut typed3 = "Привет как дела".to_string();
+        diff_and_type(&mut typed3, "Привет как дела хорошо", true);
+        assert_eq!(typed3, "Привет как дела хорошо");
+
+        // Test live backspace cap safety check (> 25 characters)
+        let mut typed4 = "Очень длинное предложение которое мы надиктовали ранее".to_string();
+        // This requires deleting "предложение которое мы надиктовали ранее" (40 characters)
+        diff_and_type(&mut typed4, "Очень длинное новое предложение", true);
+        // It should NOT change because it requires more than 25 backspaces in live mode
+        assert_eq!(typed4, "Очень длинное предложение которое мы надиктовали ранее");
+
+        // In final mode (is_live = false), threshold check is disabled
+        diff_and_type(&mut typed4, "Очень длинное новое предложение", false);
+        assert_eq!(typed4, "Очень длинное новое предложение");
     }
 }
