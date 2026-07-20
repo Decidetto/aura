@@ -703,6 +703,29 @@ async fn run_local_whisper_async(
     .map_err(|e| format!("Local ASR task failed: {e}"))?
 }
 
+fn clean_live_text(text: &str) -> String {
+    let mut cleaned = String::new();
+    let mut last_was_space = false;
+
+    for ch in text.chars() {
+        let lower = ch.to_lowercase().to_string();
+        for l_ch in lower.chars() {
+            let normalized_ch = if l_ch == 'ё' { 'е' } else { l_ch };
+            
+            if normalized_ch.is_alphanumeric() {
+                cleaned.push(normalized_ch);
+                last_was_space = false;
+            } else if normalized_ch.is_whitespace() {
+                if !last_was_space && !cleaned.is_empty() {
+                    cleaned.push(' ');
+                    last_was_space = true;
+                }
+            }
+        }
+    }
+    cleaned.trim_end().to_string()
+}
+
 /// Types a streaming/final update via simulated keystrokes on a blocking thread.
 /// Re-checks session generation (and, for live previews, the recording flag) under
 /// the lock so a stale task can never corrupt a newer session's text.
@@ -727,7 +750,12 @@ fn type_streaming_update_sync(
         let session_ok = state.session_gen.load(Ordering::SeqCst) == my_gen;
         let recording_ok = !require_recording || state.is_recording.load(Ordering::SeqCst);
         if session_ok && recording_ok {
-            diff_and_type(&mut typed_guard, new_text, require_recording);
+            let text_to_type = if require_recording {
+                clean_live_text(new_text)
+            } else {
+                new_text.to_string()
+            };
+            diff_and_type(&mut typed_guard, &text_to_type, require_recording);
         } else {
             crate::logger::log("WARN", "Typing", Some(&session_tag), "Skipping stale typing update (gen/recording check failed).");
         }
@@ -2176,5 +2204,13 @@ mod tests {
         // In final mode (is_live = false), threshold check is disabled
         diff_and_type(&mut typed4, "Очень длинное новое предложение", false);
         assert_eq!(typed4, "Очень длинное новое предложение");
+    }
+
+    #[test]
+    fn test_clean_live_text() {
+        assert_eq!(clean_live_text("Итак, несмотря на все..."), "итак несмотря на все");
+        assert_eq!(clean_live_text("Итак, несмотря на все."), "итак несмотря на все");
+        assert_eq!(clean_live_text("Привет! Всё ли хорошо?"), "привет все ли хорошо");
+        assert_eq!(clean_live_text(""), "");
     }
 }
