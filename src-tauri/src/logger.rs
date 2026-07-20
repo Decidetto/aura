@@ -5,6 +5,7 @@ use std::sync::mpsc::{self, Sender};
 use std::sync::Mutex;
 use std::thread;
 use std::time::SystemTime;
+use tauri::Manager;
 
 pub const MAX_LOG_SIZE: u64 = 10 * 1024 * 1024; // 10 MB
 pub const LOG_FILE_NAME: &str = "aura_diagnostics.log";
@@ -150,6 +151,155 @@ fn format_timestamp(now: SystemTime) -> String {
     format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03}Z", year, m, d, hours, mins, seconds, millis)
 }
 
+pub fn generate_diagnostic_report<R: tauri::Runtime>(app_handle: &tauri::AppHandle<R>) -> Result<String, String> {
+    let version = app_handle.package_info().version.to_string();
+    let os = std::env::consts::OS;
+    let arch = std::env::consts::ARCH;
+
+    let settings = crate::settings::load_settings(app_handle)
+        .unwrap_or_default();
+
+    let app_local_data = app_handle
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Failed to get app local data dir: {}", e))?;
+
+    let parakeet_dir = app_local_data.join("models").join("parakeet-v3");
+    let parakeet_encoder = parakeet_dir.join("encoder.onnx").exists();
+    let parakeet_decoder = parakeet_dir.join("decoder.onnx").exists();
+    let parakeet_joiner = parakeet_dir.join("joiner.onnx").exists();
+    let parakeet_tokens = parakeet_dir.join("tokens.txt").exists();
+    let parakeet_complete = parakeet_encoder && parakeet_decoder && parakeet_joiner && parakeet_tokens;
+
+    let punc_dir = app_local_data.join("models").join("punctuation");
+    let punc_model = punc_dir.join("model.onnx").exists();
+
+    let cuda_bin_dir = app_local_data.join("binaries").join("cuda").join("bin");
+    let cuda_dll = cuda_bin_dir.join("cudart64_110.dll").exists();
+    let cuda_exe = cuda_bin_dir.join("sherpa-onnx-offline-websocket-server.exe").exists();
+
+    let mut whisper_models = Vec::new();
+    let models_dir = app_local_data.join("models");
+    if models_dir.exists() {
+        if let Ok(entries) = fs::read_dir(&models_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() {
+                    if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
+                        if filename.starts_with("ggml-") && filename.ends_with(".bin") {
+                            let name = &filename[5..filename.len() - 4];
+                            whisper_models.push(name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let logs = get_recent_logs(50);
+
+    Ok(format_diagnostic_report(
+        &version,
+        os,
+        arch,
+        &settings.transcription_mode,
+        &settings.local_engine,
+        &settings.local_acceleration,
+        settings.voice_punctuation,
+        settings.cloud_fallback_enabled,
+        parakeet_complete,
+        parakeet_encoder,
+        parakeet_decoder,
+        parakeet_joiner,
+        parakeet_tokens,
+        punc_model,
+        cuda_dll,
+        cuda_exe,
+        &whisper_models,
+        &logs,
+    ))
+}
+
+pub fn format_diagnostic_report(
+    version: &str,
+    os: &str,
+    arch: &str,
+    transcription_mode: &str,
+    local_engine: &str,
+    acceleration: &str,
+    voice_punctuation: bool,
+    cloud_fallback: bool,
+    parakeet_complete: bool,
+    parakeet_encoder: bool,
+    parakeet_decoder: bool,
+    parakeet_joiner: bool,
+    parakeet_tokens: bool,
+    punctuation_model: bool,
+    cuda_dll: bool,
+    cuda_exe: bool,
+    whisper_models: &[String],
+    logs: &[String],
+) -> String {
+    let whisper_models_str = if whisper_models.is_empty() {
+        "None".to_string()
+    } else {
+        whisper_models.join(", ")
+    };
+
+    let log_content = if logs.is_empty() {
+        "(No logs recorded)".to_string()
+    } else {
+        logs.join("\n")
+    };
+
+    format!(
+        "# Aura Diagnostic Report\n\n\
+        ## System & Config Specs\n\
+        - **App Version**: {}\n\
+        - **OS**: {}\n\
+        - **Architecture**: {}\n\
+        - **Transcription Mode**: {}\n\
+        - **Local Engine**: {}\n\
+        - **Acceleration**: {}\n\
+        - **Voice Punctuation**: {}\n\
+        - **Cloud Fallback**: {}\n\n\
+        ## Component Verification\n\
+        - **Parakeet V3 Model**: {}\n  \
+          - encoder.onnx: {}\n  \
+          - decoder.onnx: {}\n  \
+          - joiner.onnx: {}\n  \
+          - tokens.txt: {}\n\
+        - **Punctuation Model**: {}\n\
+        - **CUDA Binaries**: {}\n  \
+          - cudart64_110.dll: {}\n  \
+          - sherpa-onnx-offline-websocket-server.exe: {}\n\
+        - **Whisper GGML Models**: {}\n\n\
+        ## Unified Log (Last 50 Lines)\n\
+        ```\n\
+        {}\n\
+        ```\n",
+        version,
+        os,
+        arch,
+        transcription_mode,
+        local_engine,
+        acceleration,
+        voice_punctuation,
+        cloud_fallback,
+        if parakeet_complete { "Installed" } else { "Incomplete/Missing" },
+        if parakeet_encoder { "Present" } else { "Missing" },
+        if parakeet_decoder { "Present" } else { "Missing" },
+        if parakeet_joiner { "Present" } else { "Missing" },
+        if parakeet_tokens { "Present" } else { "Missing" },
+        if punctuation_model { "Present" } else { "Missing" },
+        if cuda_dll || cuda_exe { "Present" } else { "Missing" },
+        if cuda_dll { "Present" } else { "Missing" },
+        if cuda_exe { "Present" } else { "Missing" },
+        whisper_models_str,
+        log_content
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -208,5 +358,43 @@ mod tests {
         assert_eq!(fs::read_to_string(temp_dir.join(format!("{}.2", LOG_FILE_NAME))).unwrap(), "A".repeat(100));
 
         let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_format_diagnostic_report() {
+        let logs = vec![
+            "2026-07-20 00:00:00.000Z [INFO] [System] Test log line 1".to_string(),
+            "2026-07-20 00:00:01.000Z [WARN] [Audio] Test log line 2".to_string(),
+        ];
+        let whisper_models = vec!["small".to_string(), "base".to_string()];
+
+        let report = format_diagnostic_report(
+            "1.0.8",
+            "windows",
+            "x86_64",
+            "cloud",
+            "parakeet",
+            "cuda",
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            &whisper_models,
+            &logs,
+        );
+
+        assert!(report.contains("# Aura Diagnostic Report"));
+        assert!(report.contains("## System & Config Specs"));
+        assert!(report.contains("## Component Verification"));
+        assert!(report.contains("## Unified Log (Last 50 Lines)"));
+        assert!(report.contains("- **App Version**: 1.0.8"));
+        assert!(report.contains("Test log line 1"));
+        assert!(report.contains("Test log line 2"));
     }
 }
