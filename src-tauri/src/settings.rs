@@ -31,6 +31,7 @@ pub struct Settings {
     pub local_engine: String,         // "whisper" or "parakeet"
     pub copy_context_on_start: bool,  // capture selected text via Ctrl+C when recording starts (disable for terminals)
     pub local_acceleration: String,   // "cpu" | "cuda" | "directml"
+    pub log_speech_text: bool,        // whether to save transcribed text in diagnostic log files
 }
 
 impl Default for Settings {
@@ -57,6 +58,7 @@ impl Default for Settings {
             local_engine: "whisper".to_string(),
             copy_context_on_start: true,
             local_acceleration: "cpu".to_string(),
+            log_speech_text: false,
         }
     }
 }
@@ -165,6 +167,12 @@ mod tests {
         assert_eq!(settings.overlay_sound_volume, 0.8);
         assert_eq!(settings.local_engine, "whisper");
         assert_eq!(settings.local_acceleration, "cpu");
+        assert_eq!(settings.log_speech_text, false);
+    }
+
+    #[test]
+    fn test_log_speech_text_default() {
+        assert_eq!(Settings::default().log_speech_text, false);
     }
 
     #[test]
