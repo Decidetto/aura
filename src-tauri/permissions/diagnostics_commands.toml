@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-get-diagnostic-report"
+description = "Enables the get_diagnostic_report command."
+commands.allow = ["get_diagnostic_report"]
+
+[[permission]]
+identifier = "allow-log-frontend-event"
+description = "Enables the log_frontend_event command."
+commands.allow = ["log_frontend_event"]
