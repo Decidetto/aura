@@ -1839,9 +1839,9 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     const actionEl = document.getElementById(`action-gpu-${progress.provider}`);
 
     if (fillEl && percentEl) {
-      const percentage = typeof progress.percentage === 'number' ? progress.percentage : 0;
-      fillEl.style.width = `${percentage.toFixed(1)}%`;
-      percentEl.textContent = `${percentage.toFixed(1)}%`;
+      const percentage = typeof progress.percentage === 'number' ? Math.round(progress.percentage) : 0;
+      fillEl.style.width = `${percentage}%`;
+      percentEl.textContent = `${percentage}%`;
     }
 
     if (progress.done) {
