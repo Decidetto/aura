@@ -260,6 +260,17 @@ fn relaunch_app(app_handle: tauri::AppHandle) {
     app_handle.restart();
 }
 
+#[tauri::command]
+async fn get_diagnostic_report(app_handle: tauri::AppHandle) -> Result<String, String> {
+    logger::generate_diagnostic_report(&app_handle)
+}
+
+#[tauri::command]
+async fn log_frontend_event(level: String, tag: String, session: Option<String>, message: String) -> Result<(), String> {
+    logger::log(&level, &tag, session.as_deref(), &message);
+    Ok(())
+}
+
 fn sync_autostart(app_handle: &tauri::AppHandle, enabled: bool) {
     let manager = app_handle.autolaunch();
     let result = if enabled { manager.enable() } else { manager.disable() };
@@ -1641,7 +1652,9 @@ pub fn run() {
             hide_overlay_window,
             download_gpu_binaries,
             delete_gpu_binaries,
-            check_gpu_downloaded
+            check_gpu_downloaded,
+            get_diagnostic_report,
+            log_frontend_event
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
