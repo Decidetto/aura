@@ -2,6 +2,12 @@
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
+window.logEvent = function(level, tag, message) {
+  invoke("log_frontend_event", { level, tag, session: null, message }).catch(err => {
+    console.error("Failed to log frontend event", err);
+  });
+};
+
 const i18nDict = {
   ru: {
     title_settings: "Настройки",
@@ -123,7 +129,12 @@ const i18nDict = {
     gpu_accel_cuda_title: "NVIDIA CUDA (Макс. скорость)",
     gpu_accel_cuda_desc: "Для видеокарт GeForce RTX/GTX. Использование тензорных ядер.",
     gpu_accel_dml_title: "DirectML (Универсальный)",
-    gpu_accel_dml_desc: "Для видеокарт AMD, Intel и NVIDIA. Базовое ускорение."
+    gpu_accel_dml_desc: "Для видеокарт AMD, Intel и NVIDIA. Базовое ускорение.",
+    btn_copy_diagnostics: "Скопировать отчет диагностики",
+    toast_diagnostics_copied: "Отчет диагностики скопирован в буфер обмена!",
+    diag_speech_text_title: "Логирование текста речи (режим разработчика)",
+    diag_speech_text_desc: "Сохранять точный текст распознанной речи в диагностические логи. По умолчанию выключено для приватности.",
+    diag_speech_text_checkbox: "Записывать текст речи в логи"
   },
   en: {
     title_settings: "Settings",
@@ -245,7 +256,12 @@ const i18nDict = {
     gpu_accel_cuda_title: "NVIDIA CUDA (Max Speed)",
     gpu_accel_cuda_desc: "For GeForce RTX/GTX GPUs. Uses Tensor Cores.",
     gpu_accel_dml_title: "DirectML (Universal)",
-    gpu_accel_dml_desc: "For AMD, Intel, and NVIDIA GPUs. Basic acceleration."
+    gpu_accel_dml_desc: "For AMD, Intel, and NVIDIA GPUs. Basic acceleration.",
+    btn_copy_diagnostics: "Copy Diagnostic Report",
+    toast_diagnostics_copied: "Diagnostic report copied to clipboard!",
+    diag_speech_text_title: "Log Speech Text (Developer Mode)",
+    diag_speech_text_desc: "Include exact transcribed speech text in diagnostic logs. Disabled by default for privacy.",
+    diag_speech_text_checkbox: "Include speech text in logs"
   },
   de: {
     gpu_accel_label: "Lokale Hardware-Beschleunigung",
@@ -367,7 +383,12 @@ const i18nDict = {
     fallback_checkbox: "Automatischen Fallback auf lokales Modell aktivieren",
     copy_context_title: "Auswahl erfassen",
     copy_context_desc: "Beim Starten der Aufnahme sendet Aura Strg+C, um ausgewählten Text als KI-Kontext zu erfassen. Deaktivieren, wenn Sie in Terminals diktieren — dort beendet Strg+C Prozesse.",
-    copy_context_checkbox: "Auswahl per Strg+C erfassen"
+    copy_context_checkbox: "Auswahl per Strg+C erfassen",
+    btn_copy_diagnostics: "Diagnosebericht kopieren",
+    toast_diagnostics_copied: "Diagnosebericht in Zwischenablage kopiert!",
+    diag_speech_text_title: "Sprachtext protokollieren (Entwicklermodus)",
+    diag_speech_text_desc: "Exakten transkribierten Sprachtext in Diagnoseprotokollen speichern. Aus Datenschutzgründen standardmäßig deaktiviert.",
+    diag_speech_text_checkbox: "Sprachtext in Protokolle aufnehmen"
   },
   es: {
     title_settings: "Ajustes",
@@ -597,7 +618,12 @@ const i18nDict = {
     fallback_checkbox: "Activer le basculement automatique vers le modèle local",
     copy_context_title: "Capturer le texte sélectionné",
     copy_context_desc: "Au démarrage de l'enregistrement, Aura envoie Ctrl+C pour capturer le texte sélectionné comme contexte IA. Désactiver si vous dictez dans un terminal — Ctrl+C y interrompt les processus.",
-    copy_context_checkbox: "Capturer la sélection via Ctrl+C"
+    copy_context_checkbox: "Capturer la sélection via Ctrl+C",
+    btn_copy_diagnostics: "Copier le rapport de diagnostic",
+    toast_diagnostics_copied: "Rapport de diagnostic copié dans le presse-papiers !",
+    diag_speech_text_title: "Consigner le texte vocal (Mode développeur)",
+    diag_speech_text_desc: "Inclure le texte vocal transcrit exact dans les journaux de diagnostic. Désactivé par défaut par confidentialité.",
+    diag_speech_text_checkbox: "Inclure le texte vocal dans les journaux"
   },
   it: {
     title_settings: "Impostazioni",
@@ -712,7 +738,12 @@ const i18nDict = {
     fallback_checkbox: "Attiva il fallback automatico al modello locale",
     copy_context_title: "Acquisire testo selezionato",
     copy_context_desc: "All'avvio della registrazione, Aura invia Ctrl+C per acquisire il testo selezionato come contesto AI. Disattiva se detti in un terminale — lì Ctrl+C termina i processi.",
-    copy_context_checkbox: "Acquisisci selezione con Ctrl+C"
+    copy_context_checkbox: "Acquisisci selezione con Ctrl+C",
+    btn_copy_diagnostics: "Copia rapporto diagnostico",
+    toast_diagnostics_copied: "Rapporto diagnostico copiato negli appunti!",
+    diag_speech_text_title: "Registra testo vocale (Modalità sviluppatore)",
+    diag_speech_text_desc: "Include il testo vocale trascritto esatto nei log di diagnostica. Disattivato di default per la privacy.",
+    diag_speech_text_checkbox: "Includi testo vocale nei log"
   },
   zh: {
     title_settings: "设置",
@@ -827,7 +858,12 @@ const i18nDict = {
     fallback_checkbox: "启用自动回退至本地模型",
     copy_context_title: "捕获选中文本",
     copy_context_desc: "开始录音时，Aura 发送 Ctrl+C 以捕获选中文本作为 AI 上下文。如果在终端中听写请禁用此功能——终端中 Ctrl+C 会中断进程。",
-    copy_context_checkbox: "通过 Ctrl+C 捕获选中内容"
+    copy_context_checkbox: "通过 Ctrl+C 捕获选中内容",
+    btn_copy_diagnostics: "复制诊断报告",
+    toast_diagnostics_copied: "诊断报告已复制到剪贴板！",
+    diag_speech_text_title: "记录语音文本（开发者模式）",
+    diag_speech_text_desc: "在诊断日志中包含精确的语音转写文本。出于隐私原因默认禁用。",
+    diag_speech_text_checkbox: "在日志中包含语音文本"
   },
   pt: {
     title_settings: "Configurações",
@@ -942,7 +978,12 @@ const i18nDict = {
     fallback_checkbox: "Ativar fallback automático para modelo local",
     copy_context_title: "Capturar texto selecionado",
     copy_context_desc: "Ao iniciar a gravação, Aura envia Ctrl+C para capturar o texto selecionado como contexto da IA. Desative se ditar em terminais — lá Ctrl+C interrompe processos.",
-    copy_context_checkbox: "Capturar seleção via Ctrl+C"
+    copy_context_checkbox: "Capturar seleção via Ctrl+C",
+    btn_copy_diagnostics: "Copiar relatório de diagnóstico",
+    toast_diagnostics_copied: "Relatório de diagnóstico copiado para a área de transferência!",
+    diag_speech_text_title: "Registrar texto de voz (Modo desenvolvedor)",
+    diag_speech_text_desc: "Incluir texto de voz transcrito exato nos logs de diagnóstico. Desativado por padrão por privacidade.",
+    diag_speech_text_checkbox: "Incluir texto de voz nos logs"
   },
   tr: {
     title_settings: "Ayarlar",
@@ -1185,6 +1226,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const checkboxCloudFallback = document.getElementById("checkbox-cloud-fallback");
   const checkboxAutostart = document.getElementById("checkbox-autostart");
   const btnSaveSettings = document.getElementById("btn-save-settings");
+  if (btnSaveSettings) {
+    btnSaveSettings.addEventListener("click", saveSettings);
+  }
   
   const checkboxSounds = document.getElementById("checkbox-sounds");
 const checkboxCopyContext = document.getElementById("checkbox-copy-context");
@@ -1349,11 +1393,12 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
 
   function bindSettingsChangeListeners() {
     const checkboxStreaming = document.getElementById("checkbox-streaming");
+    const checkboxLogSpeechText = document.getElementById("setting-log-speech-text");
     const inputs = [
       radioCloud, radioLocal, selectProvider, apiKeyInput, selectHotkey,
       selectLanguage, textareaDictionary, checkboxToggle, checkboxPunctuation, checkboxCloudFallback,
-  checkboxAutostart, checkboxStreaming, checkboxSounds, selectSoundTheme,
-  rangeVolume, selectLocalEngine, checkboxCopyContext
+      checkboxAutostart, checkboxStreaming, checkboxSounds, selectSoundTheme,
+      rangeVolume, selectLocalEngine, checkboxCopyContext, checkboxLogSpeechText
     ];
     inputs.forEach(input => {
       if (input) {
@@ -1454,6 +1499,10 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     // Default true: most users benefit from context capture
     checkboxCopyContext.checked = settings.copy_context_on_start !== false;
   }
+        const checkboxLogSpeechText = document.getElementById("setting-log-speech-text");
+        if (checkboxLogSpeechText) {
+          checkboxLogSpeechText.checked = !!settings.log_speech_text;
+        }
         activeLocalAcceleration = settings.local_acceleration || "cpu";
         if (selectSoundTheme) {
           selectSoundTheme.value = settings.overlay_sound_theme || "zen";
@@ -1573,7 +1622,11 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
         overlay_sounds: checkboxSounds ? checkboxSounds.checked : true,
     overlay_sound_theme: selectSoundTheme ? selectSoundTheme.value : "zen",
     overlay_sound_volume: soundVolFloat,
-    copy_context_on_start: checkboxCopyContext ? checkboxCopyContext.checked : true
+    copy_context_on_start: checkboxCopyContext ? checkboxCopyContext.checked : true,
+    log_speech_text: (() => {
+      const el = document.getElementById("setting-log-speech-text");
+      return el ? el.checked : false;
+    })()
   };
 
       await invoke("set_settings", { settings });
@@ -2294,6 +2347,28 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
+  }
+
+  const btnCopyDiagnostics = document.getElementById("btn-copy-diagnostics");
+  if (btnCopyDiagnostics) {
+    btnCopyDiagnostics.addEventListener("click", async () => {
+      try {
+        const report = await invoke("get_diagnostic_report");
+        try {
+          await invoke("copy_to_clipboard", { text: report });
+        } catch (e) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(report);
+          } else {
+            throw e;
+          }
+        }
+        showStatus(getTranslation("toast_diagnostics_copied"));
+      } catch (err) {
+        console.error("Failed to copy diagnostic report", err);
+        showStatus(`${getTranslation("status_error")}${err}`, true);
+      }
+    });
   }
 
   if (btnClearHistory) {
