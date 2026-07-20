@@ -658,40 +658,7 @@ pub async fn download_parakeet_model<R: Runtime>(
     Ok(parakeet_dir)
 }
 
-pub fn find_sherpa_websocket_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
-    let settings = crate::settings::load_settings(app_handle).unwrap_or_default();
-    
-    let exe_name = if cfg!(target_os = "windows") {
-        "sherpa-onnx-offline-websocket-server.exe"
-    } else {
-        "sherpa-onnx-offline-websocket-server"
-    };
-
-    if settings.local_acceleration != "cpu" {
-        if let Ok(app_local_data) = app_handle.path().app_local_data_dir() {
-            let gpu_exe = app_local_data
-                .join("binaries")
-                .join(&settings.local_acceleration)
-                .join("bin")
-                .join(exe_name);
-            if gpu_exe.exists() {
-                #[cfg(target_os = "windows")]
-                {
-                    if let Some(parent) = gpu_exe.parent() {
-                        if parent.join("onnxruntime.dll").exists() {
-                            return Ok(gpu_exe);
-                        }
-                    }
-                }
-                #[cfg(not(target_os = "windows"))]
-                {
-                    return Ok(gpu_exe);
-                }
-            }
-        }
-    }
-
-    // Rest of existing candidate checks:
+pub fn find_cpu_sherpa_websocket_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
     #[cfg(target_os = "windows")]
     let target_names = [
         "sherpa-onnx-offline-websocket-server.exe",
@@ -745,6 +712,48 @@ pub fn find_sherpa_websocket_server<R: Runtime>(app_handle: &tauri::AppHandle<R>
         "Failed to find sidecar file '{}' or alternatives in candidates.",
         target_names[0]
     ))
+}
+
+pub fn find_sherpa_websocket_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
+    let settings = crate::settings::load_settings(app_handle).unwrap_or_default();
+    
+    let exe_name = if cfg!(target_os = "windows") {
+        "sherpa-onnx-offline-websocket-server.exe"
+    } else {
+        "sherpa-onnx-offline-websocket-server"
+    };
+
+    if settings.local_acceleration != "cpu" {
+        if let Ok(app_local_data) = app_handle.path().app_local_data_dir() {
+            let gpu_exe = app_local_data
+                .join("binaries")
+                .join(&settings.local_acceleration)
+                .join("bin")
+                .join(exe_name);
+            if gpu_exe.exists() {
+                #[cfg(target_os = "windows")]
+                {
+                    if let Some(parent) = gpu_exe.parent() {
+                        let has_ort = parent.join("onnxruntime.dll").exists();
+                        let is_cuda_valid = if settings.local_acceleration == "cuda" {
+                            parent.join("cudart64_110.dll").exists() || parent.join("cublas64_11.dll").exists()
+                        } else {
+                            true
+                        };
+                        if has_ort && is_cuda_valid {
+                            return Ok(gpu_exe);
+                        }
+                    }
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    return Ok(gpu_exe);
+                }
+            }
+        }
+    }
+
+    find_cpu_sherpa_websocket_server(app_handle)
 }
 
 fn get_free_port() -> u16 {
@@ -875,7 +884,44 @@ pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Re
             cmd.creation_flags(0x08000000);
         }
 
-        let child = cmd.spawn().map_err(|e| format!("Failed to spawn Parakeet server: {}", e))?;
+        let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn Parakeet server: {}", e))?;
+
+        if resolved_provider != "cpu" {
+            std::thread::sleep(std::time::Duration::from_millis(600));
+            if let Ok(Some(exit_status)) = child.try_wait() {
+                eprintln!(
+                    "Aura Dev Log WARNING: GPU Parakeet server ({}) exited immediately ({:?}). Falling back to CPU mode...",
+                    resolved_provider, exit_status
+                );
+                if let Ok(cpu_server_path) = find_cpu_sherpa_websocket_server(app_handle) {
+                    let short_cpu_path = get_short_path(&cpu_server_path)?;
+                    let cpu_args = vec![
+                        format!("--encoder={}", short_encoder.to_string_lossy()),
+                        format!("--decoder={}", short_decoder.to_string_lossy()),
+                        format!("--joiner={}", short_joiner.to_string_lossy()),
+                        format!("--tokens={}", short_tokens.to_string_lossy()),
+                        format!("--port={}", port),
+                        "--feat-dim=128".to_string(),
+                        format!("--num-work-threads={}", n_threads),
+                        format!("--log-file={}", log_file_path.to_string_lossy()),
+                        "--provider=cpu".to_string(),
+                    ];
+                    let mut cpu_cmd = Command::new(&short_cpu_path);
+                    cpu_cmd.args(&cpu_args);
+                    #[cfg(target_os = "windows")]
+                    {
+                        use std::os::windows::process::CommandExt;
+                        cpu_cmd.creation_flags(0x08000000);
+                    }
+                    if let Ok(cpu_child) = cpu_cmd.spawn() {
+                        *server_guard = Some(cpu_child);
+                        eprintln!("Aura Dev Log: Successfully started Parakeet server using CPU fallback on port {}.", port);
+                        return Ok(());
+                    }
+                }
+            }
+        }
+
         *server_guard = Some(child);
         eprintln!("Aura Dev Log: Parakeet WebSocket server process spawned on port {}.", port);
     }

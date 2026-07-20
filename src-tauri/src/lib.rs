@@ -1830,6 +1830,10 @@ async fn download_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -
             .map_err(|e| format!("Failed to clean up nested directory: {}", e))?;
     }
 
+    if provider == "cuda" {
+        ensure_cuda_dlls(&gpu_dir.join("bin"), &app_handle);
+    }
+
     let _ = app_handle.emit(
         "gpu-download-progress",
         GpuDownloadProgress {
@@ -1842,6 +1846,63 @@ async fn download_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -
     );
 
     Ok(())
+}
+
+fn ensure_cuda_dlls(gpu_bin_dir: &std::path::Path, app_handle: &tauri::AppHandle) {
+    let check_dll = gpu_bin_dir.join("cudart64_110.dll");
+    if check_dll.exists() {
+        return;
+    }
+
+    let mut search_paths: Vec<std::path::PathBuf> = Vec::new();
+    #[cfg(debug_assertions)]
+    {
+        search_paths.push(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("binaries")
+                .join("cuda")
+                .join("sherpa-onnx-v1.13.4-win-x64-cuda")
+                .join("bin"),
+        );
+        search_paths.push(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("binaries")
+                .join("cuda")
+                .join("bin"),
+        );
+    }
+    if let Ok(resource_dir) = app_handle.path().resource_dir() {
+        search_paths.push(
+            resource_dir
+                .join("binaries")
+                .join("cuda")
+                .join("sherpa-onnx-v1.13.4-win-x64-cuda")
+                .join("bin"),
+        );
+        search_paths.push(resource_dir.join("binaries").join("cuda").join("bin"));
+    }
+
+    for source_dir in search_paths {
+        if source_dir.exists() && source_dir.join("cudart64_110.dll").exists() {
+            eprintln!("Aura Dev Log: Copying bundled CUDA DLLs from {:?} to {:?}", source_dir, gpu_bin_dir);
+            if let Ok(entries) = std::fs::read_dir(&source_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        let ext = path.extension().and_then(|s| s.to_str()).unwrap_or_default();
+                        if ext.eq_ignore_ascii_case("dll") {
+                            let file_name = path.file_name().unwrap();
+                            let dest = gpu_bin_dir.join(file_name);
+                            if !dest.exists() {
+                                let _ = std::fs::copy(&path, &dest);
+                            }
+                        }
+                    }
+                }
+            }
+            break;
+        }
+    }
 }
 
 #[cfg(test)]
