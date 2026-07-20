@@ -1701,11 +1701,32 @@ async fn delete_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -> 
     Ok(())
 }
 
+static ACTIVE_GPU_DOWNLOADS: std::sync::LazyLock<std::sync::Mutex<std::collections::HashSet<String>>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashSet::new()));
+
 #[tauri::command]
 async fn download_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -> Result<(), String> {
     if provider != "cuda" && provider != "directml" {
         return Err("Invalid provider".to_string());
     }
+
+    {
+        let mut active = ACTIVE_GPU_DOWNLOADS.lock().unwrap();
+        if active.contains(&provider) {
+            return Err("Download already in progress".to_string());
+        }
+        active.insert(provider.clone());
+    }
+
+    struct GpuDownloadGuard(String);
+    impl Drop for GpuDownloadGuard {
+        fn drop(&mut self) {
+            if let Ok(mut active) = ACTIVE_GPU_DOWNLOADS.lock() {
+                active.remove(&self.0);
+            }
+        }
+    }
+    let _guard = GpuDownloadGuard(provider.clone());
 
     let cancel_key = format!("gpu-{}", provider);
     whisper_runner::clear_cancel(&cancel_key);
