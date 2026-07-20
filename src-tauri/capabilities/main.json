@@ -25,6 +25,8 @@
     "allow-relaunch-app",
     "allow-minimize-window",
     "allow-close-window",
-    "allow-start-dragging-command"
+    "allow-start-dragging-command",
+    "allow-get-diagnostic-report",
+    "allow-log-frontend-event"
   ]
 }
