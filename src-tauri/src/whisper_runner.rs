@@ -787,14 +787,46 @@ fn pipe_child_output(child: &mut std::process::Child) {
     }
 }
 
+static RUNNING_PARAKEET_PROVIDER: std::sync::LazyLock<std::sync::Mutex<Option<String>>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(None));
+
 pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Result<(), String> {
     if let Some(state) = app_handle.try_state::<crate::AppState>() {
         let mut server_guard = state.parakeet_server.lock().unwrap();
+        let server_path = find_sherpa_websocket_server(app_handle)?;
+        let path_str = server_path.to_string_lossy().to_lowercase();
+        let target_provider = if path_str.contains("binaries\\cuda") || path_str.contains("binaries/cuda") {
+            "cuda"
+        } else if path_str.contains("binaries\\directml") || path_str.contains("binaries/directml") {
+            "directml"
+        } else {
+            "cpu"
+        };
+
+        let mut running_provider_guard = RUNNING_PARAKEET_PROVIDER.lock().unwrap();
+
         if server_guard.is_some() {
-            return Ok(());
+            if running_provider_guard.as_deref() == Some(target_provider) {
+                return Ok(());
+            } else {
+                crate::logger::log(
+                    "INFO",
+                    "Sidecar",
+                    None,
+                    &format!(
+                        "Restarting Parakeet server: provider changed from {:?} to '{}'",
+                        running_provider_guard.as_deref(),
+                        target_provider
+                    ),
+                );
+                if let Some(mut child) = server_guard.take() {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                }
+            }
         }
 
-        crate::logger::log("INFO", "Sidecar", None, "Starting Parakeet WebSocket server...");
+        crate::logger::log("INFO", "Sidecar", None, &format!("Starting Parakeet WebSocket server ({})", target_provider));
 
         #[cfg(target_os = "windows")]
         {
@@ -805,7 +837,6 @@ pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Re
                 .output();
         }
 
-        let server_path = find_sherpa_websocket_server(app_handle)?;
         let short_server_path = get_short_path(&server_path)?;
 
         let app_local_data = app_handle
@@ -883,20 +914,8 @@ pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Re
             format!("--log-file={}", log_file_path.to_string_lossy()),
         ];
 
-        let path_str = server_path.to_string_lossy().to_lowercase();
-        let resolved_provider = if path_str.contains("binaries\\cuda") || path_str.contains("binaries/cuda") {
-            "cuda"
-        } else if path_str.contains("binaries\\directml") || path_str.contains("binaries/directml") {
-            "directml"
-        } else {
-            "cpu"
-        };
+        let resolved_provider = target_provider;
         args.push(format!("--provider={}", resolved_provider));
-
-        // Note: We deliberately DO NOT pass --hotwords-file here.
-        // sherpa-onnx requires --decoding-method=modified_beam_search for hotwords,
-        // but the NeMo Parakeet transducer model ONLY supports greedy_search.
-        // Thus, hotwords are fundamentally incompatible with Parakeet in sherpa-onnx.
 
         let mut cmd = Command::new(&short_server_path);
         cmd.args(&args);
@@ -948,6 +967,7 @@ pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Re
                     }
                     if let Ok(mut cpu_child) = cpu_cmd.spawn() {
                         pipe_child_output(&mut cpu_child);
+                        *running_provider_guard = Some("cpu".to_string());
                         *server_guard = Some(cpu_child);
                         crate::logger::log(
                             "INFO",
@@ -961,6 +981,7 @@ pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Re
             }
         }
 
+        *running_provider_guard = Some(resolved_provider.to_string());
         *server_guard = Some(child);
         crate::logger::log(
             "INFO",
@@ -976,6 +997,9 @@ pub fn stop_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) {
     if let Some(state) = app_handle.try_state::<crate::AppState>() {
         let mut server_guard = state.parakeet_server.lock().unwrap();
         if let Some(mut child) = server_guard.take() {
+            if let Ok(mut running_provider_guard) = RUNNING_PARAKEET_PROVIDER.lock() {
+                *running_provider_guard = None;
+            }
             crate::logger::log("INFO", "Sidecar", None, "Stopping background Parakeet server...");
             let _ = child.kill();
             let _ = child.wait();
