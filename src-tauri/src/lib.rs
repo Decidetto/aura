@@ -8,6 +8,7 @@ pub mod settings;
 pub mod keyboard_simulator;
 pub mod history;
 pub mod vad;
+pub mod logger;
 
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
