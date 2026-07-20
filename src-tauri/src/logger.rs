@@ -196,7 +196,8 @@ pub fn generate_diagnostic_report<R: tauri::Runtime>(app_handle: &tauri::AppHand
         }
     }
 
-    let logs = get_recent_logs(50);
+    let raw_logs = get_recent_logs(50);
+    let logs = sanitize_logs_for_report(&raw_logs, settings.log_speech_text);
 
     Ok(format_diagnostic_report(
         &version,
@@ -218,6 +219,29 @@ pub fn generate_diagnostic_report<R: tauri::Runtime>(app_handle: &tauri::AppHand
         &whisper_models,
         &logs,
     ))
+}
+
+pub fn sanitize_logs_for_report(logs: &[String], log_speech_text: bool) -> Vec<String> {
+    if log_speech_text {
+        return logs.to_vec();
+    }
+
+    logs.iter()
+        .map(|line| {
+            if let Some(pos) = line.find("Final result: ") {
+                let prefix = &line[..pos + "Final result: ".len()];
+                let speech = &line[pos + "Final result: ".len()..];
+                if !speech.starts_with("[REDACTED:") {
+                    let redacted = anonymize_speech(speech, false);
+                    format!("{}{}", prefix, redacted)
+                } else {
+                    line.clone()
+                }
+            } else {
+                line.clone()
+            }
+        })
+        .collect()
 }
 
 pub fn format_diagnostic_report(
@@ -396,5 +420,21 @@ mod tests {
         assert!(report.contains("- **App Version**: 1.0.8"));
         assert!(report.contains("Test log line 1"));
         assert!(report.contains("Test log line 2"));
+    }
+
+    #[test]
+    fn test_sanitize_logs_for_report() {
+        let logs = vec![
+            "2026-07-20 00:58:11.597Z [INFO] [ASR] [#session-1] Final result: Hello world test speech".to_string(),
+            "2026-07-20 00:58:35.784Z [INFO] [ASR] [#session-2] Final result: [REDACTED: 3 words, 12 chars]".to_string(),
+        ];
+
+        let sanitized_off = sanitize_logs_for_report(&logs, false);
+        assert_eq!(sanitized_off[0], "2026-07-20 00:58:11.597Z [INFO] [ASR] [#session-1] Final result: [REDACTED: 4 words, 23 chars]");
+        assert_eq!(sanitized_off[1], "2026-07-20 00:58:35.784Z [INFO] [ASR] [#session-2] Final result: [REDACTED: 3 words, 12 chars]");
+
+        let sanitized_on = sanitize_logs_for_report(&logs, true);
+        assert_eq!(sanitized_on[0], logs[0]);
+        assert_eq!(sanitized_on[1], logs[1]);
     }
 }
