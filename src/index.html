@@ -100,6 +100,17 @@
               </select>
             </div>
           </div>
+
+          <div class="setting-card">
+            <div class="setting-info">
+              <div class="setting-title" data-i18n="diag_speech_text_title">Логирование текста речи</div>
+              <div class="setting-desc" data-i18n="diag_speech_text_desc">Сохранять точный текст распознанной речи в диагностические логи.</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-log-speech-text">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
         </section>
 
         <!-- 2. SPEECH PANEL -->
@@ -498,6 +509,7 @@
             <p class="about-description" data-i18n="about_description">
               Инструмент глобального голосового ввода для Windows. Программа переводит речь в текст и вставляет его в любое активное окно с автоматическим форматированием и расстановкой пунктуации.
             </p>
+            <button id="btn-copy-diagnostics" class="btn-secondary" data-i18n="btn_copy_diagnostics">Скопировать отчет диагностики</button>
           </div>
         </section>
       </main>
