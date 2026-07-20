@@ -1719,10 +1719,15 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     });
   }
 
+  const activeGpuDownloads = new Set();
+
   async function updateGpuCardStates() {
     const providers = ["cuda", "directml"];
     const dict = i18nDict[currentLanguage] || i18nDict.ru;
     for (const provider of providers) {
+      if (activeGpuDownloads.has(provider)) {
+        continue;
+      }
       const isDownloaded = await checkGpuInstalled(provider);
       const actionEl = document.getElementById(`action-gpu-${provider}`);
       const progressEl = document.getElementById(`progress-gpu-${provider}`);
@@ -1764,11 +1769,16 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
   }
 
   async function downloadGpuBinaries(provider) {
+    if (activeGpuDownloads.has(provider)) {
+      return;
+    }
+
     const actionEl = document.getElementById(`action-gpu-${provider}`);
     const progressEl = document.getElementById(`progress-gpu-${provider}`);
     const fillEl = document.getElementById(`fill-gpu-${provider}`);
     const percentEl = document.getElementById(`pct-gpu-${provider}`);
     
+    activeGpuDownloads.add(provider);
     if (actionEl) actionEl.style.display = "none";
     if (progressEl) {
       progressEl.style.display = "flex";
@@ -1794,7 +1804,6 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     try {
       showStatus(getTranslation("model_downloading_pattern", { model: provider.toUpperCase() }));
       await invoke("download_gpu_binaries", { provider });
-      await updateGpuCardStates();
     } catch (err) {
       console.error(err);
       const errStr = String(err).toLowerCase();
@@ -1803,6 +1812,8 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
       } else {
         showStatus(`${getTranslation("status_error")}${err}`, true);
       }
+    } finally {
+      activeGpuDownloads.delete(provider);
       await updateGpuCardStates();
     }
   }
