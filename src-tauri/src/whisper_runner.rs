@@ -144,9 +144,11 @@ pub fn find_sidecar<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Result<Path
     }
     if let Some(path) = existing.first() {
         #[cfg(target_os = "windows")]
-        eprintln!(
-            "Aura Dev Log WARNING: sidecar found at {:?} but whisper.dll/ggml.dll are missing next to it.",
-            path
+        crate::logger::log(
+            "WARN",
+            "Sidecar",
+            None,
+            &format!("sidecar found at {:?} but whisper.dll/ggml.dll are missing next to it.", path),
         );
         return Ok(path.clone());
     }
@@ -764,6 +766,27 @@ fn get_free_port() -> u16 {
         .unwrap_or(3033)
 }
 
+fn pipe_child_output(child: &mut std::process::Child) {
+    if let Some(stdout) = child.stdout.take() {
+        std::thread::spawn(move || {
+            use std::io::BufRead;
+            let reader = std::io::BufReader::new(stdout);
+            for line in reader.lines().flatten() {
+                crate::logger::log("INFO", "Sidecar", None, &line);
+            }
+        });
+    }
+    if let Some(stderr) = child.stderr.take() {
+        std::thread::spawn(move || {
+            use std::io::BufRead;
+            let reader = std::io::BufReader::new(stderr);
+            for line in reader.lines().flatten() {
+                crate::logger::log("WARN", "Sidecar", None, &line);
+            }
+        });
+    }
+}
+
 pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Result<(), String> {
     if let Some(state) = app_handle.try_state::<crate::AppState>() {
         let mut server_guard = state.parakeet_server.lock().unwrap();
@@ -771,7 +794,7 @@ pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Re
             return Ok(());
         }
 
-        eprintln!("Aura Dev Log: Starting Parakeet WebSocket server...");
+        crate::logger::log("INFO", "Sidecar", None, "Starting Parakeet WebSocket server...");
 
         #[cfg(target_os = "windows")]
         {
@@ -840,7 +863,7 @@ pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Re
             if !hotwords.is_empty() {
                 let content = hotwords.join("\n");
                 if let Err(e) = std::fs::write(&hotwords_path, content) {
-                    eprintln!("Aura Dev Log ERROR: Failed to write hotwords.txt: {}", e);
+                    crate::logger::log("ERROR", "Sidecar", None, &format!("Failed to write hotwords.txt: {}", e));
                 }
             } else {
                 let _ = std::fs::remove_file(&hotwords_path);
@@ -877,6 +900,8 @@ pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Re
 
         let mut cmd = Command::new(&short_server_path);
         cmd.args(&args);
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
 
         #[cfg(target_os = "windows")]
         {
@@ -885,13 +910,19 @@ pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Re
         }
 
         let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn Parakeet server: {}", e))?;
+        pipe_child_output(&mut child);
 
         if resolved_provider != "cpu" {
             std::thread::sleep(std::time::Duration::from_millis(600));
             if let Ok(Some(exit_status)) = child.try_wait() {
-                eprintln!(
-                    "Aura Dev Log WARNING: GPU Parakeet server ({}) exited immediately ({:?}). Falling back to CPU mode...",
-                    resolved_provider, exit_status
+                crate::logger::log(
+                    "WARN",
+                    "Sidecar",
+                    None,
+                    &format!(
+                        "GPU Parakeet server ({}) exited immediately ({:?}). Falling back to CPU mode...",
+                        resolved_provider, exit_status
+                    ),
                 );
                 if let Ok(cpu_server_path) = find_cpu_sherpa_websocket_server(app_handle) {
                     let short_cpu_path = get_short_path(&cpu_server_path)?;
@@ -908,14 +939,22 @@ pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Re
                     ];
                     let mut cpu_cmd = Command::new(&short_cpu_path);
                     cpu_cmd.args(&cpu_args);
+                    cpu_cmd.stdout(std::process::Stdio::piped());
+                    cpu_cmd.stderr(std::process::Stdio::piped());
                     #[cfg(target_os = "windows")]
                     {
                         use std::os::windows::process::CommandExt;
                         cpu_cmd.creation_flags(0x08000000);
                     }
-                    if let Ok(cpu_child) = cpu_cmd.spawn() {
+                    if let Ok(mut cpu_child) = cpu_cmd.spawn() {
+                        pipe_child_output(&mut cpu_child);
                         *server_guard = Some(cpu_child);
-                        eprintln!("Aura Dev Log: Successfully started Parakeet server using CPU fallback on port {}.", port);
+                        crate::logger::log(
+                            "INFO",
+                            "Sidecar",
+                            None,
+                            &format!("Successfully started Parakeet server using CPU fallback on port {}.", port),
+                        );
                         return Ok(());
                     }
                 }
@@ -923,7 +962,12 @@ pub fn start_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Re
         }
 
         *server_guard = Some(child);
-        eprintln!("Aura Dev Log: Parakeet WebSocket server process spawned on port {}.", port);
+        crate::logger::log(
+            "INFO",
+            "Sidecar",
+            None,
+            &format!("Parakeet WebSocket server process spawned on port {}.", port),
+        );
     }
     Ok(())
 }
@@ -932,7 +976,7 @@ pub fn stop_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) {
     if let Some(state) = app_handle.try_state::<crate::AppState>() {
         let mut server_guard = state.parakeet_server.lock().unwrap();
         if let Some(mut child) = server_guard.take() {
-            eprintln!("Aura Dev Log: Stopping background Parakeet server...");
+            crate::logger::log("INFO", "Sidecar", None, "Stopping background Parakeet server...");
             let _ = child.kill();
             let _ = child.wait();
         }
@@ -942,7 +986,7 @@ pub fn stop_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) {
 pub fn ensure_parakeet_server_state<R: Runtime>(app_handle: &tauri::AppHandle<R>, settings: &crate::settings::Settings) {
     if settings.transcription_mode == "local" && settings.local_engine == "parakeet" {
         if let Err(e) = start_parakeet_server(app_handle) {
-            eprintln!("Aura Dev Log ERROR: Failed to start Parakeet server: {}", e);
+            crate::logger::log("ERROR", "Sidecar", None, &format!("Failed to start Parakeet server: {}", e));
         }
     } else {
         stop_parakeet_server(app_handle);
@@ -1169,7 +1213,7 @@ pub async fn download_punctuation_model<R: Runtime>(app_handle: &tauri::AppHandl
     
     std::fs::create_dir_all(&punc_dir).map_err(|e| format!("Failed to create punctuation dir: {}", e))?;
     
-    eprintln!("Aura Dev Log: Downloading local punctuation model...");
+    crate::logger::log("INFO", "Punctuation", None, "Downloading local punctuation model...");
     let url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/punctuation-models/sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8.tar.bz2";
 
     // Stream the archive to disk instead of buffering the whole thing in RAM —
@@ -1275,7 +1319,7 @@ pub async fn download_punctuation_model<R: Runtime>(app_handle: &tauri::AppHandl
         let _ = std::fs::remove_dir_all(&ext_dir);
     }
     
-    eprintln!("Aura Dev Log: Punctuation model downloaded successfully.");
+    crate::logger::log("INFO", "Punctuation", None, "Punctuation model downloaded successfully.");
     Ok(())
 }
 
@@ -1285,10 +1329,15 @@ pub fn run_punctuation<R: Runtime>(app_handle: &tauri::AppHandle<R>, text: &str)
     // mode handles its own punctuation), so return the text as-is for safety.
     const MAX_CLI_CHARS: usize = 4_000;
     if text.chars().count() > MAX_CLI_CHARS {
-        eprintln!(
-            "Aura Dev Log: run_punctuation skipped — text too long ({} chars > {})",
-            text.chars().count(),
-            MAX_CLI_CHARS
+        crate::logger::log(
+            "WARN",
+            "Punctuation",
+            None,
+            &format!(
+                "run_punctuation skipped — text too long ({} chars > {})",
+                text.chars().count(),
+                MAX_CLI_CHARS
+            ),
         );
         return Ok(text.to_string());
     }
