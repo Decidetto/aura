@@ -503,7 +503,12 @@ const i18nDict = {
     fallback_checkbox: "Activar cambio automático al modelo local",
     copy_context_title: "Capturar texto seleccionado",
     copy_context_desc: "Al iniciar la grabación, Aura envía Ctrl+C para capturar el texto seleccionado como contexto. Desactívalo si dictas en terminales — allí Ctrl+C interrumpe procesos.",
-    copy_context_checkbox: "Capturar selección con Ctrl+C"
+    copy_context_checkbox: "Capturar selección con Ctrl+C",
+    btn_copy_diagnostics: "Copiar informe de diagnóstico",
+    toast_diagnostics_copied: "¡Informe de diagnóstico copiado al portapapeles!",
+    diag_speech_text_title: "Registrar texto de voz (Modo desarrollador)",
+    diag_speech_text_desc: "Incluir texto de voz transcrito exacto en los registros de diagnóstico. Desactivado por defecto por privacidad.",
+    diag_speech_text_checkbox: "Incluir texto de voz en los registros"
   },
   fr: {
     title_settings: "Paramètres",
@@ -1098,7 +1103,12 @@ const i18nDict = {
     fallback_checkbox: "Yerel modele otomatik geçişi etkinleştir",
     copy_context_title: "Seçili metni yakala",
     copy_context_desc: "Kayıt başladığında Aura, seçili metni AI bağlamı olarak yakalamak için Ctrl+C gönderir. Terminalde dikte ediyorsanız devre dışı bırakın — terminalde Ctrl+C işlemleri sonlandırır.",
-    copy_context_checkbox: "Ctrl+C ile seçimi yakala"
+    copy_context_checkbox: "Ctrl+C ile seçimi yakala",
+    btn_copy_diagnostics: "Teşhis Raporunu Kopyala",
+    toast_diagnostics_copied: "Teşhis raporu panoya kopyalandı!",
+    diag_speech_text_title: "Konuşma Metnini Günlüğe Kaydet (Geliştirici Modu)",
+    diag_speech_text_desc: "Teşhis günlüklerine tam transkribe edilmiş konuşma metnini dahil et. Gizlilik nedeniyle varsayılan olarak devre dışıdır.",
+    diag_speech_text_checkbox: "Konuşma metnini günlüklere dahil et"
   }
 };
 
