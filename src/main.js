@@ -1591,6 +1591,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   const modelCards = document.querySelectorAll(".model-card[data-model]");
 
+  // WAI-ARIA radio group: arrow keys move between cards within the same group
+  const arrowDirection = { ArrowUp: -1, ArrowLeft: -1, ArrowRight: 1, ArrowDown: 1 };
+
   modelCards.forEach(card => {
     card.addEventListener("click", (e) => {
       // Prevent selection trigger when clicking delete/download buttons inside the card
@@ -1601,10 +1604,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     card.addEventListener("keydown", (e) => {
+      // Inner buttons (delete/download/cancel) handle their own keys
+      if (e.target.closest("button")) {
+        return;
+      }
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         selectModelCard(card.dataset.model);
+        return;
       }
+      const direction = arrowDirection[e.key];
+      if (direction === undefined) {
+        return;
+      }
+      e.preventDefault();
+      const group = card.parentElement;
+      if (!group) {
+        return;
+      }
+      const groupCards = Array.from(group.querySelectorAll(".model-card[data-model]"));
+      const index = groupCards.indexOf(card);
+      if (index === -1) {
+        return;
+      }
+      const next = groupCards[(index + direction + groupCards.length) % groupCards.length];
+      next.focus();
+      selectModelCard(next.dataset.model);
     });
   });
 
@@ -2132,7 +2157,7 @@ cancelBtn.addEventListener("click", (e) => {
       }
     });
 
-    card.addEventListener("keydown", async (e) => {
+card.addEventListener("keydown", async (e) => {
       if (e.target.tagName === "BUTTON" || e.target.closest("button")) {
         return;
       }
@@ -2143,6 +2168,36 @@ cancelBtn.addEventListener("click", (e) => {
         if (installed) {
           selectGpuProvider(provider);
         }
+        return;
+      }
+      const direction = arrowDirection[e.key];
+      if (direction === undefined) {
+        return;
+      }
+      e.preventDefault();
+      const group = card.parentElement;
+      if (!group) {
+        return;
+      }
+      const groupCards = Array.from(group.querySelectorAll("[data-gpu]"));
+      const index = groupCards.indexOf(card);
+      if (index === -1) {
+        return;
+      }
+      let next = groupCards[(index + direction + groupCards.length) % groupCards.length];
+      // Skip disabled/hidden cards (e.g. DirectML)
+      while (next !== card && (next.hasAttribute("hidden") || next.getAttribute("aria-disabled") === "true")) {
+        const nextIndex = groupCards.indexOf(next);
+        next = groupCards[(nextIndex + direction + groupCards.length) % groupCards.length];
+      }
+      if (next === card) {
+        return;
+      }
+      next.focus();
+      const provider = next.getAttribute("data-gpu");
+      const installed = await checkGpuInstalled(provider);
+      if (installed) {
+        selectGpuProvider(provider);
       }
     });
   });
