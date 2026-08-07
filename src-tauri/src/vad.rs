@@ -143,31 +143,55 @@ impl StreamingVad {
     }
 }
 
+/// Chunk size matching the Silero model's accepted frame length for a sample
+/// rate. Using a size built into the detector avoids the 8 kHz/16 kHz mismatch.
+fn vad_chunk_size(sample_rate: i64) -> usize {
+    if sample_rate == 8000 {
+        VAD_CHUNK_SIZE / 2
+    } else {
+        VAD_CHUNK_SIZE
+    }
+}
+
+/// Runs the stateful detector over every full frame and also over a final
+/// incomplete frame, zero-padded to the model's chunk size exactly like the
+/// streaming path (`StreamingVad::finish_pending_has_speech`) does. Padding
+/// preserves the tail samples while keeping the frame length valid for `predict`.
+/// Returns `None` when the detector cannot be built.
+fn predict_vad_frames(samples: &[f32], sample_rate: i64) -> Option<Vec<bool>> {
+    let chunk_size = vad_chunk_size(sample_rate);
+    let mut detector = VoiceActivityDetector::builder()
+        .sample_rate(sample_rate)
+        .chunk_size(chunk_size)
+        .build()
+        .ok()?;
+
+    let mut results: Vec<bool> = Vec::with_capacity(samples.len().div_ceil(chunk_size));
+    for frame in samples.chunks_exact(chunk_size) {
+        results.push(detector.predict(frame.iter().copied()) > SPEECH_THRESHOLD);
+    }
+
+    let remainder = samples.len() % chunk_size;
+    if remainder != 0 {
+        let mut padded = vec![0.0_f32; chunk_size];
+        padded[..remainder].copy_from_slice(&samples[samples.len() - remainder..]);
+        results.push(detector.predict(padded.iter().copied()) > SPEECH_THRESHOLD);
+    }
+
+    Some(results)
+}
+
 /// Returns true if any 16 kHz mono frame in `samples` exceeds the speech probability threshold.
 pub fn has_speech(samples: &[f32], sample_rate: i64) -> bool {
-    let mut vad = match VoiceActivityDetector::builder()
-        .sample_rate(sample_rate)
-        .chunk_size(512usize)
-        .build()
-    {
-        Ok(v) => v,
-        Err(e) => {
+    match predict_vad_frames(samples, sample_rate) {
+        Some(speech) => speech.into_iter().any(|is_speech| is_speech),
+        None => {
             eprintln!(
-                "Aura Dev Log ERROR: Failed to build VAD in has_speech: {:?}",
-                e
+                "Aura Dev Log ERROR: Failed to build VAD in has_speech (sample_rate={sample_rate})"
             );
-            return true; // Fallback to true so we don't discard audio on error
-        }
-    };
-
-    let chunk_size = if sample_rate == 8000 { 256 } else { 512 };
-    for chunk in samples.chunks(chunk_size) {
-        let prob = vad.predict(chunk.iter().copied());
-        if prob > SPEECH_THRESHOLD {
-            return true;
+            true // Fallback to true so we don't discard audio on error
         }
     }
-    false
 }
 
 /// Returns samples with leading and trailing silence (non-speech) trimmed, preserving a small margin.
@@ -176,28 +200,18 @@ pub fn trim_silence(samples: &[f32], sample_rate: i64) -> Vec<f32> {
         return Vec::new();
     }
 
-    let mut vad = match VoiceActivityDetector::builder()
-        .sample_rate(sample_rate)
-        .chunk_size(512usize)
-        .build()
-    {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!(
-                "Aura Dev Log ERROR: Failed to build VAD in trim_silence: {:?}",
-                e
-            );
-            return samples.to_vec(); // Fallback to returning original samples on error
-        }
+    let chunk_size = vad_chunk_size(sample_rate);
+    let Some(frame_speech) = predict_vad_frames(samples, sample_rate) else {
+        eprintln!(
+            "Aura Dev Log ERROR: Failed to build VAD in trim_silence (sample_rate={sample_rate})"
+        );
+        return samples.to_vec(); // Fallback to returning original samples on error
     };
 
-    let chunk_size = if sample_rate == 8000 { 256 } else { 512 };
     let mut speech_indices = Vec::new();
-
-    for (i, chunk) in samples.chunks(chunk_size).enumerate() {
-        let prob = vad.predict(chunk.iter().copied());
-        if prob > SPEECH_THRESHOLD {
-            speech_indices.push(i);
+    for (index, is_speech) in frame_speech.into_iter().enumerate() {
+        if is_speech {
+            speech_indices.push(index);
         }
     }
 
@@ -343,5 +357,30 @@ mod tests {
 
         assert!(!vad.finish_pending_has_speech());
         assert!(!vad.finish_pending_has_speech());
+    }
+
+    #[test]
+    fn batch_vad_accepts_non_multiple_of_chunk_lengths() {
+        // One full frame + a partial trailing frame (537 = 512 + 25). The partial
+        // frame must be zero-padded and evaluated instead of predicting on a
+        // short slice, otherwise a valid tail could be dropped.
+        let mut samples = vec![0.0f32; 537];
+        assert!(!has_speech(&samples, 16000));
+        assert_eq!(trim_silence(&samples, 16000).len(), samples.len());
+
+        // Loud tail that ends mid-frame must survive trimming (B-6 regression).
+        samples[530..537].fill(0.9);
+        let trimmed = trim_silence(&samples, 16000);
+        assert_eq!(trimmed.len(), samples.len());
+        assert_eq!(&trimmed[530..537], &[0.9f32; 7]);
+    }
+
+    #[test]
+    fn batch_vad_uses_8k_compatible_chunks() {
+        // The 8 kHz path must use the matching 256-sample frame size; a partial
+        // trailing frame is zero-padded rather than handed to the model short.
+        let samples = vec![0.0f32; 256 * 4 + 100];
+        assert!(!has_speech(&samples, 8000));
+        assert_eq!(trim_silence(&samples, 8000).len(), samples.len());
     }
 }
