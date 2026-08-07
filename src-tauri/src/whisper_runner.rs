@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+﻿use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
@@ -302,19 +302,6 @@ pub fn find_sidecar<R: Runtime>(app_handle: &tauri::AppHandle<R>) -> Result<Path
     ))
 }
 
-struct DeleteOnDrop {
-    path: PathBuf,
-    active: bool,
-}
-
-impl Drop for DeleteOnDrop {
-    fn drop(&mut self) {
-        if self.active && self.path.exists() {
-            let _ = std::fs::remove_file(&self.path);
-        }
-    }
-}
-
 static ACTIVE_MODEL_DOWNLOADS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
 
 struct DownloadLease {
@@ -424,245 +411,64 @@ pub(crate) fn whisper_model_is_installed(model_name: &str, path: &Path) -> bool 
         .unwrap_or(false)
 }
 
-fn sha256_file(path: &Path) -> Result<String, String> {
-    use sha2::Digest;
-    use std::io::Read;
-
-    let mut file = std::fs::File::open(path)
-        .map_err(|e| format!("Failed to open '{}' for verification: {e}", path.display()))?;
-    let mut hasher = sha2::Sha256::new();
-    let mut buffer = vec![0u8; 1024 * 1024];
-    loop {
-        let read = file
-            .read(&mut buffer)
-            .map_err(|e| format!("Failed to verify '{}': {e}", path.display()))?;
-        if read == 0 {
-            break;
-        }
-        hasher.update(&buffer[..read]);
-    }
-    Ok(hasher
-        .finalize()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect())
-}
-
-async fn verify_artifact(path: &Path, spec: ArtifactSpec) -> Result<bool, String> {
-    let size = match tokio::fs::metadata(path).await {
-        Ok(metadata) => metadata.len(),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-        Err(error) => {
-            return Err(format!(
-                "Failed to inspect model '{}': {error}",
-                path.display()
-            ))
-        }
-    };
-    if size != spec.expected_size {
-        return Ok(false);
-    }
-    let verify_path = path.to_path_buf();
-    let digest = tauri::async_runtime::spawn_blocking(move || sha256_file(&verify_path))
-        .await
-        .map_err(|e| format!("Model verification worker failed: {e}"))??;
-    Ok(digest.eq_ignore_ascii_case(spec.sha256))
-}
-
-fn replace_downloaded_file(temp_path: &Path, destination: &Path) -> Result<(), String> {
-    let filename = destination
-        .file_name()
-        .and_then(|name| name.to_str())
-        .ok_or_else(|| "Downloaded model has an invalid filename".to_string())?;
-    let backup = destination.with_file_name(format!("{filename}.previous"));
-    if backup.exists() {
-        std::fs::remove_file(&backup).map_err(|e| {
-            format!(
-                "Failed to remove stale model backup '{}': {e}",
-                backup.display()
-            )
-        })?;
-    }
-
-    let had_previous = destination.exists();
-    if had_previous {
-        std::fs::rename(destination, &backup).map_err(|e| {
-            format!(
-                "Failed to stage previous model '{}': {e}",
-                destination.display()
-            )
-        })?;
-    }
-
-    if let Err(error) = std::fs::rename(temp_path, destination) {
-        if had_previous {
-            let _ = std::fs::rename(&backup, destination);
-        }
-        return Err(format!(
-            "Failed to install verified model '{}': {error}",
-            destination.display()
-        ));
-    }
-
-    if had_previous {
-        let _ = std::fs::remove_file(backup);
-    }
-    Ok(())
-}
-
-async fn replace_downloaded_file_async(
-    temp_path: PathBuf,
-    destination: PathBuf,
-) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || replace_downloaded_file(&temp_path, &destination))
-        .await
-        .map_err(|error| format!("Model installation worker failed: {error}"))?
-}
-
 /// Download a verified GGML model from a pinned repository revision.
+///
+/// The transfer is delegated to `artifact_download`, which resumes from a
+/// `.part` file across runs, enforces the exact pinned size and SHA-256, and
+/// honours cancellation requests for `model_name`.
 pub async fn download_model<R: Runtime>(
     app_handle: &tauri::AppHandle<R>,
     model_name: &str,
 ) -> Result<PathBuf, String> {
-    use sha2::Digest;
-    use tokio::io::AsyncWriteExt;
-
-    let spec = whisper_artifact(model_name)?;
+    let artifact = whisper_artifact(model_name)?;
     let app_local_data = app_handle
         .path()
         .app_local_data_dir()
         .map_err(|e| format!("Failed to get app local data dir: {e}"))?;
-    let models_dir = app_local_data.join("models");
-    tokio::fs::create_dir_all(&models_dir)
-        .await
-        .map_err(|e| format!("Failed to create models directory: {e}"))?;
-    let destination = models_dir.join(spec.filename);
-
-    if verify_artifact(&destination, spec).await? {
-        let _ = app_handle.emit(
-            "model-download-progress",
-            DownloadProgress {
-                model: model_name.to_string(),
-                downloaded: spec.expected_size,
-                total: Some(spec.expected_size),
-                percentage: 100.0,
-                done: true,
-            },
-        );
-        return Ok(destination);
-    }
+    let destination = app_local_data.join("models").join(artifact.filename);
 
     let _lease = begin_model_download(model_name)?;
     clear_cancel(model_name);
 
     let client = crate::ai_client::build_download_client();
-    let mut response = client
-        .get(spec.url)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to download model: {e}"))?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "Failed to download model: HTTP status {}",
-            response.status()
-        ));
-    }
-    if let Some(length) = response.content_length() {
-        if length != spec.expected_size {
-            return Err(format!(
-                "Model server returned an unexpected size: {length} bytes (expected {})",
-                spec.expected_size
-            ));
-        }
-    }
-
-    let temp_path = models_dir.join(format!("{}.tmp", spec.filename));
-    match tokio::fs::remove_file(&temp_path).await {
-        Ok(()) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => return Err(format!("Failed to remove stale temp model: {error}")),
-    }
-    let mut delete_guard = DeleteOnDrop {
-        path: temp_path.clone(),
-        active: true,
+    let spec = crate::artifact_download::ArtifactSpec {
+        label: artifact.filename,
+        url: artifact.url,
+        expected_size: artifact.expected_size,
+        sha256: artifact.sha256,
     };
-    let mut file = tokio::fs::File::create(&temp_path)
-        .await
-        .map_err(|e| format!("Failed to create temp model: {e}"))?;
-    let mut downloaded = 0u64;
-    let mut hasher = sha2::Sha256::new();
-
-    while let Some(chunk) =
-        tokio::time::timeout(std::time::Duration::from_secs(30), response.chunk())
-            .await
-            .map_err(|_| "Model download timed out".to_string())?
-            .map_err(|e| format!("Error while downloading model: {e}"))?
-    {
-        if is_cancel_requested(model_name) {
-            clear_cancel(model_name);
-            return Err("Download cancelled".to_string());
-        }
-        downloaded = downloaded.saturating_add(chunk.len() as u64);
-        if downloaded > spec.expected_size {
-            return Err("Model download exceeded its verified size".to_string());
-        }
-        hasher.update(&chunk);
-        file.write_all(&chunk)
-            .await
-            .map_err(|e| format!("Failed to write model chunk: {e}"))?;
-        let _ = app_handle.emit(
-            "model-download-progress",
-            DownloadProgress {
-                model: model_name.to_string(),
-                downloaded,
-                total: Some(spec.expected_size),
-                percentage: downloaded as f64 / spec.expected_size as f64 * 100.0,
-                done: false,
-            },
-        );
-    }
-
-    file.flush()
-        .await
-        .map_err(|e| format!("Failed to flush temp model: {e}"))?;
-    file.sync_all()
-        .await
-        .map_err(|e| format!("Failed to sync temp model: {e}"))?;
-    drop(file);
-
-    if downloaded != spec.expected_size {
-        return Err(format!(
-            "Incomplete model download: {downloaded} of {} bytes",
-            spec.expected_size
-        ));
-    }
-    let digest: String = hasher
-        .finalize()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect();
-    if !digest.eq_ignore_ascii_case(spec.sha256) {
-        return Err(format!(
-            "SHA-256 verification failed for '{}'",
-            spec.filename
-        ));
-    }
-
-    replace_downloaded_file_async(temp_path.clone(), destination.clone()).await?;
-    delete_guard.active = false;
-    clear_cancel(model_name);
+    let outcome = crate::artifact_download::download_verified_artifact(
+        &client,
+        spec,
+        &destination,
+        crate::artifact_download::DEFAULT_STALL_TIMEOUT,
+        || is_cancel_requested(model_name),
+        |progress| {
+            let _ = app_handle.emit(
+                "model-download-progress",
+                DownloadProgress {
+                    model: model_name.to_string(),
+                    downloaded: progress.downloaded,
+                    total: Some(spec.expected_size),
+                    percentage: progress.downloaded as f64 / progress.total as f64 * 100.0,
+                    done: false,
+                },
+            );
+        },
+    )
+    .await?;
 
     let _ = app_handle.emit(
         "model-download-progress",
         DownloadProgress {
             model: model_name.to_string(),
-            downloaded,
+            downloaded: spec.expected_size,
             total: Some(spec.expected_size),
             percentage: 100.0,
             done: true,
         },
     );
-    Ok(destination)
+    Ok(outcome.path)
 }
 /// Run transcription using the local Whisper sidecar binary and return the result.
 /// `language` accepts "ru"/"en" to force a language; anything else auto-detects.
@@ -918,164 +724,53 @@ pub(crate) fn parakeet_model_is_installed(directory: &Path) -> bool {
 pub async fn download_parakeet_model<R: Runtime>(
     app_handle: &tauri::AppHandle<R>,
 ) -> Result<PathBuf, String> {
-    use sha2::Digest;
-    use tokio::io::AsyncWriteExt;
-
     let app_local_data = app_handle
         .path()
         .app_local_data_dir()
         .map_err(|e| format!("Failed to get app local data dir: {e}"))?;
     let parakeet_dir = app_local_data.join("models").join("parakeet-v3");
-    tokio::fs::create_dir_all(&parakeet_dir)
-        .await
-        .map_err(|e| format!("Failed to create parakeet directory: {e}"))?;
+
+    let _lease = begin_model_download("parakeet-v3")?;
+    clear_cancel("parakeet-v3");
 
     let total_size: u64 = PARAKEET_ARTIFACTS
         .iter()
         .map(|spec| spec.expected_size)
         .sum();
-    let mut all_valid = true;
-    for spec in PARAKEET_ARTIFACTS {
-        if !verify_artifact(&parakeet_dir.join(spec.filename), spec).await? {
-            all_valid = false;
-            break;
-        }
-    }
-    if all_valid {
-        let _ = app_handle.emit(
-            "model-download-progress",
-            DownloadProgress {
-                model: "parakeet-v3".to_string(),
-                downloaded: total_size,
-                total: Some(total_size),
-                percentage: 100.0,
-                done: true,
-            },
-        );
-        return Ok(parakeet_dir);
-    }
-
-    let _lease = begin_model_download("parakeet-v3")?;
-    clear_cancel("parakeet-v3");
     let client = crate::ai_client::build_download_client();
-    let mut total_downloaded = 0u64;
+    let mut downloaded = 0u64;
 
     for spec in PARAKEET_ARTIFACTS {
-        let destination = parakeet_dir.join(spec.filename);
-        if verify_artifact(&destination, spec).await? {
-            total_downloaded += spec.expected_size;
-            continue;
-        }
-
-        let mut response = client
-            .get(spec.url)
-            .send()
-            .await
-            .map_err(|e| format!("Failed to download '{}': {e}", spec.filename))?;
-        if !response.status().is_success() {
-            return Err(format!(
-                "Failed to download '{}': HTTP {}",
-                spec.filename,
-                response.status()
-            ));
-        }
-        if let Some(length) = response.content_length() {
-            if length != spec.expected_size {
-                return Err(format!(
-                    "Unexpected size for '{}': {length} bytes (expected {})",
-                    spec.filename, spec.expected_size
-                ));
-            }
-        }
-
-        let temp_path = parakeet_dir.join(format!("{}.tmp", spec.filename));
-        match tokio::fs::remove_file(&temp_path).await {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => {
-                return Err(format!(
-                    "Failed to remove stale temp file '{}': {error}",
-                    temp_path.display()
-                ))
-            }
-        }
-        let mut delete_guard = DeleteOnDrop {
-            path: temp_path.clone(),
-            active: true,
+        let artifact = crate::artifact_download::ArtifactSpec {
+            label: spec.filename,
+            url: spec.url,
+            expected_size: spec.expected_size,
+            sha256: spec.sha256,
         };
-        let mut file = tokio::fs::File::create(&temp_path)
-            .await
-            .map_err(|e| format!("Failed to create temp file '{}': {e}", spec.filename))?;
-        let mut file_downloaded = 0u64;
-        let mut hasher = sha2::Sha256::new();
-
-        while let Some(chunk) =
-            tokio::time::timeout(std::time::Duration::from_secs(30), response.chunk())
-                .await
-                .map_err(|_| format!("Download of '{}' timed out", spec.filename))?
-                .map_err(|e| format!("Error while downloading '{}': {e}", spec.filename))?
-        {
-            if is_cancel_requested("parakeet-v3") {
-                clear_cancel("parakeet-v3");
-                return Err("Download cancelled".to_string());
-            }
-            file_downloaded = file_downloaded.saturating_add(chunk.len() as u64);
-            if file_downloaded > spec.expected_size {
-                return Err(format!(
-                    "Download of '{}' exceeded its verified size",
-                    spec.filename
-                ));
-            }
-            hasher.update(&chunk);
-            file.write_all(&chunk)
-                .await
-                .map_err(|e| format!("Failed to write '{}': {e}", spec.filename))?;
-
-            let downloaded = total_downloaded + file_downloaded;
-            let _ = app_handle.emit(
-                "model-download-progress",
-                DownloadProgress {
-                    model: "parakeet-v3".to_string(),
-                    downloaded,
-                    total: Some(total_size),
-                    percentage: downloaded as f64 / total_size as f64 * 100.0,
-                    done: false,
-                },
-            );
-        }
-
-        file.flush()
-            .await
-            .map_err(|e| format!("Failed to flush '{}': {e}", spec.filename))?;
-        file.sync_all()
-            .await
-            .map_err(|e| format!("Failed to sync '{}': {e}", spec.filename))?;
-        drop(file);
-
-        if file_downloaded != spec.expected_size {
-            return Err(format!(
-                "Incomplete '{}': {file_downloaded} of {} bytes",
-                spec.filename, spec.expected_size
-            ));
-        }
-        let digest: String = hasher
-            .finalize()
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect();
-        if !digest.eq_ignore_ascii_case(spec.sha256) {
-            return Err(format!(
-                "SHA-256 verification failed for '{}'",
-                spec.filename
-            ));
-        }
-
-        replace_downloaded_file_async(temp_path.clone(), destination.clone()).await?;
-        delete_guard.active = false;
-        total_downloaded += file_downloaded;
+        crate::artifact_download::download_verified_artifact(
+            &client,
+            artifact,
+            &parakeet_dir.join(spec.filename),
+            crate::artifact_download::DEFAULT_STALL_TIMEOUT,
+            || is_cancel_requested("parakeet-v3"),
+            |progress| {
+                let file_downloaded = downloaded + progress.downloaded;
+                let _ = app_handle.emit(
+                    "model-download-progress",
+                    DownloadProgress {
+                        model: "parakeet-v3".to_string(),
+                        downloaded: file_downloaded,
+                        total: Some(total_size),
+                        percentage: file_downloaded as f64 / total_size as f64 * 100.0,
+                        done: false,
+                    },
+                );
+            },
+        )
+        .await?;
+        downloaded += artifact.expected_size;
     }
 
-    clear_cancel("parakeet-v3");
     let _ = app_handle.emit(
         "model-download-progress",
         DownloadProgress {
@@ -2405,6 +2100,7 @@ pub async fn download_punctuation_model<R: Runtime>(
         return Ok(());
     }
     let _lease = begin_model_download("punctuation")?;
+    clear_cancel("punctuation");
     tokio::fs::create_dir_all(&models_dir)
         .await
         .map_err(|e| format!("Failed to create models directory: {e}"))?;
@@ -2459,7 +2155,7 @@ pub async fn download_punctuation_model<R: Runtime>(
         let Some(chunk) = chunk else {
             break;
         };
-        if is_cancel_requested("parakeet-v3") {
+        if is_cancel_requested("punctuation") {
             return Err("Punctuation download cancelled".to_string());
         }
         downloaded = downloaded
