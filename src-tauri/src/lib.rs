@@ -60,6 +60,7 @@ struct AppState {
     parakeet_server: Mutex<Option<whisper_runner::RunningParakeetServer>>,
     parakeet_port: std::sync::atomic::AtomicU16,
     parakeet_streaming: Mutex<Option<ParakeetStreamingSession>>,
+    parakeet_watchdog: Mutex<Option<whisper_runner::ParakeetWatchdog>>,
 }
 
 #[tauri::command]
@@ -3450,6 +3451,7 @@ pub fn run() {
                 parakeet_server: Mutex::new(None),
                 parakeet_port: std::sync::atomic::AtomicU16::new(3033),
                 parakeet_streaming: Mutex::new(None),
+                parakeet_watchdog: Mutex::new(None),
             });
 
             // Start Parakeet only when the validated startup snapshot selects it.
@@ -4586,6 +4588,7 @@ mod tests {
             parakeet_server: Mutex::new(None),
             parakeet_port: std::sync::atomic::AtomicU16::new(3033),
             parakeet_streaming: Mutex::new(None),
+            parakeet_watchdog: Mutex::new(None),
         }
     }
 
