@@ -567,15 +567,65 @@ fn diff_and_type_with<D>(
     dispatch: D,
 ) -> Result<keyboard_simulator::ReplacementDispatchMetrics, String>
 where
-    D: FnOnce(usize, &str) -> Result<keyboard_simulator::ReplacementDispatchMetrics, String>,
+    D: FnOnce(
+        usize,
+        &str,
+    ) -> Result<
+        keyboard_simulator::ReplacementDispatchMetrics,
+        keyboard_simulator::TextReplacementError,
+    >,
 {
     let plan = plan_text_replacement(typed_so_far, new_text, is_live);
     let retained_chars = typed_so_far.chars().count().saturating_sub(plan.backspaces);
     let mut applied_text: String = typed_so_far.chars().take(retained_chars).collect();
     applied_text.push_str(&plan.suffix);
-    let metrics = dispatch(plan.backspaces, &plan.suffix)?;
-    *typed_so_far = applied_text;
-    Ok(metrics)
+    match dispatch(plan.backspaces, &plan.suffix) {
+        Ok(metrics) => {
+            *typed_so_far = applied_text;
+            Ok(metrics)
+        }
+        Err(error) => {
+            // Even an interrupted dispatch leaves part (or all) of the planned
+            // change in the document. Commit a mirror of exactly what landed so
+            // a later Esc cancel backspaces the true visible text instead of a
+            // stale pre-update prefix, which would leave a partial tail behind.
+            commit_partial_replacement(typed_so_far, &plan.suffix, &error);
+            Err(error.message)
+        }
+    }
+}
+
+/// Mirrors into `typed_so_far` the portion of a planned replacement that a
+/// dispatch actually committed before being interrupted. Backspaces map
+/// one-to-one onto chars; committed UTF-16 units are converted back to the
+/// longest matching char prefix of the planned suffix.
+fn commit_partial_replacement(
+    typed_so_far: &mut String,
+    planned_suffix: &str,
+    error: &keyboard_simulator::TextReplacementError,
+) {
+    if error.backspaces_committed == 0 && error.utf16_units_committed == 0 {
+        return;
+    }
+    let current_chars = typed_so_far.chars().count();
+    let backspaces_applied = error.backspaces_committed.min(current_chars);
+    let retained: String = typed_so_far
+        .chars()
+        .take(current_chars - backspaces_applied)
+        .collect();
+    let mut consumed_units = 0usize;
+    let mut landed_suffix = String::new();
+    for ch in planned_suffix.chars() {
+        let units = ch.len_utf16();
+        if consumed_units + units > error.utf16_units_committed {
+            break;
+        }
+        consumed_units += units;
+        landed_suffix.push(ch);
+    }
+    typed_so_far.clear();
+    typed_so_far.push_str(&retained);
+    typed_so_far.push_str(&landed_suffix);
 }
 
 fn diff_and_type<F>(
@@ -2302,6 +2352,16 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
     };
     let state = state.inner();
 
+    // A new generation invalidates every task left over from previous
+    // sessions. It must advance *before* `is_recording` flips to true: an old
+    // async finalize that polls the flags must never observe a recording that
+    // is already claimed but whose generation has not yet advanced (that
+    // window would let a stale task inject itself into the fresh session).
+    let gen = state.session_gen.fetch_add(1, Ordering::SeqCst) + 1;
+    let session_tag = crate::logger::format_session_tag(gen);
+    state.live_target_desynced.store(false, Ordering::Release);
+    state.live_target_monitoring.store(false, Ordering::Release);
+
     if state
         .is_recording
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -2315,12 +2375,6 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
         );
         return;
     }
-
-    // A new generation invalidates every task left over from previous sessions
-    let gen = state.session_gen.fetch_add(1, Ordering::SeqCst) + 1;
-    let session_tag = crate::logger::format_session_tag(gen);
-    state.live_target_desynced.store(false, Ordering::Release);
-    state.live_target_monitoring.store(false, Ordering::Release);
     match state.parakeet_streaming.lock() {
         Ok(mut slot) => {
             if let Some(previous) = slot.take() {
@@ -4232,7 +4286,13 @@ mod tests {
             &mut mirrored,
             "чистовой текст",
             false,
-            |_backspaces, _suffix| Err("simulated SendInput failure".to_string()),
+            |_backspaces, _suffix| {
+                Err(keyboard_simulator::TextReplacementError {
+                    message: "simulated SendInput failure".to_string(),
+                    backspaces_committed: 0,
+                    utf16_units_committed: 0,
+                })
+            },
         );
 
         assert!(failure.is_err());
@@ -4256,6 +4316,52 @@ mod tests {
 
         assert_eq!(metrics.backspaces, 13);
         assert_eq!(mirrored, "чистовой текст");
+    }
+
+    #[test]
+    fn interrupted_suffix_dispatch_commits_exact_partial_mirror() {
+        let mut mirrored = "hello world".to_string();
+
+        let failure = diff_and_type_with(
+            &mut mirrored,
+            "hello world extra words",
+            false,
+            |_backspaces, suffix| {
+                // Simulate an Esc/mid-dispatch interruption after only the first
+                // four characters of the suffix landed.
+                let landed: String = suffix.chars().take(4).collect();
+                Err(keyboard_simulator::TextReplacementError {
+                    message: "interrupted for test".to_string(),
+                    backspaces_committed: 0,
+                    utf16_units_committed: landed.encode_utf16().count(),
+                })
+            },
+        );
+
+        assert!(failure.is_err());
+        assert_eq!(mirrored, "hello world ext");
+    }
+
+    #[test]
+    fn interrupted_backspace_phase_commits_truncated_mirror() {
+        let mut typed = "abcdefgh".to_string();
+
+        let failure = diff_and_type_with(
+            &mut typed,
+            "abxyz",
+            false,
+            |_backspaces, suffix| {
+                assert_eq!(suffix, "xyz");
+                Err(keyboard_simulator::TextReplacementError {
+                    message: "interrupted during delete".to_string(),
+                    backspaces_committed: 4,
+                    utf16_units_committed: 0,
+                })
+            },
+        );
+
+        assert!(failure.is_err());
+        assert_eq!(typed, "abcd");
     }
 
     #[test]
