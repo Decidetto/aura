@@ -8,6 +8,25 @@ pub struct ReplacementDispatchMetrics {
     pub batches: usize,
 }
 
+/// Describes a keyboard replacement that was interrupted or failed before it
+/// completed. The committed counters tell the caller exactly how much of the
+/// planned change physically landed in the target document, so a `typed_so_far`
+/// mirror can be kept accurate and an Esc cancel erases the true visible text.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TextReplacementError {
+    pub message: String,
+    pub backspaces_committed: usize,
+    pub utf16_units_committed: usize,
+}
+
+impl std::fmt::Display for TextReplacementError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for TextReplacementError {}
+
 fn replacement_batch_count(units: usize) -> usize {
     units.div_ceil(REPLACEMENT_BATCH_UNITS)
 }
@@ -32,8 +51,8 @@ fn partial_keyup_recovery_index(inserted: u32, expected: u32) -> Option<usize> {
 #[cfg(target_os = "windows")]
 mod windows_impl {
     use super::{
-        partial_keyup_recovery_index, replacement_dispatch_metrics, ReplacementDispatchMetrics,
-        REPLACEMENT_BATCH_PAUSE_MS, REPLACEMENT_BATCH_UNITS,
+        partial_keyup_recovery_index, replacement_dispatch_metrics, TextReplacementError,
+        ReplacementDispatchMetrics, REPLACEMENT_BATCH_PAUSE_MS, REPLACEMENT_BATCH_UNITS,
     };
     use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
         GetAsyncKeyState, SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
@@ -62,7 +81,7 @@ mod windows_impl {
         ));
     }
 
-    fn send_input_batch(inputs: &mut [INPUT], label: &str) -> Result<(), String> {
+    fn send_input_batch(inputs: &mut [INPUT], label: &str) -> Result<(), (usize, String)> {
         if inputs.is_empty() {
             return Ok(());
         }
@@ -94,13 +113,16 @@ mod windows_impl {
                 } else {
                     ""
                 };
-            Err(format!(
-                "SendInput accepted {inserted}/{expected} events while dispatching {label}{recovery}"
+            Err((
+                inserted as usize,
+                format!(
+                    "SendInput accepted {inserted}/{expected} events while dispatching {label}{recovery}"
+                ),
             ))
         }
     }
 
-    fn dispatch_backspace_batches<F>(count: usize, should_stop: &F) -> Result<usize, String>
+    fn dispatch_backspace_batches<F>(count: usize, should_stop: &F) -> Result<usize, (usize, String)>
     where
         F: Fn() -> bool,
     {
@@ -108,14 +130,24 @@ mod windows_impl {
         let mut batches = 0usize;
         while dispatched < count {
             if should_stop() {
-                return Err("keyboard replacement interrupted before Backspace batch".to_string());
+                return Err((
+                    dispatched,
+                    "keyboard replacement interrupted before Backspace batch".to_string(),
+                ));
             }
             let units = (count - dispatched).min(REPLACEMENT_BATCH_UNITS);
             let mut inputs = Vec::with_capacity(units * 2);
             for _ in 0..units {
                 append_key_pair(&mut inputs, 0x08, 0, 0);
             }
-            send_input_batch(&mut inputs, "Backspace batch")?;
+            match send_input_batch(&mut inputs, "Backspace batch") {
+                Err((inserted, message)) => {
+                    // Each Backspace is a keydown/keyup pair (2 events); only
+                    // whole pairs that were accepted count as committed.
+                    return Err((dispatched + inserted / 2, message));
+                }
+                Ok(()) => {}
+            }
             dispatched += units;
             batches += 1;
             if dispatched < count {
@@ -125,7 +157,7 @@ mod windows_impl {
         Ok(batches)
     }
 
-    fn dispatch_unicode_batches<F>(units: &[u16], should_stop: &F) -> Result<usize, String>
+    fn dispatch_unicode_batches<F>(units: &[u16], should_stop: &F) -> Result<usize, (usize, String)>
     where
         F: Fn() -> bool,
     {
@@ -133,14 +165,24 @@ mod windows_impl {
         let mut batches = 0usize;
         while dispatched < units.len() {
             if should_stop() {
-                return Err("keyboard replacement interrupted before Unicode batch".to_string());
+                return Err((
+                    dispatched,
+                    "keyboard replacement interrupted before Unicode batch".to_string(),
+                ));
             }
             let end = (dispatched + REPLACEMENT_BATCH_UNITS).min(units.len());
             let mut inputs = Vec::with_capacity((end - dispatched) * 2);
             for &unit in &units[dispatched..end] {
                 append_key_pair(&mut inputs, 0, unit, KEYEVENTF_UNICODE);
             }
-            send_input_batch(&mut inputs, "Unicode batch")?;
+            match send_input_batch(&mut inputs, "Unicode batch") {
+                Err((inserted, message)) => {
+                    // Each character is a keydown/keyup pair (2 events); only
+                    // whole pairs accepted count as committed UTF-16 units.
+                    return Err((dispatched + inserted / 2, message));
+                }
+                Ok(()) => {}
+            }
             dispatched = end;
             batches += 1;
             if dispatched < units.len() {
@@ -448,7 +490,7 @@ mod windows_impl {
         backspace_count: usize,
         new_text: &str,
         should_stop: F,
-    ) -> Result<ReplacementDispatchMetrics, String>
+    ) -> Result<ReplacementDispatchMetrics, TextReplacementError>
     where
         F: Fn() -> bool,
     {
@@ -460,16 +502,29 @@ mod windows_impl {
         let released = release_modifiers();
         let utf16_units: Vec<u16> = new_text.encode_utf16().collect();
         let dispatch_result = (|| {
-            let backspace_batches = dispatch_backspace_batches(backspace_count, &should_stop)?;
+            let backspace_batches = dispatch_backspace_batches(backspace_count, &should_stop)
+                .map_err(|(committed, message)| TextReplacementError {
+                    message,
+                    backspaces_committed: committed,
+                    utf16_units_committed: 0,
+                })?;
             if backspace_count > 0 && !utf16_units.is_empty() {
                 if should_stop() {
-                    return Err(
-                        "keyboard replacement interrupted between delete and insert".to_string()
-                    );
+                    return Err(TextReplacementError {
+                        message:
+                            "keyboard replacement interrupted between delete and insert".to_string(),
+                        backspaces_committed: backspace_count,
+                        utf16_units_committed: 0,
+                    });
                 }
                 std::thread::sleep(std::time::Duration::from_millis(REPLACEMENT_BATCH_PAUSE_MS));
             }
-            let unicode_batches = dispatch_unicode_batches(&utf16_units, &should_stop)?;
+            let unicode_batches = dispatch_unicode_batches(&utf16_units, &should_stop)
+                .map_err(|(committed, message)| TextReplacementError {
+                    message,
+                    backspaces_committed: backspace_count,
+                    utf16_units_committed: committed,
+                })?;
             debug_assert_eq!(metrics.batches, backspace_batches + unicode_batches);
             Ok(metrics)
         })();
@@ -483,7 +538,7 @@ mod windows_impl {
 // ============================================================================
 #[cfg(target_os = "macos")]
 mod macos_impl {
-    use super::{replacement_dispatch_metrics, ReplacementDispatchMetrics};
+    use super::{replacement_dispatch_metrics, TextReplacementError, ReplacementDispatchMetrics};
     use objc::{msg_send, sel, sel_impl};
     use std::ffi::c_void;
 
@@ -742,24 +797,36 @@ mod macos_impl {
         backspace_count: usize,
         new_text: &str,
         should_stop: F,
-    ) -> Result<ReplacementDispatchMetrics, String>
+    ) -> Result<ReplacementDispatchMetrics, TextReplacementError>
     where
         F: Fn() -> bool,
     {
         let Some(source) = create_event_source() else {
-            return Err("Failed to create macOS event source".to_string());
+            return Err(TextReplacementError {
+                message: "Failed to create macOS event source".to_string(),
+                backspaces_committed: 0,
+                utf16_units_committed: 0,
+            });
         };
         let mut metrics = replacement_dispatch_metrics(backspace_count, new_text);
         metrics.batches = backspace_count.saturating_add(new_text.chars().count());
 
         for index in 0..backspace_count {
             if should_stop() {
-                return Err("keyboard replacement interrupted before Backspace event".to_string());
+                return Err(TextReplacementError {
+                    message: "keyboard replacement interrupted before Backspace event".to_string(),
+                    backspaces_committed: index,
+                    utf16_units_committed: 0,
+                });
             }
             if !post_keyboard_event(&source, 51, true, 0, None)
                 || !post_keyboard_event(&source, 51, false, 0, None)
             {
-                return Err("Failed to create macOS Backspace event".to_string());
+                return Err(TextReplacementError {
+                    message: "Failed to create macOS Backspace event".to_string(),
+                    backspaces_committed: index,
+                    utf16_units_committed: 0,
+                });
             }
             let delay = if (index + 1) % 10 == 0 { 15 } else { 3 };
             std::thread::sleep(std::time::Duration::from_millis(delay));
@@ -767,14 +834,32 @@ mod macos_impl {
 
         for (index, ch) in new_text.chars().enumerate() {
             if should_stop() {
-                return Err("keyboard replacement interrupted before Unicode event".to_string());
+                let utf16_units_committed = new_text
+                    .chars()
+                    .take(index)
+                    .map(|c| c.len_utf16())
+                    .sum();
+                return Err(TextReplacementError {
+                    message: "keyboard replacement interrupted before Unicode event".to_string(),
+                    backspaces_committed: backspace_count,
+                    utf16_units_committed,
+                });
             }
             let mut buffer = [0; 2];
             let utf16 = ch.encode_utf16(&mut buffer);
             if !post_keyboard_event(&source, 0, true, 0, Some(utf16))
                 || !post_keyboard_event(&source, 0, false, 0, Some(utf16))
             {
-                return Err("Failed to create macOS Unicode event".to_string());
+                let utf16_units_committed = new_text
+                    .chars()
+                    .take(index)
+                    .map(|c| c.len_utf16())
+                    .sum();
+                return Err(TextReplacementError {
+                    message: "Failed to create macOS Unicode event".to_string(),
+                    backspaces_committed: backspace_count,
+                    utf16_units_committed,
+                });
             }
             let delay = if (index + 1) % 15 == 0 { 10 } else { 1 };
             std::thread::sleep(std::time::Duration::from_millis(delay));
