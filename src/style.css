@@ -545,6 +545,14 @@ body {
   background-color: var(--accent-hover);
 }
 
+.btn-primary:disabled {
+  background-color: hsl(0, 0%, 18%);
+  color: hsl(0, 0%, 45%);
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
 .btn-primary.downloaded {
   background-color: hsl(0, 0%, 8%);
   border: 1px solid var(--border-color);
