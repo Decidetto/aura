@@ -378,7 +378,8 @@ fn stale_session_never_restores_clipboard_after_overlap() {
 ### Т5.3 Финальный прогон
 - `cargo test` — ✅ (105/105);
 - `node tests/frontend-static.test.mjs` — ✅ (10/10);
-- сборка установщика и ручная проверка диктовки (cloud + local + Parakeet) —
+- `cargo build --release` — ✅ (aura-app.exe 37,5 МБ);
+- сборка NSIS‑установщика и ручная проверка диктовки (cloud + local + Parakeet) —
   ⏳ на пользователе.
 
 ---
