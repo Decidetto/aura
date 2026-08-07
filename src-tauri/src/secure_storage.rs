@@ -246,10 +246,50 @@ fn replace_file(source: &Path, destination: &Path) -> Result<(), String> {
 
 #[cfg(target_os = "windows")]
 pub fn protect_for_current_user(plaintext: &[u8]) -> Result<Vec<u8>, String> {
+    protect_with_entropy(plaintext, DPAPI_ENTROPY)
+}
+
+#[cfg(target_os = "windows")]
+pub fn unprotect_for_current_user(ciphertext: &[u8]) -> Result<Vec<u8>, String> {
+    unprotect_with_entropy(ciphertext, DPAPI_ENTROPY)
+}
+
+/// Optional app-level DPAPI entropy.
+///
+/// Trade-off (documented per Т3.5):
+/// - With entropy: a copied `*.dpapi` blob cannot be decrypted by other
+///   DPAPI-capable tooling of the same user, only by a process that knows this
+///   constant.
+/// - The constant ships inside the executable, so it never protects against
+///   malware that can read the binary — which is exactly the attacker that can
+///   also steal the blob. It only guards against offline tools decrypting the
+///   file on the same account.
+/// - The cost of enabling it: any loss of the constant (rebuild, key change)
+///   permanently orphans every stored secret.
+///
+/// Disabled by default: Windows-user DPAPI already binds each blob to the
+/// account, and the marginal offline-tool protection is not worth the
+/// orphaning risk. Flip to `Some(b"aura-dpapi-entropy-v1")` only if that
+/// trade-off is explicitly accepted.
+#[cfg(target_os = "windows")]
+const DPAPI_ENTROPY: Option<&[u8]> = None;
+
+#[cfg(target_os = "windows")]
+fn protect_with_entropy(plaintext: &[u8], entropy: Option<&[u8]>) -> Result<Vec<u8>, String> {
     use windows_sys::Win32::Foundation::LocalFree;
     use windows_sys::Win32::Security::Cryptography::{
         CryptProtectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,
     };
+
+    let entropy_blob = entropy.map(|bytes| CRYPT_INTEGER_BLOB {
+        // Entropy comes from a compile-time constant, so the u32 length cast
+        // cannot overflow in practice.
+        cbData: bytes.len() as u32,
+        pbData: bytes.as_ptr() as *mut u8,
+    });
+    let entropy_ptr = entropy_blob
+        .as_ref()
+        .map_or(std::ptr::null(), |blob| blob as *const CRYPT_INTEGER_BLOB);
 
     let input = CRYPT_INTEGER_BLOB {
         cbData: plaintext
@@ -266,7 +306,7 @@ pub fn protect_for_current_user(plaintext: &[u8]) -> Result<Vec<u8>, String> {
         CryptProtectData(
             &input,
             std::ptr::null(),
-            std::ptr::null(),
+            entropy_ptr,
             std::ptr::null(),
             std::ptr::null(),
             CRYPTPROTECT_UI_FORBIDDEN,
@@ -288,11 +328,21 @@ pub fn protect_for_current_user(plaintext: &[u8]) -> Result<Vec<u8>, String> {
 }
 
 #[cfg(target_os = "windows")]
-pub fn unprotect_for_current_user(ciphertext: &[u8]) -> Result<Vec<u8>, String> {
+fn unprotect_with_entropy(ciphertext: &[u8], entropy: Option<&[u8]>) -> Result<Vec<u8>, String> {
     use windows_sys::Win32::Foundation::LocalFree;
     use windows_sys::Win32::Security::Cryptography::{
         CryptUnprotectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,
     };
+
+    let entropy_blob = entropy.map(|bytes| CRYPT_INTEGER_BLOB {
+        // Entropy comes from a compile-time constant, so the u32 length cast
+        // cannot overflow in practice.
+        cbData: bytes.len() as u32,
+        pbData: bytes.as_ptr() as *mut u8,
+    });
+    let entropy_ptr = entropy_blob
+        .as_ref()
+        .map_or(std::ptr::null(), |blob| blob as *const CRYPT_INTEGER_BLOB);
 
     let input = CRYPT_INTEGER_BLOB {
         cbData: ciphertext
@@ -309,7 +359,7 @@ pub fn unprotect_for_current_user(ciphertext: &[u8]) -> Result<Vec<u8>, String> 
         CryptUnprotectData(
             &input,
             std::ptr::null_mut(),
-            std::ptr::null(),
+            entropy_ptr,
             std::ptr::null(),
             std::ptr::null(),
             CRYPTPROTECT_UI_FORBIDDEN,
@@ -386,6 +436,24 @@ mod tests {
         assert_eq!(
             unprotect_for_current_user(&ciphertext).expect("DPAPI decryption should work"),
             plaintext
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn dpapi_entropy_blob_round_trips_and_must_match() {
+        const ENTROPY: &[u8] = b"aura-test-dpapi-entropy";
+        let plaintext = b"aura-entropy-secret";
+        let ciphertext = protect_with_entropy(plaintext, Some(ENTROPY))
+            .expect("DPAPI encryption with entropy should work");
+        assert_eq!(
+            unprotect_with_entropy(&ciphertext, Some(ENTROPY))
+                .expect("DPAPI decryption with the same entropy should work"),
+            plaintext
+        );
+        assert!(
+            unprotect_with_entropy(&ciphertext, Some(b"wrong-entropy")).is_err(),
+            "decrypting with mismatched entropy must fail"
         );
     }
 
