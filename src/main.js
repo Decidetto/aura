@@ -1,3 +1,5 @@
+import { bindTabKeyboardNavigation } from "./ui-accessibility.js";
+
 // Retrieve Tauri APIs from window.__TAURI__
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -78,7 +80,7 @@ const i18nDict = {
     history_desc: "Последние надиктованные фразы хранятся локально.",
     history_empty: "История пуста. Ваши надиктованные тексты будут отображаться здесь.",
     about_app_title: "Голосовой ввод Aura",
-    about_version: "v1.0.8",
+    about_version: "v1.0.9",
     about_description: "Инструмент глобального голосового ввода для Windows. Программа переводит речь в текст и вставляет его в любое активное окно с автоматическим форматированием и расстановкой пунктуации.",
     status_ready: "Готово",
     btn_save: "Сохранить настройки",
@@ -111,6 +113,18 @@ const i18nDict = {
     confirm_clear_history_msg: "Вы действительно хотите очистить всю историю транскрипций?",
     general_ui_lang_title: "Язык интерфейса",
     general_ui_lang_desc: "Выберите язык для отображения настроек и уведомлений приложения.",
+    update_checks_title: "Проверка обновлений",
+    update_checks_desc: "Aura обращается к GitHub только при ручной проверке или если вы включили автоматическую проверку.",
+    update_checks_checkbox: "Автоматически проверять обновления при запуске",
+    update_check_now: "Проверить обновления",
+    model_integrity_desc: "Перед установкой Aura проверяет источник, ожидаемый размер и SHA-256 каждого файла модели.",
+    cloud_data_desc: "Облачному провайдеру передаются аудио и транскрипт, а при включённых функциях — выделенный текст и пользовательский словарь. Локальный режим эти данные не отправляет.",
+    update_current: "Установлена актуальная версия Aura.",
+    update_available_pattern: "Доступна Aura v{version}.",
+    update_check_error_pattern: "Не удалось проверить обновления: {error}",
+    update_installing: "Скачивание, проверка подписи и установка обновления...",
+    update_installed_restarting: "Обновление установлено. Перезапуск...",
+    update_install_error_open_release: "Не удалось установить обновление. Открываю страницу релиза...",
     hotkey_reset_title: "Сбросить на Alt+V",
     local_engine_label: "Движок распознавания",
     local_engine_whisper: "Whisper.cpp (на базе OpenAI Whisper)",
@@ -120,15 +134,15 @@ const i18nDict = {
     fallback_title: "Автопереключение при недоступности облака",
     fallback_desc: "Если облачный ИИ недоступен (VPN, блокировка региона, нет сети), автоматически использовать уже скачанную локальную модель для этой записи.",
     fallback_checkbox: "Включить автопереключение на локальную модель",
-    copy_context_title: "Захват выделенного текста",
-    copy_context_desc: "При старте записи Aura отправляет Ctrl+C, чтобы захватить выделенный текст как контекст для AI. Отключите, если работаете в терминале — там Ctrl+C прерывает процесс.",
-    copy_context_checkbox: "Захватывать выделение через Ctrl+C",
+    copy_context_title: "Редактирование выделенного текста",
+    copy_context_desc: "Если включено, Aura отправляет Ctrl+C и передаёт выделенный текст выбранному облачному провайдеру как контекст для команды редактирования. Отключите эту функцию при работе в терминале.",
+    copy_context_checkbox: "Разрешить захват и облачное редактирование выделения",
     gpu_accel_label: "Локальное аппаратное ускорение",
-    gpu_accel_cpu_title: "CPU (Без ускорения)",
-    gpu_accel_cpu_desc: "Стандартный режим. Безопасен, но нагружает процессор.",
-    gpu_accel_cuda_title: "NVIDIA CUDA (Макс. скорость)",
-    gpu_accel_cuda_desc: "Для видеокарт GeForce RTX/GTX. Использование тензорных ядер.",
-    gpu_accel_dml_title: "DirectML (Универсальный)",
+    gpu_accel_cpu_title: "CPU (без ускорения)",
+    gpu_accel_cpu_desc: "Стандартный режим. Надёжен, но нагружает процессор.",
+    gpu_accel_cuda_title: "NVIDIA CUDA (максимальная скорость)",
+    gpu_accel_cuda_desc: "Для видеокарт GeForce RTX/GTX. Использует тензорные ядра.",
+    gpu_accel_dml_title: "DirectML (универсальный)",
     gpu_accel_dml_desc: "Для видеокарт AMD, Intel и NVIDIA. Базовое ускорение.",
     btn_copy_diagnostics: "Скопировать отчет диагностики",
     toast_diagnostics_copied: "Отчет диагностики скопирован в буфер обмена!",
@@ -169,7 +183,7 @@ const i18nDict = {
     vocab_desc: "Add specific terms, names, or jargon separated by commas to improve recognition.",
     vocab_placeholder: "e.g. Aura, commit, repository...",
     local_model_title: "Local Recognition",
-    local_model_desc: "Configure a local speech-to-text engine for absolute privacy.",
+    local_model_desc: "Configure a local speech-to-text engine for complete privacy.",
     local_model_label: "Model Size",
     model_meta_tiny: "~75 MB — superfast",
     model_meta_base: "~145 MB — recommended",
@@ -205,7 +219,7 @@ const i18nDict = {
     history_desc: "Your latest transcribed phrases are cached locally.",
     history_empty: "History is empty. Dictated text fragments will appear here.",
     about_app_title: "Aura Voice Input",
-    about_version: "v1.0.8",
+    about_version: "v1.0.9",
     about_description: "Global voice input tool for Windows. The program transcribes speech to text and inserts it into any active window with automatic formatting and punctuation.",
     status_ready: "Ready",
     btn_save: "Save Settings",
@@ -238,24 +252,36 @@ const i18nDict = {
     confirm_clear_history_msg: "Are you sure you want to clear all transcription history?",
     general_ui_lang_title: "Interface Language",
     general_ui_lang_desc: "Select the language for settings and application notifications.",
+    update_checks_title: "Update checks",
+    update_checks_desc: "Aura contacts GitHub only when you check manually or enable automatic checks.",
+    update_checks_checkbox: "Check for updates automatically at startup",
+    update_check_now: "Check for updates",
+    model_integrity_desc: "Before installation, Aura verifies the source, expected size, and SHA-256 of every model file.",
+    cloud_data_desc: "The selected cloud provider receives audio and the transcript and, when the related features are enabled, selected text and the custom dictionary. Local mode does not send this data.",
+    update_current: "Aura is up to date.",
+    update_available_pattern: "Aura v{version} is available.",
+    update_check_error_pattern: "Could not check for updates: {error}",
+    update_installing: "Downloading, verifying the signature, and installing the update...",
+    update_installed_restarting: "Update installed. Restarting...",
+    update_install_error_open_release: "Could not install the update. Opening the release page...",
     hotkey_reset_title: "Reset to Alt+V",
     local_engine_label: "ASR Engine",
     local_engine_whisper: "Whisper.cpp (OpenAI Whisper)",
     local_engine_parakeet: "NVIDIA Parakeet (via sherpa-onnx)",
     parakeet_model_label: "Parakeet Model",
     model_meta_parakeet: "~670 MB — optimized by NVIDIA",
-    fallback_title: "Cloud Fallback",
+    fallback_title: "Automatic fallback when cloud is unavailable",
     fallback_desc: "If cloud AI is unavailable (VPN, region block, no network), automatically use the already downloaded local model for this recording.",
     fallback_checkbox: "Enable automatic fallback to local model",
-    copy_context_title: "Capture Selected Text",
-    copy_context_desc: "When recording starts, Aura sends Ctrl+C to capture selected text as AI context. Disable this if you dictate into terminals — Ctrl+C kills processes there.",
-    copy_context_checkbox: "Capture selection via Ctrl+C",
-    gpu_accel_label: "Local Hardware Acceleration",
-    gpu_accel_cpu_title: "CPU (No Acceleration)",
-    gpu_accel_cpu_desc: "Standard mode. Safe, but loads the CPU.",
-    gpu_accel_cuda_title: "NVIDIA CUDA (Max Speed)",
+    copy_context_title: "Edit selected text",
+    copy_context_desc: "When enabled, Aura sends Ctrl+C and passes the selected text to the chosen cloud provider as context for an editing command. Disable this feature when working in a terminal.",
+    copy_context_checkbox: "Allow selection capture and cloud editing",
+    gpu_accel_label: "Local hardware acceleration",
+    gpu_accel_cpu_title: "CPU (no acceleration)",
+    gpu_accel_cpu_desc: "Standard mode. Reliable, but uses more CPU.",
+    gpu_accel_cuda_title: "NVIDIA CUDA (maximum speed)",
     gpu_accel_cuda_desc: "For GeForce RTX/GTX GPUs. Uses Tensor Cores.",
-    gpu_accel_dml_title: "DirectML (Universal)",
+    gpu_accel_dml_title: "DirectML (universal)",
     gpu_accel_dml_desc: "For AMD, Intel, and NVIDIA GPUs. Basic acceleration.",
     btn_copy_diagnostics: "Copy Diagnostic Report",
     toast_diagnostics_copied: "Diagnostic report copied to clipboard!",
@@ -265,12 +291,12 @@ const i18nDict = {
   },
   de: {
     gpu_accel_label: "Lokale Hardware-Beschleunigung",
-    gpu_accel_cpu_title: "CPU (Keine Beschleunigung)",
-    gpu_accel_cpu_desc: "Standardmodus. Sicher, aber beansprucht die CPU.",
-    gpu_accel_cuda_title: "NVIDIA CUDA (Max. Geschwindigkeit)",
-    gpu_accel_cuda_desc: "Für GeForce RTX/GTX Grafikkarten. Nutzt Tensor Cores.",
-    gpu_accel_dml_title: "DirectML (Universell)",
-    gpu_accel_dml_desc: "Für AMD, Intel und NVIDIA Grafikkarten. Einfache Beschleunigung.",
+    gpu_accel_cpu_title: "CPU (keine Beschleunigung)",
+    gpu_accel_cpu_desc: "Standardmodus. Zuverlässig, beansprucht aber die CPU.",
+    gpu_accel_cuda_title: "NVIDIA CUDA (maximale Geschwindigkeit)",
+    gpu_accel_cuda_desc: "Für GeForce RTX/GTX-Grafikkarten. Nutzt Tensor Cores.",
+    gpu_accel_dml_title: "DirectML (universell)",
+    gpu_accel_dml_desc: "Für AMD-, Intel- und NVIDIA-Grafikkarten. Basisbeschleunigung.",
     title_settings: "Einstellungen",
     tab_general: "Allgemein",
     tab_speech: "Diktat",
@@ -303,7 +329,7 @@ const i18nDict = {
     vocab_desc: "Tragen Sie Begriffe, Namen oder Fachbegriffe durch Komma getrennt ein, um die Erkennung zu verbessern.",
     vocab_placeholder: "z.B. Aura, Commit, Repository...",
     local_model_title: "Lokales Whisper-Modell",
-    local_model_desc: "Laden Sie ein Modell für den Offline-Betrieb herunter. Größere Modelle sind genauer, benötigen jedoch mehr Speicher.",
+    local_model_desc: "Konfigurieren Sie eine lokale Spracherkennungs-Engine für vollständige Privatsphäre.",
     local_model_label: "Modellgröße",
     model_meta_tiny: "~75 MB — superschnell",
     model_meta_base: "~145 MB — empfohlen",
@@ -336,7 +362,7 @@ const i18nDict = {
     history_desc: "Die letzten aufgezeichneten Sätze werden lokal gespeichert.",
     history_empty: "Der Verlauf ist leer. Transkribierte Texte werden hier angezeigt.",
     about_app_title: "Aura Spracheingabe",
-    about_version: "v1.0.8",
+    about_version: "v1.0.9",
     about_description: "Globales Spracheingabe-Tool für Windows. Die Anwendung überträgt Sprache in Text und fügt ihn mit automatischer Formatierung und Zeichensetzung in jedes aktive Fenster ein.",
     status_ready: "Bereit",
     btn_save: "Einstellungen speichern",
@@ -369,6 +395,18 @@ const i18nDict = {
     confirm_clear_history_msg: "Möchten Sie den gesamten Transkriptionsverlauf wirklich löschen?",
     general_ui_lang_title: "Sprache der Benutzeroberfläche",
     general_ui_lang_desc: "Wählen Sie die Sprache für Einstellungen und Benachrichtigungen.",
+    update_checks_title: "Update-Prüfung",
+    update_checks_desc: "Aura kontaktiert GitHub nur bei einer manuellen Prüfung oder wenn Sie automatische Prüfungen aktivieren.",
+    update_checks_checkbox: "Beim Start automatisch nach Updates suchen",
+    update_check_now: "Nach Updates suchen",
+    model_integrity_desc: "Vor der Installation prüft Aura Quelle, erwartete Größe und SHA-256 jeder Modelldatei.",
+    cloud_data_desc: "Der ausgewählte Cloud-Anbieter erhält Audio und Transkript sowie, wenn die entsprechenden Funktionen aktiviert sind, ausgewählten Text und das Benutzerwörterbuch. Im lokalen Modus werden diese Daten nicht gesendet.",
+    update_current: "Aura ist auf dem neuesten Stand.",
+    update_available_pattern: "Aura v{version} ist verfügbar.",
+    update_check_error_pattern: "Updates konnten nicht geprüft werden: {error}",
+    update_installing: "Update wird heruntergeladen, die Signatur geprüft und die Installation ausgeführt...",
+    update_installed_restarting: "Update installiert. Neustart...",
+    update_install_error_open_release: "Update konnte nicht installiert werden. Die Release-Seite wird geöffnet...",
     hotkey_reset_title: "Auf Alt+V zurücksetzen",
     local_engine_label: "Erkennungsmodul",
     local_engine_whisper: "Whisper.cpp (OpenAI Whisper)",
@@ -378,12 +416,12 @@ const i18nDict = {
     model_cancel_download: "Download abbrechen",
     model_download_cancelled: "Download abgebrochen",
     update_available: "Update verfügbar",
-    fallback_title: "Cloud-Fallback",
+    fallback_title: "Automatischer Wechsel bei nicht verfügbarer Cloud",
     fallback_desc: "Wenn die Cloud-KI nicht erreichbar ist (VPN, Regionssperre, kein Netzwerk), automatisch das bereits heruntergeladene lokale Modell für diese Aufnahme verwenden.",
     fallback_checkbox: "Automatischen Fallback auf lokales Modell aktivieren",
-    copy_context_title: "Auswahl erfassen",
-    copy_context_desc: "Beim Starten der Aufnahme sendet Aura Strg+C, um ausgewählten Text als KI-Kontext zu erfassen. Deaktivieren, wenn Sie in Terminals diktieren — dort beendet Strg+C Prozesse.",
-    copy_context_checkbox: "Auswahl per Strg+C erfassen",
+    copy_context_title: "Ausgewählten Text bearbeiten",
+    copy_context_desc: "Wenn aktiviert, sendet Aura Strg+C und übermittelt den ausgewählten Text als Kontext für einen Bearbeitungsbefehl an den gewählten Cloud-Anbieter. Deaktivieren Sie diese Funktion bei der Arbeit im Terminal.",
+    copy_context_checkbox: "Erfassen der Auswahl und Cloud-Bearbeitung zulassen",
     btn_copy_diagnostics: "Diagnosebericht kopieren",
     toast_diagnostics_copied: "Diagnosebericht in Zwischenablage kopiert!",
     diag_speech_text_title: "Sprachtext protokollieren (Entwicklermodus)",
@@ -423,7 +461,7 @@ const i18nDict = {
     vocab_desc: "Añada términos específicos, nombres o siglas separados por comas para mejorar el dictado.",
     vocab_placeholder: "ej. Aura, commit, repositorio...",
     local_model_title: "Modelo Whisper local",
-    local_model_desc: "Descargue un modelo para usar sin conexión. Los modelos grandes son más precisos pero usan más memoria.",
+    local_model_desc: "Configure un motor local de reconocimiento de voz para mantener la privacidad.",
     local_model_label: "Tamaño del modelo",
     model_meta_tiny: "~75 MB — superrápido",
     model_meta_base: "~145 MB — recomendado",
@@ -456,7 +494,7 @@ const i18nDict = {
     history_desc: "Las últimas frases dictadas se guardan de forma local.",
     history_empty: "El historial está vacío. Los textos dictados se mostrarán aquí.",
     about_app_title: "Dictado por voz Aura",
-    about_version: "v1.0.8",
+    about_version: "v1.0.9",
     about_description: "Herramienta de entrada de voz global para Windows. El programa transcribe el habla en texto y lo inserta en cualquier ventana activa con formato y puntuación automáticos.",
     status_ready: "Listo",
     btn_save: "Guardar ajustes",
@@ -489,6 +527,25 @@ const i18nDict = {
     confirm_clear_history_msg: "¿Está seguro de que desea limpiar todo el historial de transcripciones?",
     general_ui_lang_title: "Idioma de la interfaz",
     general_ui_lang_desc: "Seleccione el idioma para los ajustes y las notificaciones.",
+    update_checks_title: "Comprobación de actualizaciones",
+    update_checks_desc: "Aura se conecta a GitHub solo al comprobar manualmente o al activar las comprobaciones automáticas.",
+    update_checks_checkbox: "Buscar actualizaciones automáticamente al iniciar",
+    update_check_now: "Buscar actualizaciones",
+    model_integrity_desc: "Antes de instalar, Aura verifica el origen, el tamaño esperado y el SHA-256 de cada archivo del modelo.",
+    cloud_data_desc: "El proveedor en la nube seleccionado recibe el audio y la transcripción y, cuando se activan las funciones correspondientes, el texto seleccionado y el diccionario personalizado. El modo local no envía estos datos.",
+    update_current: "Aura está actualizada.",
+    update_available_pattern: "Aura v{version} está disponible.",
+    update_check_error_pattern: "No se pudieron buscar actualizaciones: {error}",
+    update_installing: "Descargando, verificando la firma e instalando la actualización...",
+    update_installed_restarting: "Actualización instalada. Reiniciando...",
+    update_install_error_open_release: "No se pudo instalar la actualización. Abriendo la página de la versión...",
+    gpu_accel_label: "Aceleración de hardware local",
+    gpu_accel_cpu_title: "CPU (sin aceleración)",
+    gpu_accel_cpu_desc: "Modo estándar. Es fiable, pero aumenta la carga del procesador.",
+    gpu_accel_cuda_title: "NVIDIA CUDA (velocidad máxima)",
+    gpu_accel_cuda_desc: "Para GPU GeForce RTX/GTX. Utiliza Tensor Cores.",
+    gpu_accel_dml_title: "DirectML (universal)",
+    gpu_accel_dml_desc: "Para GPU AMD, Intel y NVIDIA. Aceleración básica.",
     hotkey_reset_title: "Restablecer a Alt+V",
     local_engine_label: "Motor de reconocimiento",
     local_engine_whisper: "Whisper.cpp (OpenAI Whisper)",
@@ -498,12 +555,12 @@ const i18nDict = {
     model_cancel_download: "Cancelar descarga",
     model_download_cancelled: "Descarga cancelada",
     update_available: "Actualización disponible",
-    fallback_title: "Alternativa en la nube",
+    fallback_title: "Cambio automático si la nube no está disponible",
     fallback_desc: "Si la IA en la nube no está disponible (VPN, bloqueo regional, sin red), usar automáticamente el modelo local ya descargado para esta grabación.",
     fallback_checkbox: "Activar cambio automático al modelo local",
-    copy_context_title: "Capturar texto seleccionado",
-    copy_context_desc: "Al iniciar la grabación, Aura envía Ctrl+C para capturar el texto seleccionado como contexto. Desactívalo si dictas en terminales — allí Ctrl+C interrumpe procesos.",
-    copy_context_checkbox: "Capturar selección con Ctrl+C",
+    copy_context_title: "Editar texto seleccionado",
+    copy_context_desc: "Cuando está activado, Aura envía Ctrl+C y pasa el texto seleccionado al proveedor en la nube elegido como contexto para una orden de edición. Desactive esta función al trabajar en una terminal.",
+    copy_context_checkbox: "Permitir captura de selección y edición en la nube",
     btn_copy_diagnostics: "Copiar informe de diagnóstico",
     toast_diagnostics_copied: "¡Informe de diagnóstico copiado al portapapeles!",
     diag_speech_text_title: "Registrar texto de voz (Modo desarrollador)",
@@ -543,7 +600,7 @@ const i18nDict = {
     vocab_desc: "Ajoutez des termes spécifiques, noms propres ou sigles séparés par des virgules pour améliorer la dictée.",
     vocab_placeholder: "ex. Aura, commit, dépôt...",
     local_model_title: "Modèle Whisper local",
-    local_model_desc: "Téléchargez un modèle pour une utilisation hors ligne. Les modèles volumineux sont plus précis mais consomment plus de mémoire.",
+    local_model_desc: "Configurez un moteur local de reconnaissance vocale pour préserver entièrement votre confidentialité.",
     local_model_label: "Taille du modèle",
     model_meta_tiny: "~75 Mo — super rapide",
     model_meta_base: "~145 Mo — recommandé",
@@ -576,7 +633,7 @@ const i18nDict = {
     history_desc: "Les dernières phrases dictées sont enregistrées localement.",
     history_empty: "Historique vide. Vos textes transcrits s'afficheront ici.",
     about_app_title: "Dictée vocale Aura",
-    about_version: "v1.0.8",
+    about_version: "v1.0.9",
     about_description: "Outil de saisie vocale globale pour Windows. Le programme transcrit la parole en texte et l'insère dans n'importe quelle fenêtre active avec un formatage et une ponctuation automatiques.",
     status_ready: "Prêt",
     btn_save: "Enregistrer",
@@ -609,6 +666,25 @@ const i18nDict = {
     confirm_clear_history_msg: "Voulez-vous vraiment effacer tout l'historique des transcriptions ?",
     general_ui_lang_title: "Langue de l'interface",
     general_ui_lang_desc: "Sélectionnez la langue pour les paramètres et les notifications de l'application.",
+    update_checks_title: "Recherche de mises à jour",
+    update_checks_desc: "Aura contacte GitHub uniquement lors d’une vérification manuelle ou si vous activez les vérifications automatiques.",
+    update_checks_checkbox: "Rechercher automatiquement les mises à jour au démarrage",
+    update_check_now: "Rechercher les mises à jour",
+    model_integrity_desc: "Avant l’installation, Aura vérifie la source, la taille attendue et le SHA-256 de chaque fichier du modèle.",
+    cloud_data_desc: "Le fournisseur cloud sélectionné reçoit l’audio et la transcription ainsi que, lorsque les fonctions concernées sont activées, le texte sélectionné et le dictionnaire personnalisé. Le mode local n’envoie pas ces données.",
+    update_current: "Aura est à jour.",
+    update_available_pattern: "Aura v{version} est disponible.",
+    update_check_error_pattern: "Impossible de rechercher les mises à jour : {error}",
+    update_installing: "Téléchargement, vérification de la signature et installation de la mise à jour…",
+    update_installed_restarting: "Mise à jour installée. Redémarrage…",
+    update_install_error_open_release: "Impossible d’installer la mise à jour. Ouverture de la page de la version…",
+    gpu_accel_label: "Accélération matérielle locale",
+    gpu_accel_cpu_title: "CPU (sans accélération)",
+    gpu_accel_cpu_desc: "Mode standard. Fiable, mais sollicite le processeur.",
+    gpu_accel_cuda_title: "NVIDIA CUDA (vitesse maximale)",
+    gpu_accel_cuda_desc: "Pour les GPU GeForce RTX/GTX. Utilise les Tensor Cores.",
+    gpu_accel_dml_title: "DirectML (universel)",
+    gpu_accel_dml_desc: "Pour les GPU AMD, Intel et NVIDIA. Accélération de base.",
     hotkey_reset_title: "Réinitialiser à Alt+V",
     local_engine_label: "Moteur de reconnaissance",
     local_engine_whisper: "Whisper.cpp (OpenAI Whisper)",
@@ -618,12 +694,12 @@ const i18nDict = {
     model_cancel_download: "Annuler le téléchargement",
     model_download_cancelled: "Téléchargement annulé",
     update_available: "Mise à jour disponible",
-    fallback_title: "Basculement cloud",
+    fallback_title: "Basculement automatique si le cloud est indisponible",
     fallback_desc: "Si l'IA cloud est indisponible (VPN, blocage régional, pas de réseau), utiliser automatiquement le modèle local déjà téléchargé pour cet enregistrement.",
     fallback_checkbox: "Activer le basculement automatique vers le modèle local",
-    copy_context_title: "Capturer le texte sélectionné",
-    copy_context_desc: "Au démarrage de l'enregistrement, Aura envoie Ctrl+C pour capturer le texte sélectionné comme contexte IA. Désactiver si vous dictez dans un terminal — Ctrl+C y interrompt les processus.",
-    copy_context_checkbox: "Capturer la sélection via Ctrl+C",
+    copy_context_title: "Modifier le texte sélectionné",
+    copy_context_desc: "Lorsque cette option est activée, Aura envoie Ctrl+C et transmet le texte sélectionné au fournisseur cloud choisi comme contexte d’une commande de modification. Désactivez-la lorsque vous travaillez dans un terminal.",
+    copy_context_checkbox: "Autoriser la capture de la sélection et la modification dans le cloud",
     btn_copy_diagnostics: "Copier le rapport de diagnostic",
     toast_diagnostics_copied: "Rapport de diagnostic copié dans le presse-papiers !",
     diag_speech_text_title: "Consigner le texte vocal (Mode développeur)",
@@ -663,7 +739,7 @@ const i18nDict = {
     vocab_desc: "Aggiungi parole specifiche, nomi o acronimi separati da virgole per migliorare la precisione.",
     vocab_placeholder: "es. Aura, commit, repository...",
     local_model_title: "Modello Whisper locale",
-    local_model_desc: "Scarica un modello per l'uso offline. I modelli più grandi sono più precisi ma richiedono più memoria.",
+    local_model_desc: "Configura un motore locale di riconoscimento vocale per la massima privacy.",
     local_model_label: "Dimensione modello",
     model_meta_tiny: "~75 MB — superveloce",
     model_meta_base: "~145 MB — consigliato",
@@ -696,7 +772,7 @@ const i18nDict = {
     history_desc: "Le ultime frasi dettate vengono salvate in locale.",
     history_empty: "La cronologia è vuota. I testi dettati appariranno qui.",
     about_app_title: "Dettatura vocale Aura",
-    about_version: "v1.0.8",
+    about_version: "v1.0.9",
     about_description: "Strumento di inserimento vocale globale per Windows. Il programma trascrive la voce in testo e la inserisce in qualsiasi finestra attiva con formattazione e punteggiatura automatiche.",
     status_ready: "Pronto",
     btn_save: "Salva impostazioni",
@@ -729,6 +805,25 @@ const i18nDict = {
     confirm_clear_history_msg: "Sei sicuro di voler cancellare tutta la cronologia delle trascrizioni?",
     general_ui_lang_title: "Lingua dell'interfaccia",
     general_ui_lang_desc: "Seleziona la lingua per le impostazioni e le notifiche dell'applicazione.",
+    update_checks_title: "Controllo aggiornamenti",
+    update_checks_desc: "Aura contatta GitHub solo durante un controllo manuale o se abiliti i controlli automatici.",
+    update_checks_checkbox: "Controlla automaticamente gli aggiornamenti all’avvio",
+    update_check_now: "Controlla aggiornamenti",
+    model_integrity_desc: "Prima dell’installazione, Aura verifica la provenienza, la dimensione prevista e lo SHA-256 di ogni file del modello.",
+    cloud_data_desc: "Il provider cloud selezionato riceve l’audio e la trascrizione e, quando le relative funzioni sono abilitate, il testo selezionato e il dizionario personalizzato. La modalità locale non invia questi dati.",
+    update_current: "Aura è aggiornata.",
+    update_available_pattern: "È disponibile Aura v{version}.",
+    update_check_error_pattern: "Impossibile verificare gli aggiornamenti: {error}",
+    update_installing: "Download, verifica della firma e installazione dell’aggiornamento...",
+    update_installed_restarting: "Aggiornamento installato. Riavvio...",
+    update_install_error_open_release: "Impossibile installare l’aggiornamento. Apertura della pagina della versione...",
+    gpu_accel_label: "Accelerazione hardware locale",
+    gpu_accel_cpu_title: "CPU (senza accelerazione)",
+    gpu_accel_cpu_desc: "Modalità standard. Affidabile, ma utilizza maggiormente la CPU.",
+    gpu_accel_cuda_title: "NVIDIA CUDA (velocità massima)",
+    gpu_accel_cuda_desc: "Per GPU GeForce RTX/GTX. Usa i Tensor Core.",
+    gpu_accel_dml_title: "DirectML (universale)",
+    gpu_accel_dml_desc: "Per GPU AMD, Intel e NVIDIA. Accelerazione di base.",
     hotkey_reset_title: "Ripristina ad Alt+V",
     local_engine_label: "Motore di riconoscimento",
     local_engine_whisper: "Whisper.cpp (OpenAI Whisper)",
@@ -738,12 +833,12 @@ const i18nDict = {
     model_cancel_download: "Annulla download",
     model_download_cancelled: "Download annullato",
     update_available: "Aggiornamento disponibile",
-    fallback_title: "Fallback cloud",
+    fallback_title: "Passaggio automatico quando il cloud non è disponibile",
     fallback_desc: "Se l'IA cloud non è disponibile (VPN, blocco regionale, nessuna rete), utilizza automaticamente il modello locale già scaricato per questa registrazione.",
     fallback_checkbox: "Attiva il fallback automatico al modello locale",
-    copy_context_title: "Acquisire testo selezionato",
-    copy_context_desc: "All'avvio della registrazione, Aura invia Ctrl+C per acquisire il testo selezionato come contesto AI. Disattiva se detti in un terminale — lì Ctrl+C termina i processi.",
-    copy_context_checkbox: "Acquisisci selezione con Ctrl+C",
+    copy_context_title: "Modifica testo selezionato",
+    copy_context_desc: "Quando è abilitata, Aura invia Ctrl+C e passa il testo selezionato al provider cloud scelto come contesto per un comando di modifica. Disattiva questa funzione quando lavori in un terminale.",
+    copy_context_checkbox: "Consenti acquisizione della selezione e modifica nel cloud",
     btn_copy_diagnostics: "Copia rapporto diagnostico",
     toast_diagnostics_copied: "Rapporto diagnostico copiato negli appunti!",
     diag_speech_text_title: "Registra testo vocale (Modalità sviluppatore)",
@@ -783,7 +878,7 @@ const i18nDict = {
     vocab_desc: "以逗号分隔输入专用术语、人名或品牌，以便提高识别精度。",
     vocab_placeholder: "例如：Aura, commit, 仓库...",
     local_model_title: "本地 Whisper 模型",
-    local_model_desc: "下载模型以支持离线识别。越大的模型越精准，但会占用更多内存。",
+    local_model_desc: "配置本地语音识别引擎，确保数据完全私密。",
     local_model_label: "模型大小",
     model_meta_tiny: "~75 MB — 超快速",
     model_meta_base: "~145 MB — 推荐",
@@ -816,7 +911,7 @@ const i18nDict = {
     history_desc: "您最近转换出的文字将缓存在本地。",
     history_empty: "历史记录为空。您听写的文字会显示在这里。",
     about_app_title: "Aura 智能语音输入",
-    about_version: "v1.0.8",
+    about_version: "v1.0.9",
     about_description: "适用于 Windows 的全局语音输入工具。本程序可以将语音转录为文本，并以自动格式和标点符号插入到任何活动窗口中。",
     status_ready: "就绪",
     btn_save: "保存设置",
@@ -849,6 +944,25 @@ const i18nDict = {
     confirm_clear_history_msg: "您确定要清空所有听写历史记录吗？",
     general_ui_lang_title: "界面语言",
     general_ui_lang_desc: "选择设置和应用程序通知的语言。",
+    update_checks_title: "更新检查",
+    update_checks_desc: "Aura 仅在您手动检查或启用自动检查时连接 GitHub。",
+    update_checks_checkbox: "启动时自动检查更新",
+    update_check_now: "检查更新",
+    model_integrity_desc: "安装前，Aura 会验证每个模型文件的来源、预期大小和 SHA-256。",
+    cloud_data_desc: "所选云服务提供商会接收音频和转写文本；启用相关功能时，还会接收选中文本和自定义词典。本地模式不会发送这些数据。",
+    update_current: "Aura 已是最新版本。",
+    update_available_pattern: "Aura v{version} 可用。",
+    update_check_error_pattern: "无法检查更新：{error}",
+    update_installing: "正在下载、验证签名并安装更新...",
+    update_installed_restarting: "更新已安装。正在重启...",
+    update_install_error_open_release: "无法安装更新。正在打开发布页面...",
+    gpu_accel_label: "本地硬件加速",
+    gpu_accel_cpu_title: "CPU（无加速）",
+    gpu_accel_cpu_desc: "标准模式。稳定可靠，但会占用更多处理器资源。",
+    gpu_accel_cuda_title: "NVIDIA CUDA（最高速度）",
+    gpu_accel_cuda_desc: "适用于 GeForce RTX/GTX 显卡。使用 Tensor Core。",
+    gpu_accel_dml_title: "DirectML（通用）",
+    gpu_accel_dml_desc: "适用于 AMD、Intel 和 NVIDIA 显卡。基础加速。",
     hotkey_reset_title: "重置为 Alt+V",
     local_engine_label: "识别引擎",
     local_engine_whisper: "Whisper.cpp (OpenAI Whisper)",
@@ -858,12 +972,12 @@ const i18nDict = {
     model_cancel_download: "取消下载",
     model_download_cancelled: "下载已取消",
     update_available: "有可用更新",
-    fallback_title: "云端回退",
-    fallback_desc: "当云端 AI 不可用时（VPN、地区限制、无网络），自动使用已下载的本��模型进行本次录音识别。",
+    fallback_title: "云端不可用时自动切换",
+    fallback_desc: "当云端 AI 不可用时（VPN、地区限制、无网络），自动使用已下载的本地模型进行本次录音识别。",
     fallback_checkbox: "启用自动回退至本地模型",
-    copy_context_title: "捕获选中文本",
-    copy_context_desc: "开始录音时，Aura 发送 Ctrl+C 以捕获选中文本作为 AI 上下文。如果在终端中听写请禁用此功能——终端中 Ctrl+C 会中断进程。",
-    copy_context_checkbox: "通过 Ctrl+C 捕获选中内容",
+    copy_context_title: "编辑选中文本",
+    copy_context_desc: "启用后，Aura 会发送 Ctrl+C，并将选中文本作为编辑指令的上下文传给所选云服务提供商。在终端中工作时请关闭此功能。",
+    copy_context_checkbox: "允许捕获选区并在云端编辑",
     btn_copy_diagnostics: "复制诊断报告",
     toast_diagnostics_copied: "诊断报告已复制到剪贴板！",
     diag_speech_text_title: "记录语音文本（开发者模式）",
@@ -903,7 +1017,7 @@ const i18nDict = {
     vocab_desc: "Adicione termos específicos, nomes ou siglas separados por vírgula para melhorar o reconhecimento.",
     vocab_placeholder: "ex. Aura, commit, repositório...",
     local_model_title: "Modelo Whisper local",
-    local_model_desc: "Baixe um modelo para uso offline. Modelos maiores são mais precisos mas usam mais memória.",
+    local_model_desc: "Configure um mecanismo local de reconhecimento de voz para manter total privacidade.",
     local_model_label: "Tamanho do modelo",
     model_meta_tiny: "~75 MB — super-rápido",
     model_meta_base: "~145 MB — recomendado",
@@ -936,7 +1050,7 @@ const i18nDict = {
     history_desc: "As últimas frases ditadas são armazenadas localmente.",
     history_empty: "O histórico está vazio. Seus textos ditados aparecerão aqui.",
     about_app_title: "Ditado de voz Aura",
-    about_version: "v1.0.8",
+    about_version: "v1.0.9",
     about_description: "Ferramenta de entrada de voz global para Windows. O programa transcreve a fala em texto e a insere em qualquer janela ativa com formatação e pontuação automáticas.",
     status_ready: "Pronto",
     btn_save: "Salvar configurações",
@@ -969,6 +1083,25 @@ const i18nDict = {
     confirm_clear_history_msg: "Tem certeza de que deseja limpar todo o histórico de transcrições?",
     general_ui_lang_title: "Idioma da interface",
     general_ui_lang_desc: "Selecione o idioma para as configurações e notificações do aplicativo.",
+    update_checks_title: "Verificação de atualizações",
+    update_checks_desc: "A Aura só acessa o GitHub quando você verifica manualmente ou ativa as verificações automáticas.",
+    update_checks_checkbox: "Verificar atualizações automaticamente ao iniciar",
+    update_check_now: "Verificar atualizações",
+    model_integrity_desc: "Antes da instalação, a Aura verifica a origem, o tamanho esperado e o SHA-256 de cada arquivo do modelo.",
+    cloud_data_desc: "O provedor de nuvem selecionado recebe o áudio e a transcrição e, quando os recursos correspondentes estão ativados, o texto selecionado e o dicionário personalizado. O modo local não envia esses dados.",
+    update_current: "A Aura está atualizada.",
+    update_available_pattern: "A versão {version} da Aura está disponível.",
+    update_check_error_pattern: "Não foi possível verificar atualizações: {error}",
+    update_installing: "Baixando, verificando a assinatura e instalando a atualização...",
+    update_installed_restarting: "Atualização instalada. Reiniciando...",
+    update_install_error_open_release: "Não foi possível instalar a atualização. Abrindo a página da versão...",
+    gpu_accel_label: "Aceleração de hardware local",
+    gpu_accel_cpu_title: "CPU (sem aceleração)",
+    gpu_accel_cpu_desc: "Modo padrão. Seguro, mas exige mais do processador.",
+    gpu_accel_cuda_title: "NVIDIA CUDA (velocidade máxima)",
+    gpu_accel_cuda_desc: "Para GPUs GeForce RTX/GTX. Usa Tensor Cores.",
+    gpu_accel_dml_title: "DirectML (universal)",
+    gpu_accel_dml_desc: "Para GPUs AMD, Intel e NVIDIA. Aceleração básica.",
     hotkey_reset_title: "Redefinir para Alt+V",
     local_engine_label: "Motor de reconhecimento",
     local_engine_whisper: "Whisper.cpp (OpenAI Whisper)",
@@ -978,12 +1111,12 @@ const i18nDict = {
     model_cancel_download: "Cancelar download",
     model_download_cancelled: "Download cancelado",
     update_available: "Atualização disponível",
-    fallback_title: "Fallback na nuvem",
+    fallback_title: "Alternância automática quando a nuvem estiver indisponível",
     fallback_desc: "Se a IA na nuvem estiver indisponível (VPN, bloqueio regional, sem rede), usar automaticamente o modelo local já baixado para esta gravação.",
     fallback_checkbox: "Ativar fallback automático para modelo local",
-    copy_context_title: "Capturar texto selecionado",
-    copy_context_desc: "Ao iniciar a gravação, Aura envia Ctrl+C para capturar o texto selecionado como contexto da IA. Desative se ditar em terminais — lá Ctrl+C interrompe processos.",
-    copy_context_checkbox: "Capturar seleção via Ctrl+C",
+    copy_context_title: "Editar texto selecionado",
+    copy_context_desc: "Quando ativado, o Aura envia Ctrl+C e encaminha o texto selecionado ao provedor de nuvem escolhido como contexto para um comando de edição. Desative este recurso ao trabalhar em um terminal.",
+    copy_context_checkbox: "Permitir captura da seleção e edição na nuvem",
     btn_copy_diagnostics: "Copiar relatório de diagnóstico",
     toast_diagnostics_copied: "Relatório de diagnóstico copiado para a área de transferência!",
     diag_speech_text_title: "Registrar texto de voz (Modo desenvolvedor)",
@@ -1023,7 +1156,7 @@ const i18nDict = {
     vocab_desc: "Algılama kalitesini artırmak için özel terimleri, isimleri virgülle ayırarak girin.",
     vocab_placeholder: "örn. Aura, commit, depo...",
     local_model_title: "Yerel Whisper Modülü",
-    local_model_desc: "Çevrimdışı kullanım için bir model indirin. Daha büyük modeller daha doğrudur ancak daha fazla bellek kullanır.",
+    local_model_desc: "Tam gizlilik için yerel bir konuşma tanıma motoru yapılandırın.",
     local_model_label: "Model Boyutu",
     model_meta_tiny: "~75 MB — süper hızlı",
     model_meta_base: "~145 MB — önerilen",
@@ -1056,7 +1189,7 @@ const i18nDict = {
     history_desc: "Son sesli yazımlarınız yerel olarak saklanır.",
     history_empty: "Geçmiş boş. Yazdığınız metinler burada görünecektir.",
     about_app_title: "Aura Sesli Giriş",
-    about_version: "v1.0.8",
+    about_version: "v1.0.9",
     about_description: "Windows için genel sesli giriş aracı. Program, konuşmayı metne dönüştürür ve otomatik biçimlendirme ve noktalama işaretleriyle herhangi bir aktif pencereye ekler.",
     status_ready: "Hazır",
     btn_save: "Ayarları Kaydet",
@@ -1089,6 +1222,25 @@ const i18nDict = {
     confirm_clear_history_msg: "Tüm transkripsiyon geçmişini temizlemek istediğinizden emin misiniz?",
     general_ui_lang_title: "Arayüz Dili",
     general_ui_lang_desc: "Ayarlar ve uygulama bildirimleri için dili seçin.",
+    update_checks_title: "Güncelleme denetimi",
+    update_checks_desc: "Aura, GitHub’a yalnızca elle denetlediğinizde veya otomatik denetimleri etkinleştirdiğinizde bağlanır.",
+    update_checks_checkbox: "Başlangıçta güncellemeleri otomatik olarak denetle",
+    update_check_now: "Güncellemeleri denetle",
+    model_integrity_desc: "Kurulumdan önce Aura, her model dosyasının kaynağını, beklenen boyutunu ve SHA-256 değerini doğrular.",
+    cloud_data_desc: "Seçilen bulut sağlayıcısına ses ve transkript; ilgili özellikler etkinse seçili metin ve özel sözlük gönderilir. Yerel mod bu verileri göndermez.",
+    update_current: "Aura güncel.",
+    update_available_pattern: "Aura v{version} kullanılabilir.",
+    update_check_error_pattern: "Güncellemeler denetlenemedi: {error}",
+    update_installing: "Güncelleme indiriliyor, imza doğrulanıyor ve kuruluyor...",
+    update_installed_restarting: "Güncelleme kuruldu. Yeniden başlatılıyor...",
+    update_install_error_open_release: "Güncelleme kurulamadı. Sürüm sayfası açılıyor...",
+    gpu_accel_label: "Yerel donanım hızlandırma",
+    gpu_accel_cpu_title: "CPU (hızlandırma yok)",
+    gpu_accel_cpu_desc: "Standart mod. Güvenlidir ancak işlemciyi daha fazla kullanır.",
+    gpu_accel_cuda_title: "NVIDIA CUDA (en yüksek hız)",
+    gpu_accel_cuda_desc: "GeForce RTX/GTX ekran kartları için. Tensor çekirdeklerini kullanır.",
+    gpu_accel_dml_title: "DirectML (evrensel)",
+    gpu_accel_dml_desc: "AMD, Intel ve NVIDIA ekran kartları için. Temel hızlandırma.",
     hotkey_reset_title: "Alt+V'ye Sıfırla",
     local_engine_label: "Tanıma Motoru",
     local_engine_whisper: "Whisper.cpp (OpenAI Whisper)",
@@ -1098,12 +1250,12 @@ const i18nDict = {
     model_cancel_download: "İndirmeyi iptal et",
     model_download_cancelled: "İndirme iptal edildi",
     update_available: "Güncelleme mevcut",
-    fallback_title: "Bulut Yedekleme",
+    fallback_title: "Bulut kullanılamadığında otomatik geçiş",
     fallback_desc: "Bulut yapay zekası kullanılamıyorsa (VPN, bölge engeli, ağ yok), bu kayıt için önceden indirilmiş yerel modeli otomatik olarak kullan.",
     fallback_checkbox: "Yerel modele otomatik geçişi etkinleştir",
-    copy_context_title: "Seçili metni yakala",
-    copy_context_desc: "Kayıt başladığında Aura, seçili metni AI bağlamı olarak yakalamak için Ctrl+C gönderir. Terminalde dikte ediyorsanız devre dışı bırakın — terminalde Ctrl+C işlemleri sonlandırır.",
-    copy_context_checkbox: "Ctrl+C ile seçimi yakala",
+    copy_context_title: "Seçili metni düzenle",
+    copy_context_desc: "Etkinleştirildiğinde Aura, Ctrl+C gönderir ve seçili metni bir düzenleme komutu için bağlam olarak seçilen bulut sağlayıcısına iletir. Terminalde çalışırken bu özelliği devre dışı bırakın.",
+    copy_context_checkbox: "Seçimi yakalamaya ve bulutta düzenlemeye izin ver",
     btn_copy_diagnostics: "Teşhis Raporunu Kopyala",
     toast_diagnostics_copied: "Teşhis raporu panoya kopyalandı!",
     diag_speech_text_title: "Konuşma Metnini Günlüğe Kaydet (Geliştirici Modu)",
@@ -1124,32 +1276,27 @@ function getTranslation(key, params = {}) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Navigation Tabs
+  // Navigation tabs follow the WAI-ARIA tab pattern and remain native buttons.
   const tabs = document.querySelectorAll(".nav-tab");
   const panels = document.querySelectorAll(".tab-panel");
-  
-  tabs.forEach(tab => {
-    tab.addEventListener("click", () => {
-      tabs.forEach(t => {
-        t.classList.remove("active");
-        t.setAttribute("aria-selected", "false");
-      });
-      panels.forEach(p => p.style.display = "none");
 
-      tab.classList.add("active");
-      tab.setAttribute("aria-selected", "true");
-      const targetPanel = document.getElementById(`panel-${tab.dataset.tab}`);
-      if (targetPanel) {
-        targetPanel.style.display = "flex";
-      }
-
-      // If clicking history tab, reload history entries
-      if (tab.dataset.tab === "history") {
-        loadHistoryList();
-      }
+  function activateTab(tab) {
+    tabs.forEach((item) => {
+      const selected = item === tab;
+      item.classList.toggle("active", selected);
+      item.setAttribute("aria-selected", String(selected));
+      item.tabIndex = selected ? 0 : -1;
     });
-  });
+    panels.forEach((panel) => {
+      panel.style.display = panel.id === "panel-" + tab.dataset.tab ? "flex" : "none";
+    });
+    if (tab.dataset.tab === "history") loadHistoryList();
+  }
 
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => activateTab(tab));
+  });
+  bindTabKeyboardNavigation(tabs, activateTab);
   // Toggle API Key visibility
   const apiKeyInput = document.getElementById("input-api-key");
   const toggleKeyBtn = document.getElementById("btn-toggle-key");
@@ -1235,13 +1382,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const checkboxPunctuation = document.getElementById("checkbox-punctuation");
   const checkboxCloudFallback = document.getElementById("checkbox-cloud-fallback");
   const checkboxAutostart = document.getElementById("checkbox-autostart");
+  const checkboxAutomaticUpdateChecks = document.getElementById("checkbox-automatic-update-checks");
   const btnSaveSettings = document.getElementById("btn-save-settings");
   if (btnSaveSettings) {
     btnSaveSettings.addEventListener("click", saveSettings);
   }
   
   const checkboxSounds = document.getElementById("checkbox-sounds");
-const checkboxCopyContext = document.getElementById("checkbox-copy-context");
+  const checkboxCopyContext = document.getElementById("checkbox-selection-edit-enabled");
   const selectSoundTheme = document.getElementById("select-sound-theme");
   const rangeVolume = document.getElementById("range-sound-volume");
   const volumeLabel = document.getElementById("volume-value-label");
@@ -1383,7 +1531,31 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     openai: "",
     groq: ""
   };
+  let apiKeyPresent = {
+    gemini: false,
+    openai: false,
+    groq: false
+  };
+  let apiKeyDirty = {
+    gemini: false,
+    openai: false,
+    groq: false
+  };
   let previousSelProvider = selectProvider.value;
+
+  function renderProviderKeyInput() {
+    const provider = selectProvider.value;
+    apiKeyInput.value = apiKeys[provider] || "";
+    apiKeyInput.placeholder = apiKeyPresent[provider]
+      ? "•••••••• (сохранён безопасно)"
+      : "Введите API-ключ";
+  }
+
+  apiKeyInput.addEventListener("input", () => {
+    const provider = selectProvider.value;
+    apiKeys[provider] = apiKeyInput.value;
+    apiKeyDirty[provider] = true;
+  });
   
   const footerStatusText = document.getElementById("footer-status-text");
 
@@ -1407,8 +1579,8 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     const inputs = [
       radioCloud, radioLocal, selectProvider, apiKeyInput, selectHotkey,
       selectLanguage, textareaDictionary, checkboxToggle, checkboxPunctuation, checkboxCloudFallback,
-      checkboxAutostart, checkboxStreaming, checkboxSounds, selectSoundTheme,
-      rangeVolume, selectLocalEngine, checkboxCopyContext, checkboxLogSpeechText
+      checkboxAutostart, checkboxAutomaticUpdateChecks, checkboxStreaming, checkboxSounds,
+      selectSoundTheme, rangeVolume, selectLocalEngine, checkboxCopyContext, checkboxLogSpeechText
     ];
     inputs.forEach(input => {
       if (input) {
@@ -1463,13 +1635,17 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
         }
         
         selectModelCard(settings.model_name || "base");
-        apiKeys.gemini = settings.api_key_gemini || "";
-        apiKeys.openai = settings.api_key_openai || "";
-        apiKeys.groq = settings.api_key_groq || "";
-        
+        apiKeys = { gemini: "", openai: "", groq: "" };
+        apiKeyDirty = { gemini: false, openai: false, groq: false };
+        apiKeyPresent = {
+          gemini: !!settings.has_api_key_gemini,
+          openai: !!settings.has_api_key_openai,
+          groq: !!settings.has_api_key_groq
+        };
+
         selectProvider.value = settings.api_provider || "gemini";
         previousSelProvider = selectProvider.value;
-        apiKeyInput.value = apiKeys[selectProvider.value] || "";
+        renderProviderKeyInput();
         updateApiKeyLink();
         if (selectHotkey) {
           selectHotkey.value = settings.hotkey || "Alt+V";
@@ -1495,7 +1671,10 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
         }
         if (checkboxAutostart) {
           checkboxAutostart.checked = !!settings.autostart;
+        }        if (checkboxAutomaticUpdateChecks) {
+          checkboxAutomaticUpdateChecks.checked = !!settings.automatic_update_checks;
         }
+
  
         const checkboxStreaming = document.getElementById("checkbox-streaming");
         if (checkboxStreaming) {
@@ -1506,8 +1685,8 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     checkboxSounds.checked = settings.overlay_sounds !== false;
   }
   if (checkboxCopyContext) {
-    // Default true: most users benefit from context capture
-    checkboxCopyContext.checked = settings.copy_context_on_start !== false;
+
+    checkboxCopyContext.checked = !!settings.copy_context_on_start;
   }
         const checkboxLogSpeechText = document.getElementById("setting-log-speech-text");
         if (checkboxLogSpeechText) {
@@ -1536,9 +1715,6 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
         isSettingsLoaded = true;
         settingsModified = false;
         
-        // Sync custom dropdown values
-        syncCustomSelects();
-        
         showStatus(getTranslation("status_loaded"));
         
         bindSettingsChangeListeners();
@@ -1552,6 +1728,8 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
   async function refreshDownloadedModels() {
     try {
       const downloaded = await invoke("get_downloaded_models");
+      const parakeetOption = selectLocalEngine?.querySelector('option[value="parakeet"]');
+      if (parakeetOption) parakeetOption.disabled = false;
       const dict = i18nDict[currentLanguage] || i18nDict.ru;
       modelCards.forEach(card => {
         const model = card.dataset.model;
@@ -1614,10 +1792,7 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
       const settings = {
         transcription_mode: radioLocal.checked ? "local" : "cloud",
         api_provider: selectProvider.value,
-        api_key: apiKeyInput.value.trim(),
-        api_key_gemini: apiKeys.gemini.trim(),
-        api_key_openai: apiKeys.openai.trim(),
-        api_key_groq: apiKeys.groq.trim(),
+
         model_name: selectedModelName,
         hotkey: selectHotkey ? selectHotkey.value : "Alt+V",
         streaming_enabled: checkboxStreaming ? checkboxStreaming.checked : false,
@@ -1627,12 +1802,13 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
         voice_punctuation: checkboxPunctuation ? checkboxPunctuation.checked : false,
         cloud_fallback_enabled: checkboxCloudFallback ? checkboxCloudFallback.checked : true,
         autostart: checkboxAutostart ? checkboxAutostart.checked : false,
+        automatic_update_checks: checkboxAutomaticUpdateChecks ? checkboxAutomaticUpdateChecks.checked : false,
         local_engine: selectLocalEngine ? selectLocalEngine.value : "whisper",
         local_acceleration: activeLocalAcceleration,
         overlay_sounds: checkboxSounds ? checkboxSounds.checked : true,
     overlay_sound_theme: selectSoundTheme ? selectSoundTheme.value : "zen",
     overlay_sound_volume: soundVolFloat,
-    copy_context_on_start: checkboxCopyContext ? checkboxCopyContext.checked : true,
+    copy_context_on_start: checkboxCopyContext ? checkboxCopyContext.checked : false,
     log_speech_text: (() => {
       const el = document.getElementById("setting-log-speech-text");
       return el ? el.checked : false;
@@ -1640,6 +1816,16 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
   };
 
       await invoke("set_settings", { settings });
+      for (const provider of ["gemini", "openai", "groq"]) {
+        if (apiKeyDirty[provider]) {
+          const key = apiKeys[provider].trim();
+          await invoke("set_provider_key", { provider, key });
+          apiKeyPresent[provider] = key.length > 0;
+          apiKeyDirty[provider] = false;
+          apiKeys[provider] = "";
+        }
+      }
+      renderProviderKeyInput();
       settingsModified = false;
       showStatus(dict.status_saved || "Настройки успешно сохранены!");
       
@@ -1785,7 +1971,7 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
   const activeGpuDownloads = new Set();
 
   async function updateGpuCardStates() {
-    const providers = ["cuda", "directml"];
+    const providers = ["cuda"];
     const dict = i18nDict[currentLanguage] || i18nDict.ru;
     for (const provider of providers) {
       if (activeGpuDownloads.has(provider)) {
@@ -1898,7 +2084,7 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
         await updateGpuCardStates();
       } catch (err) {
         console.error(err);
-        showStatus(`Error deleting binaries: ${err}`, true);
+        showStatus(getTranslation("model_delete_error_pattern", { err: String(err) }), true);
       }
     }
   }
@@ -1958,7 +2144,7 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     });
   });
 
-  // --- Asynchronous Custom Confirm Dialog ---
+  // --- Asynchronous native confirmation dialog ---
   function showConfirm(title, message, confirmText = "ОК", cancelText = "Отмена") {
     return new Promise((resolve) => {
       const modal = document.getElementById("custom-confirm-modal");
@@ -1966,8 +2152,7 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
       const msgEl = document.getElementById("confirm-modal-message");
       const btnOk = document.getElementById("btn-confirm-ok");
       const btnCancel = document.getElementById("btn-confirm-cancel");
-
-      if (!modal) {
+      if (!(modal instanceof HTMLDialogElement) || !titleEl || !msgEl || !btnOk || !btnCancel) {
         resolve(false);
         return;
       }
@@ -1976,29 +2161,34 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
       msgEl.textContent = message;
       btnOk.textContent = confirmText;
       btnCancel.textContent = cancelText;
+      if (modal.open) modal.close();
+      modal.showModal();
+      requestAnimationFrame(() => modal.classList.add("active"));
 
-      modal.style.display = "flex";
-      modal.offsetHeight; // force reflow
-      modal.classList.add("active");
-
+      let settled = false;
       function cleanUp(result) {
+        if (settled) return;
+        settled = true;
         modal.classList.remove("active");
         btnOk.removeEventListener("click", onOk);
         btnCancel.removeEventListener("click", onCancel);
+        modal.removeEventListener("cancel", onDialogCancel);
         setTimeout(() => {
-          modal.style.display = "none";
+          if (modal.open) modal.close();
           resolve(result);
         }, 200);
       }
-
       function onOk() { cleanUp(true); }
       function onCancel() { cleanUp(false); }
-
+      function onDialogCancel(event) {
+        event.preventDefault();
+        cleanUp(false);
+      }
       btnOk.addEventListener("click", onOk);
       btnCancel.addEventListener("click", onCancel);
+      modal.addEventListener("cancel", onDialogCancel);
     });
   }
-
   function showStatus(msg, isError = false, isModified = false) {
     footerStatusText.textContent = msg;
     const footerStatus = footerStatusText.closest(".footer-status");
@@ -2031,12 +2221,10 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
   // Bind Events
   btnSaveSettings.addEventListener("click", saveSettings);
   selectProvider.addEventListener("change", () => {
-    // 1. Save input to current provider
+    // Keep only unsaved drafts in memory; stored keys are never returned by IPC.
     apiKeys[previousSelProvider] = apiKeyInput.value;
-    // 2. Switch provider
     previousSelProvider = selectProvider.value;
-    // 3. Load input from new provider
-    apiKeyInput.value = apiKeys[selectProvider.value] || "";
+    renderProviderKeyInput();
     updateApiKeyLink();
   });
 
@@ -2062,148 +2250,10 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     });
   }
 
-  // Custom Select Dropdowns generator
-  function initCustomSelects() {
-    const selects = document.querySelectorAll("select.custom-select");
-    selects.forEach(select => {
-      // If already initialized, skip
-      if (select.nextElementSibling && select.nextElementSibling.classList.contains("custom-dropdown")) {
-        return;
-      }
-      
-      select.style.display = "none";
-      
-      const dropdown = document.createElement("div");
-      dropdown.className = "custom-dropdown";
-      dropdown.dataset.selectId = select.id;
-      
-      const trigger = document.createElement("div");
-      trigger.className = "custom-dropdown-trigger";
-      trigger.tabIndex = 0;
-      
-      const valueSpan = document.createElement("span");
-      valueSpan.className = "custom-dropdown-value";
-      
-      const arrow = document.createElement("div");
-      arrow.className = "custom-dropdown-arrow";
-      
-      trigger.appendChild(valueSpan);
-      trigger.appendChild(arrow);
-      dropdown.appendChild(trigger);
-      
-      const optionsContainer = document.createElement("div");
-      optionsContainer.className = "custom-dropdown-options";
-      
-      const options = select.querySelectorAll("option");
-      options.forEach(opt => {
-        const optionDiv = document.createElement("div");
-        optionDiv.className = "custom-dropdown-option";
-        optionDiv.dataset.value = opt.value;
-        optionDiv.textContent = opt.textContent;
-        
-        // Replicate custom list translations
-        const i18n = opt.getAttribute("data-i18n");
-        if (i18n) {
-          optionDiv.setAttribute("data-i18n", i18n);
-        }
-        
-        if (opt.selected) {
-          optionDiv.classList.add("selected");
-          valueSpan.textContent = opt.textContent;
-          if (i18n) {
-            valueSpan.setAttribute("data-i18n", i18n);
-          }
-        }
-        
-        optionDiv.addEventListener("click", (e) => {
-          e.stopPropagation();
-          select.value = opt.value;
-          
-          dropdown.querySelectorAll(".custom-dropdown-option").forEach(item => {
-            item.classList.remove("selected");
-          });
-          optionDiv.classList.add("selected");
-          
-          valueSpan.textContent = opt.textContent;
-          const optI18n = opt.getAttribute("data-i18n");
-          if (optI18n) {
-            valueSpan.setAttribute("data-i18n", optI18n);
-          } else {
-            valueSpan.removeAttribute("data-i18n");
-          }
-          
-          dropdown.classList.remove("open");
-          
-          // Dispatch change and input events
-          select.dispatchEvent(new Event("change", { bubbles: true }));
-          select.dispatchEvent(new Event("input", { bubbles: true }));
-        });
-        
-        optionsContainer.appendChild(optionDiv);
-      });
-      
-      dropdown.appendChild(optionsContainer);
-      
-      trigger.addEventListener("click", (e) => {
-        e.stopPropagation();
-        
-        document.querySelectorAll(".custom-dropdown").forEach(d => {
-          if (d !== dropdown) {
-            d.classList.remove("open");
-          }
-        });
-        
-        dropdown.classList.toggle("open");
-      });
-      
-      trigger.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          trigger.click();
-        }
-      });
-      
-      select.parentNode.insertBefore(dropdown, select.nextSibling);
-    });
-    
-    // Close dropdowns on outside click
-    document.addEventListener("click", () => {
-      document.querySelectorAll(".custom-dropdown").forEach(d => {
-        d.classList.remove("open");
-      });
-    });
-  }
-
-  function syncCustomSelects() {
-    const dropdowns = document.querySelectorAll(".custom-dropdown");
-    dropdowns.forEach(dropdown => {
-      const selectId = dropdown.dataset.selectId;
-      const select = document.getElementById(selectId);
-      if (!select) return;
-      
-      const valueSpan = dropdown.querySelector(".custom-dropdown-value");
-      const selectedOption = select.options[select.selectedIndex];
-      if (selectedOption && valueSpan) {
-        valueSpan.textContent = selectedOption.textContent;
-        const i18n = selectedOption.getAttribute("data-i18n");
-        if (i18n) {
-          valueSpan.setAttribute("data-i18n", i18n);
-        } else {
-          valueSpan.removeAttribute("data-i18n");
-        }
-      }
-      
-      const optionDivs = dropdown.querySelectorAll(".custom-dropdown-option");
-      optionDivs.forEach(optDiv => {
-        const isSelected = optDiv.dataset.value === select.value;
-        optDiv.classList.toggle("selected", isSelected);
-      });
-    });
-  }
-
   // Translations Helper
   function applyLanguage(lang) {
     currentLanguage = lang;
+    document.documentElement.lang = i18nDict[lang] ? lang : "ru";
     const dict = i18nDict[lang] || i18nDict.ru;
     
     // Update data-i18n elements
@@ -2213,20 +2263,6 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
       const text = dict[key] || i18nDict.ru[key];
       if (text) {
         el.textContent = text;
-      }
-    });
-
-    // Update custom dropdown labels
-    const dropdowns = document.querySelectorAll(".custom-dropdown");
-    dropdowns.forEach(dropdown => {
-      const selectId = dropdown.dataset.selectId;
-      const select = document.getElementById(selectId);
-      if (!select) return;
-      
-      const valueSpan = dropdown.querySelector(".custom-dropdown-value");
-      const selectedOption = select.options[select.selectedIndex];
-      if (selectedOption && valueSpan) {
-        valueSpan.textContent = selectedOption.textContent;
       }
     });
 
@@ -2401,9 +2437,63 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     });
   }
 
-  // Initialize custom selects
-  initCustomSelects();
+  let updateAvailable = false;
 
+  async function checkForUpdates(announceNoUpdate = false) {
+    const checkButton = document.getElementById("btn-check-updates");
+    const badge = document.getElementById("update-badge");
+    const badgeText = document.getElementById("update-badge-text");
+    const navDot = document.getElementById("update-dot");
+    if (checkButton) checkButton.disabled = true;
+    try {
+      const info = await invoke("check_for_app_update");
+      updateAvailable = !!info;
+      if (!info) {
+        if (badge) badge.style.display = "none";
+        if (navDot) navDot.style.display = "none";
+        if (announceNoUpdate) showStatus(getTranslation("update_current"));
+        return;
+      }
+      const label = getTranslation("update_available") || "Доступно обновление";
+      if (badgeText) badgeText.textContent = label + " (v" + info.version + ")";
+      if (badge) badge.style.display = "inline-flex";
+      if (navDot) navDot.style.display = "inline-block";
+      if (announceNoUpdate) showStatus(getTranslation("update_available_pattern", { version: info.version }));
+    } catch (error) {
+      console.error("Update check failed", error);
+      if (announceNoUpdate) showStatus(getTranslation("update_check_error_pattern", { error: String(error) }), true);
+    } finally {
+      if (checkButton) checkButton.disabled = false;
+    }
+  }
+
+  async function installAvailableUpdate() {
+    if (!updateAvailable) {
+      await checkForUpdates(true);
+      if (!updateAvailable) return;
+    }
+    try {
+      showStatus(getTranslation("update_installing"));
+      await invoke("install_app_update");
+      showStatus(getTranslation("update_installed_restarting"));
+      await invoke("relaunch_app");
+    } catch (error) {
+      console.error("Update installation failed", error);
+      showStatus(getTranslation("update_install_error_open_release"), true);
+      invoke("open_url", {
+        url: "https://github.com/malashkadev/aura/releases/latest"
+      }).catch((openError) => console.error("Failed to open release page", openError));
+    }
+  }
+
+  const checkUpdatesButton = document.getElementById("btn-check-updates");
+  if (checkUpdatesButton) {
+    checkUpdatesButton.addEventListener("click", () => checkForUpdates(true));
+  }
+  const updateBadge = document.getElementById("update-badge");
+  if (updateBadge) {
+    updateBadge.addEventListener("click", installAvailableUpdate);
+  }
   // Initialize UI language and Settings
   (async () => {
     let settings = null;
@@ -2446,41 +2536,9 @@ const checkboxCopyContext = document.getElementById("checkbox-copy-context");
     // Initialize Settings
     await loadSettings(settings);
 
-    // Check GitHub for a newer release; show the update badge in About if found
-    try {
-      const badge = document.getElementById("update-badge");
-      const badgeText = document.getElementById("update-badge-text");
-      const navDot = document.getElementById("update-dot");
-      if (badge) {
-        const info = await invoke("check_for_update");
-        if (info && info.available) {
-          const label = getTranslation("update_available") || "Доступно обновление";
-          badgeText.textContent = `${label} (v${info.latest})`;
-          badge.style.display = "inline-flex";
-          badge.addEventListener("click", async () => {
-            try {
-              showStatus("Скачивание и установка обновления...");
-              const { check } = window.__TAURI__.plugins.updater;
-              const update = await check();
-              if (update) {
-                await update.downloadAndInstall();
-                showStatus("Обновление установлено. Перезапуск...");
-                await invoke("relaunch_app");
-              } else {
-                showStatus("Обновление не найдено.");
-              }
-            } catch (e) {
-              console.error("Failed to install update via Tauri updater", e);
-              showStatus("Открытие страницы релиза в браузере...");
-              invoke("open_url", { url: info.url }).catch(err => console.error(err));
-            }
-          });
-          // Visible without opening the About tab: a dot on the nav item itself
-          if (navDot) navDot.style.display = "inline-block";
-        }
-      }
-    } catch (err) {
-      console.error("Update check failed", err);
+    if (settings?.automatic_update_checks) {
+      await checkForUpdates(false);
     }
+
   })();
 });

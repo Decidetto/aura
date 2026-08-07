@@ -6,7 +6,6 @@
   "permissions": [
     "core:event:allow-listen",
     "core:event:allow-unlisten",
-    "allow-get-overlay-preferences",
     "allow-hide-overlay-window"
   ]
 }

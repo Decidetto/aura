@@ -3,6 +3,11 @@
 All notable changes to Aura are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/), versions follow [SemVer](https://semver.org/).
 
+## [1.0.9] — 2026-08-07
+
+### Changed
+- Bumped application version to 1.0.9 (prepares the groundwork for upcoming stability, reliability and security fixes).
+
 ## [1.0.6] — 2026-07-11
 
 ### Fixed

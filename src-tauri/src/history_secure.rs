@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 use tauri::Manager;
+use zeroize::Zeroize;
 
 use crate::secure_storage;
 
@@ -19,6 +20,21 @@ pub struct HistoryEntry {
 
 fn history_lock() -> &'static Mutex<()> {
     HISTORY_LOCK.get_or_init(|| Mutex::new(()))
+}
+
+fn lock_history() -> MutexGuard<'static, ()> {
+    match history_lock().lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            crate::logger::log(
+                "ERROR",
+                "History",
+                None,
+                "Recovering poisoned history mutex",
+            );
+            poisoned.into_inner()
+        }
+    }
 }
 
 fn get_history_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -38,23 +54,27 @@ fn get_legacy_history_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, Str
 }
 
 fn encode_entries(entries: &[HistoryEntry]) -> Result<Vec<u8>, String> {
-    let plaintext = serde_json::to_vec(entries)
+    let mut plaintext = serde_json::to_vec(entries)
         .map_err(|error| format!("Failed to serialize history: {error}"))?;
-    secure_storage::protect_for_current_user(&plaintext)
+    let result = secure_storage::protect_for_current_user(&plaintext);
+    plaintext.zeroize();
+    result
 }
 
 fn decode_entries(ciphertext: &[u8]) -> Result<Vec<HistoryEntry>, String> {
-    let plaintext = secure_storage::unprotect_for_current_user(ciphertext)?;
-    serde_json::from_slice(&plaintext)
-        .map_err(|error| format!("Encrypted history file is invalid: {error}"))
+    let mut plaintext = secure_storage::unprotect_for_current_user(ciphertext)?;
+    let result = serde_json::from_slice(&plaintext)
+        .map_err(|error| format!("Encrypted history file is invalid: {error}"));
+    plaintext.zeroize();
+    result
 }
 
 fn read_encrypted(path: &Path) -> Result<Vec<HistoryEntry>, String> {
     if !path.exists() {
         return Ok(Vec::new());
     }
-    let ciphertext = fs::read(path)
-        .map_err(|error| format!("Failed to read encrypted history: {error}"))?;
+    let ciphertext =
+        fs::read(path).map_err(|error| format!("Failed to read encrypted history: {error}"))?;
     decode_entries(&ciphertext).map_err(|error| {
         let backup = path.with_extension(format!("corrupt-{}", timestamp_millis()));
         let _ = fs::rename(path, &backup);
@@ -72,20 +92,24 @@ fn migrate_legacy_if_needed(
     if encrypted_path.exists() || !legacy_path.exists() {
         return Ok(None);
     }
-    let plaintext = fs::read(legacy_path)
-        .map_err(|error| format!("Failed to read legacy history: {error}"))?;
-    let entries: Vec<HistoryEntry> = serde_json::from_slice(&plaintext).map_err(|error| {
-        let backup = legacy_path.with_extension(format!("corrupt-{}", timestamp_millis()));
-        let _ = fs::rename(legacy_path, &backup);
-        format!(
-            "Legacy history was invalid and moved to {}: {error}",
-            backup.display()
-        )
-    })?;
+    let mut plaintext =
+        fs::read(legacy_path).map_err(|error| format!("Failed to read legacy history: {error}"))?;
+    let parsed: Result<Vec<HistoryEntry>, String> =
+        serde_json::from_slice(&plaintext).map_err(|error| {
+            let backup = legacy_path.with_extension(format!("corrupt-{}", timestamp_millis()));
+            let _ = fs::rename(legacy_path, &backup);
+            format!(
+                "Legacy history was invalid and moved to {}: {error}",
+                backup.display()
+            )
+        });
+    plaintext.zeroize();
+    let entries = parsed?;
     let encrypted = encode_entries(&entries)?;
     secure_storage::atomic_write(encrypted_path, &encrypted)?;
-    fs::remove_file(legacy_path)
-        .map_err(|error| format!("Encrypted history was saved but legacy cleanup failed: {error}"))?;
+    fs::remove_file(legacy_path).map_err(|error| {
+        format!("Encrypted history was saved but legacy cleanup failed: {error}")
+    })?;
     Ok(Some(entries))
 }
 
@@ -114,9 +138,7 @@ fn save_history_unlocked(
 }
 
 pub fn load_history(app_handle: &tauri::AppHandle) -> Result<Vec<HistoryEntry>, String> {
-    let _guard = history_lock()
-        .lock()
-        .map_err(|_| "History lock is poisoned".to_string())?;
+    let _guard = lock_history();
     load_history_unlocked(app_handle)
 }
 
@@ -132,17 +154,13 @@ fn insert_entry(entries: &mut Vec<HistoryEntry>, text: &str, mode: &str, timesta
     entries.truncate(MAX_ENTRIES);
 }
 
-pub fn add_entry(
-    app_handle: &tauri::AppHandle,
-    text: &str,
-    mode: &str,
-) -> Result<(), String> {
+pub fn add_entry(app_handle: &tauri::AppHandle, text: &str, mode: &str) -> Result<(), String> {
     if text.chars().count() > MAX_ENTRY_CHARS {
-        return Err(format!("History entry exceeds {MAX_ENTRY_CHARS} characters"));
+        return Err(format!(
+            "History entry exceeds {MAX_ENTRY_CHARS} characters"
+        ));
     }
-    let _guard = history_lock()
-        .lock()
-        .map_err(|_| "History lock is poisoned".to_string())?;
+    let _guard = lock_history();
     let mut entries = load_history_unlocked(app_handle)?;
     let timestamp_ms = timestamp_millis() as u64;
     insert_entry(&mut entries, text, mode, timestamp_ms);
@@ -150,9 +168,7 @@ pub fn add_entry(
 }
 
 pub fn clear_history(app_handle: &tauri::AppHandle) -> Result<(), String> {
-    let _guard = history_lock()
-        .lock()
-        .map_err(|_| "History lock is poisoned".to_string())?;
+    let _guard = lock_history();
     save_history_unlocked(app_handle, &[])
 }
 

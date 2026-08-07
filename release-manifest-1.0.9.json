@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "version": "1.0.9",
+  "published": false,
+  "authenticodeSigned": false,
+  "artifacts": [
+    {
+      "kind": "portable-exe",
+      "file": "aura-app.exe",
+      "bytes": 39215104,
+      "sha256": "9CBC2E4778BAF9E66215698050E23CC9FB3F464030BED08CB1120C90A7442DED"
+    },
+    {
+      "kind": "msi",
+      "file": "Aura_1.0.9_x64_en-US.msi",
+      "bytes": 49455104,
+      "sha256": "FCE3B0B8C7EAF86907A01811823DD1904264E6F50951D1DC515DCE646CEEB763"
+    },
+    {
+      "kind": "nsis",
+      "file": "Aura_1.0.9_x64-setup.exe",
+      "bytes": 22915138,
+      "sha256": "0F48923BD58A0A8D002A758D13F67EB46188905093AFFE90B2B9C23289EE9325"
+    }
+  ]
+}

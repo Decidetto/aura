@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "generated_from": [
+    {
+      "repository": "ggerganov/whisper.cpp",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "metadata_url": "https://huggingface.co/api/models/ggerganov/whisper.cpp?blobs=true"
+    },
+    {
+      "repository": "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
+      "revision": "2bda32ec70b097a55adaa07d9a7173915b43cc78",
+      "metadata_url": "https://huggingface.co/api/models/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8?blobs=true"
+    }
+  ],
+  "models": [
+    {
+      "id": "tiny",
+      "engine": "whisper",
+      "filename": "ggml-tiny.bin",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-tiny.bin",
+      "expected_size": 77691713,
+      "sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+      "enabled": true
+    },
+    {
+      "id": "base",
+      "engine": "whisper",
+      "filename": "ggml-base.bin",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.bin",
+      "expected_size": 147951465,
+      "sha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+      "enabled": true
+    },
+    {
+      "id": "small",
+      "engine": "whisper",
+      "filename": "ggml-small.bin",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small.bin",
+      "expected_size": 487601967,
+      "sha256": "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+      "enabled": true
+    },
+    {
+      "id": "medium",
+      "engine": "whisper",
+      "filename": "ggml-medium.bin",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-medium.bin",
+      "expected_size": 1533763059,
+      "sha256": "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208",
+      "enabled": true
+    },
+    {
+      "id": "large-v3-turbo-q5_0",
+      "engine": "whisper",
+      "filename": "ggml-large-v3-turbo-q5_0.bin",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin",
+      "expected_size": 574041195,
+      "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+      "enabled": true
+    },
+    {
+      "id": "large-v3-turbo",
+      "engine": "whisper",
+      "filename": "ggml-large-v3-turbo.bin",
+      "revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo.bin",
+      "expected_size": 1624555275,
+      "sha256": "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69",
+      "enabled": true
+    },
+    {
+      "id": "parakeet-v3/encoder",
+      "engine": "parakeet",
+      "filename": "encoder.onnx",
+      "revision": "2bda32ec70b097a55adaa07d9a7173915b43cc78",
+      "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/encoder.int8.onnx",
+      "expected_size": 652184281,
+      "sha256": "acfc2b4456377e15d04f0243af540b7fe7c992f8d898d751cf134c3a55fd2247",
+      "enabled": false
+    },
+    {
+      "id": "parakeet-v3/decoder",
+      "engine": "parakeet",
+      "filename": "decoder.onnx",
+      "revision": "2bda32ec70b097a55adaa07d9a7173915b43cc78",
+      "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/decoder.int8.onnx",
+      "expected_size": 11845275,
+      "sha256": "179e50c43d1a9de79c8a24149a2f9bac6eb5981823f2a2ed88d655b24248db4e",
+      "enabled": false
+    },
+    {
+      "id": "parakeet-v3/joiner",
+      "engine": "parakeet",
+      "filename": "joiner.onnx",
+      "revision": "2bda32ec70b097a55adaa07d9a7173915b43cc78",
+      "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/joiner.int8.onnx",
+      "expected_size": 6355277,
+      "sha256": "3164c13fc2821009440d20fcb5fdc78bff28b4db2f8d0f0b329101719c0948b3",
+      "enabled": false
+    },
+    {
+      "id": "parakeet-v3/tokens",
+      "engine": "parakeet",
+      "filename": "tokens.txt",
+      "revision": "2bda32ec70b097a55adaa07d9a7173915b43cc78",
+      "url": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/tokens.txt",
+      "expected_size": 93939,
+      "sha256": "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d",
+      "enabled": false
+    }
+  ]
+}

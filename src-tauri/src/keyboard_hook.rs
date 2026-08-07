@@ -1,9 +1,11 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+#[cfg(target_os = "macos")]
 use std::sync::Mutex;
+use std::sync::OnceLock;
 
 static CALLBACK: OnceLock<Box<dyn Fn(bool) + Send + Sync>> = OnceLock::new();
 static CANCEL_CALLBACK: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
+static USER_INPUT_CALLBACK: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
 static RECORDING_ACTIVE: AtomicBool = AtomicBool::new(false);
 static SHORTCUT_ACTIVE: AtomicBool = AtomicBool::new(false);
 static KEY_SUPPRESSED: AtomicBool = AtomicBool::new(false);
@@ -23,6 +25,31 @@ where
         .map_err(|_| "Cancel callback is already initialized")
 }
 
+/// Registers a callback for non-injected physical keyboard input that was not
+/// consumed as Aura's own hotkey. The application uses this to stop destructive
+/// live-text reconciliation after the user edits or undoes the target document.
+pub fn set_user_input_callback<F>(callback: F) -> Result<(), &'static str>
+where
+    F: Fn() + Send + Sync + 'static,
+{
+    USER_INPUT_CALLBACK
+        .set(Box::new(callback))
+        .map_err(|_| "User-input callback is already initialized")
+}
+
+fn notify_user_input() {
+    if let Some(callback) = USER_INPUT_CALLBACK.get() {
+        if std::panic::catch_unwind(std::panic::AssertUnwindSafe(callback)).is_err() {
+            crate::logger::log(
+                "ERROR",
+                "Hotkey",
+                None,
+                "User-input callback panicked; the panic was contained at the OS hook boundary",
+            );
+        }
+    }
+}
+
 // ============================================================================
 // WINDOWS IMPLEMENTATION
 // ============================================================================
@@ -30,25 +57,18 @@ where
 mod windows_impl {
     use super::*;
     use windows_sys::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
-    use windows_sys::Win32::UI::WindowsAndMessaging::{
-        CallNextHookEx, DispatchMessageW, GetMessageW, SetWindowsHookExW,
-        TranslateMessage, UnhookWindowsHookEx, KBDLLHOOKSTRUCT, MSG,
-        WH_KEYBOARD_LL, WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
-    };
     use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-        GetAsyncKeyState, SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT,
-        KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, VK_CONTROL,
+        GetAsyncKeyState, SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY,
+        KEYEVENTF_KEYUP, VK_CONTROL,
+    };
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        CallNextHookEx, DispatchMessageW, GetMessageW, SetWindowsHookExW, TranslateMessage,
+        UnhookWindowsHookEx, KBDLLHOOKSTRUCT, MSG, WH_KEYBOARD_LL, WM_KEYDOWN, WM_KEYUP,
+        WM_SYSKEYDOWN, WM_SYSKEYUP,
     };
 
-    struct HotkeyConfig {
-        modifier_vk: u32,
-        key_vk: u32,
-    }
-
-    static HOTKEY_CONFIG: Mutex<HotkeyConfig> = Mutex::new(HotkeyConfig {
-        modifier_vk: 18, // VK_MENU (Alt)
-        key_vk: 0x56,    // VK_V (V)
-    });
+    static HOTKEY_MODIFIER_VK: AtomicU32 = AtomicU32::new(18); // VK_MENU (Alt)
+    static HOTKEY_KEY_VK: AtomicU32 = AtomicU32::new(0x56); // VK_V (V)
 
     const VK_ESCAPE: u32 = 0x1B;
 
@@ -71,19 +91,35 @@ mod windows_impl {
             keyboard_input(VK_CONTROL, 0, KEYEVENTF_KEYUP),
         ];
         unsafe {
-            SendInput(inputs.len() as u32, inputs.as_mut_ptr(), std::mem::size_of::<INPUT>() as i32);
+            SendInput(
+                inputs.len() as u32,
+                inputs.as_mut_ptr(),
+                std::mem::size_of::<INPUT>() as i32,
+            );
         }
     }
 
     fn send_disarmed_alt_up(kbd: &KBDLLHOOKSTRUCT) {
-        let ext = if (kbd.flags & 0x01) != 0 { KEYEVENTF_EXTENDEDKEY } else { 0 };
+        let ext = if (kbd.flags & 0x01) != 0 {
+            KEYEVENTF_EXTENDEDKEY
+        } else {
+            0
+        };
         let mut inputs = [
             keyboard_input(VK_CONTROL, 0, 0),
             keyboard_input(VK_CONTROL, 0, KEYEVENTF_KEYUP),
-            keyboard_input(kbd.vkCode as u16, kbd.scanCode as u16, KEYEVENTF_KEYUP | ext),
+            keyboard_input(
+                kbd.vkCode as u16,
+                kbd.scanCode as u16,
+                KEYEVENTF_KEYUP | ext,
+            ),
         ];
         unsafe {
-            SendInput(inputs.len() as u32, inputs.as_mut_ptr(), std::mem::size_of::<INPUT>() as i32);
+            SendInput(
+                inputs.len() as u32,
+                inputs.as_mut_ptr(),
+                std::mem::size_of::<INPUT>() as i32,
+            );
         }
     }
 
@@ -96,92 +132,168 @@ mod windows_impl {
         }
     }
 
+    fn is_any_modifier_key(vk_code: u32) -> bool {
+        matches!(
+            vk_code,
+            16 | 17 | 18 | 160 | 161 | 162 | 163 | 164 | 165 | 91 | 92
+        )
+    }
+
     fn parse_hotkey(hotkey_str: &str) -> Option<(u32, u32)> {
-        let mut modifier = 0;
-        let mut key = 0;
+        let mut modifier = None;
+        let mut key = None;
 
         for part in hotkey_str.split('+') {
             let clean = part.trim().to_lowercase();
             match clean.as_str() {
-                "alt" => modifier = 18,
-                "ctrl" | "control" => modifier = 17,
-                "shift" => modifier = 16,
+                "alt" => {
+                    if modifier.replace(18).is_some() {
+                        return None;
+                    }
+                }
+                "ctrl" | "control" => {
+                    if modifier.replace(17).is_some() {
+                        return None;
+                    }
+                }
+                "shift" => {
+                    if modifier.replace(16).is_some() {
+                        return None;
+                    }
+                }
                 other => {
-                    if other.len() == 1 {
-                        key = other.chars().next().unwrap().to_ascii_uppercase() as u32;
+                    let parsed = if let [byte] = other.as_bytes() {
+                        byte.is_ascii_alphanumeric()
+                            .then(|| byte.to_ascii_uppercase() as u32)
                     } else {
                         match other {
-                            "space" | "пробел" => key = 0x20,
-                            "capslock" | "caps lock" => key = 0x14,
-                            "tab" => key = 0x09,
-                            "f1" => key = 0x70,
-                            "f2" => key = 0x71,
-                            "f3" => key = 0x72,
-                            "f4" => key = 0x73,
-                            "f5" => key = 0x74,
-                            "f6" => key = 0x75,
-                            "f7" => key = 0x76,
-                            "f8" => key = 0x77,
-                            "f9" => key = 0x78,
-                            "f10" => key = 0x79,
-                            "f11" => key = 0x7A,
-                            "f12" => key = 0x7B,
-                            _ => {}
+                            "space" | "пробел" => Some(0x20),
+                            "capslock" | "caps lock" => Some(0x14),
+                            "tab" => Some(0x09),
+                            "f1" => Some(0x70),
+                            "f2" => Some(0x71),
+                            "f3" => Some(0x72),
+                            "f4" => Some(0x73),
+                            "f5" => Some(0x74),
+                            "f6" => Some(0x75),
+                            "f7" => Some(0x76),
+                            "f8" => Some(0x77),
+                            "f9" => Some(0x78),
+                            "f10" => Some(0x79),
+                            "f11" => Some(0x7A),
+                            "f12" => Some(0x7B),
+                            _ => None,
                         }
+                    }?;
+                    if key.replace(parsed).is_some() {
+                        return None;
                     }
                 }
             }
         }
 
-        if key == 0 { None } else { Some((modifier, key)) }
+        key.map(|key| (modifier.unwrap_or(0), key))
     }
 
-    pub fn update_hotkey(hotkey_str: &str) {
-        let Some((modifier, key)) = parse_hotkey(hotkey_str) else {
-            eprintln!("Aura Dev Log ERROR: Could not parse hotkey '{}'; keeping previous.", hotkey_str);
-            return;
-        };
+    pub fn validate_hotkey(hotkey_str: &str) -> Result<(), String> {
+        parse_hotkey(hotkey_str)
+            .map(|_| ())
+            .ok_or_else(|| format!("Unsupported hotkey: {hotkey_str}"))
+    }
 
-        if let Ok(mut guard) = HOTKEY_CONFIG.lock() {
-            guard.modifier_vk = modifier;
-            guard.key_vk = key;
+    pub fn update_hotkey(hotkey_str: &str) -> Result<(), String> {
+        let (modifier, key) =
+            parse_hotkey(hotkey_str).ok_or_else(|| format!("Unsupported hotkey: {hotkey_str}"))?;
 
-            SHORTCUT_ACTIVE.store(false, Ordering::SeqCst);
-            KEY_SUPPRESSED.store(false, Ordering::SeqCst);
+        HOTKEY_MODIFIER_VK.store(modifier, Ordering::SeqCst);
+        HOTKEY_KEY_VK.store(key, Ordering::SeqCst);
+        SHORTCUT_ACTIVE.store(false, Ordering::SeqCst);
+        KEY_SUPPRESSED.store(false, Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn notify_hotkey(is_down: bool) {
+        if let Some(callback) = CALLBACK.get() {
+            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| callback(is_down))).is_err()
+            {
+                crate::logger::log(
+                    "ERROR",
+                    "Hotkey",
+                    None,
+                    "Hotkey callback panicked; the panic was contained at the WinAPI boundary",
+                );
+            }
         }
     }
 
-    pub fn start_hook<F>(callback: F) -> Result<(), &'static str>
+    fn notify_cancel() {
+        if let Some(callback) = CANCEL_CALLBACK.get() {
+            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(callback)).is_err() {
+                crate::logger::log(
+                    "ERROR",
+                    "Hotkey",
+                    None,
+                    "Cancel callback panicked; the panic was contained at the WinAPI boundary",
+                );
+            }
+        }
+    }
+
+    pub fn start_hook<F>(callback: F) -> Result<(), String>
     where
         F: Fn(bool) + Send + Sync + 'static,
     {
         if CALLBACK.set(Box::new(callback)).is_err() {
-            return Err("Hook callback is already initialized");
+            return Err("Hook callback is already initialized".to_string());
         }
 
-        std::thread::spawn(|| unsafe {
-            let hook = SetWindowsHookExW(
-                WH_KEYBOARD_LL,
-                Some(low_level_keyboard_proc),
-                0,
-                0,
-            );
+        let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
+        std::thread::Builder::new()
+            .name("aura-keyboard-hook".to_string())
+            .spawn(move || unsafe {
+                let hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(low_level_keyboard_proc), 0, 0);
 
-            if hook == 0 {
-                eprintln!("Error: Failed to install global keyboard hook.");
-                return;
-            }
+                if hook == 0 {
+                    let _ = ready_tx.send(Err(format!(
+                        "Failed to install global keyboard hook: {}",
+                        std::io::Error::last_os_error()
+                    )));
+                    return;
+                }
+                if ready_tx.send(Ok(())).is_err() {
+                    UnhookWindowsHookEx(hook);
+                    return;
+                }
 
-            let mut msg: MSG = std::mem::zeroed();
-            while GetMessageW(&mut msg, 0, 0, 0) > 0 {
-                TranslateMessage(&msg);
-                DispatchMessageW(&msg);
-            }
+                let mut msg: MSG = std::mem::zeroed();
+                loop {
+                    let result = GetMessageW(&mut msg, 0, 0, 0);
+                    if result == -1 {
+                        crate::logger::log(
+                            "ERROR",
+                            "Hotkey",
+                            None,
+                            &format!(
+                                "Keyboard message loop failed: {}",
+                                std::io::Error::last_os_error()
+                            ),
+                        );
+                        break;
+                    }
+                    if result == 0 {
+                        break;
+                    }
+                    TranslateMessage(&msg);
+                    DispatchMessageW(&msg);
+                }
 
-            UnhookWindowsHookEx(hook);
-        });
+                UnhookWindowsHookEx(hook);
+            })
+            .map_err(|error| format!("Failed to spawn keyboard hook thread: {error}"))?;
 
-        Ok(())
+        ready_rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .map_err(|error| format!("Keyboard hook initialization timed out: {error}"))?
     }
 
     unsafe extern "system" fn low_level_keyboard_proc(
@@ -189,7 +301,7 @@ mod windows_impl {
         wparam: WPARAM,
         lparam: LPARAM,
     ) -> LRESULT {
-        if code >= 0 {
+        if code >= 0 && lparam != 0 {
             let kbd_struct = *(lparam as *const KBDLLHOOKSTRUCT);
             let is_injected = (kbd_struct.flags & 0x10) != 0;
             if is_injected {
@@ -201,33 +313,22 @@ mod windows_impl {
             let is_up = wparam == WM_KEYUP as usize || wparam == WM_SYSKEYUP as usize;
 
             if vk_code == VK_ESCAPE && is_down && RECORDING_ACTIVE.load(Ordering::SeqCst) {
-                if let Some(cb) = CANCEL_CALLBACK.get() {
-                    cb();
-                }
+                notify_cancel();
                 return 1; // Suppress Esc
             }
 
-            let (modifier_vk, key_vk) = {
-                if let Ok(guard) = HOTKEY_CONFIG.lock() {
-                    (guard.modifier_vk, guard.key_vk)
-                } else {
-                    (18, 0x56)
-                }
-            };
+            let modifier_vk = HOTKEY_MODIFIER_VK.load(Ordering::SeqCst);
+            let key_vk = HOTKEY_KEY_VK.load(Ordering::SeqCst);
 
             let is_modifier = is_modifier_key(vk_code, modifier_vk);
             let is_target_key = vk_code == key_vk;
 
             if modifier_vk != 0 && is_modifier {
-                if is_up {
-                    if SHORTCUT_ACTIVE.swap(false, Ordering::SeqCst) {
-                        if let Some(cb) = CALLBACK.get() {
-                            cb(false);
-                        }
-                        if modifier_vk == 18 {
-                            send_disarmed_alt_up(&kbd_struct);
-                            return 1;
-                        }
+                if is_up && SHORTCUT_ACTIVE.swap(false, Ordering::SeqCst) {
+                    notify_hotkey(false);
+                    if modifier_vk == 18 {
+                        send_disarmed_alt_up(&kbd_struct);
+                        return 1;
                     }
                 }
             } else if is_target_key {
@@ -240,9 +341,7 @@ mod windows_impl {
                     if modifier_satisfied || SHORTCUT_ACTIVE.load(Ordering::SeqCst) {
                         KEY_SUPPRESSED.store(true, Ordering::SeqCst);
                         if !SHORTCUT_ACTIVE.swap(true, Ordering::SeqCst) {
-                            if let Some(cb) = CALLBACK.get() {
-                                cb(true);
-                            }
+                            notify_hotkey(true);
                         }
                         return 1;
                     } else {
@@ -252,9 +351,7 @@ mod windows_impl {
                     let suppressed = KEY_SUPPRESSED.swap(false, Ordering::SeqCst);
                     let was_active = SHORTCUT_ACTIVE.swap(false, Ordering::SeqCst);
                     if was_active {
-                        if let Some(cb) = CALLBACK.get() {
-                            cb(false);
-                        }
+                        notify_hotkey(false);
                         if modifier_vk == 18 && modifier_satisfied {
                             send_dummy_ctrl_tap();
                         }
@@ -264,13 +361,21 @@ mod windows_impl {
                     }
                 }
             }
+
+            // Actual Aura hotkey events returned above. Any remaining physical
+            // non-modifier key can change the target editor (typing, Backspace,
+            // Ctrl+Z, navigation, etc.). Injected SendInput events returned at
+            // the top of this hook and therefore never desynchronize Aura.
+            if is_down && !is_any_modifier_key(vk_code) {
+                notify_user_input();
+            }
         }
         CallNextHookEx(0, code, wparam, lparam)
     }
 
     #[cfg(test)]
     mod tests {
-        use super::parse_hotkey;
+        use super::{is_any_modifier_key, parse_hotkey};
 
         #[test]
         fn test_parse_hotkey_combinations() {
@@ -287,6 +392,18 @@ mod windows_impl {
             assert_eq!(parse_hotkey(""), None);
             assert_eq!(parse_hotkey("Alt"), None);
             assert_eq!(parse_hotkey("Alt+Unknown"), None);
+            assert_eq!(parse_hotkey("Alt+V+Unknown"), None);
+            assert_eq!(parse_hotkey("Ctrl+Shift+V"), None);
+        }
+
+        #[test]
+        fn user_edit_detection_ignores_modifier_only_events() {
+            assert!(is_any_modifier_key(0x10)); // Shift
+            assert!(is_any_modifier_key(0x11)); // Ctrl
+            assert!(is_any_modifier_key(0x12)); // Alt
+            assert!(is_any_modifier_key(0x5B)); // Left Win
+            assert!(!is_any_modifier_key(0x5A)); // Z in Ctrl+Z
+            assert!(!is_any_modifier_key(0x08)); // Backspace
         }
     }
 }
@@ -298,6 +415,7 @@ mod windows_impl {
 mod macos_impl {
     use super::*;
     use std::ffi::c_void;
+    use std::sync::atomic::AtomicPtr;
 
     pub type CGEventTapProxy = *mut c_void;
     pub type CGEventRef = *mut c_void;
@@ -308,6 +426,7 @@ mod macos_impl {
         refcon: *mut c_void,
     ) -> CGEventRef;
 
+    pub type CFRunLoopSourceRef = *mut c_void;
     pub type CFRunLoopSourceRef = *mut c_void;
     pub type CFRunLoopRef = *mut c_void;
     pub type CFStringRef = *mut c_void;
@@ -321,22 +440,23 @@ mod macos_impl {
             eventsOfInterest: u64,
             callback: CGEventTapCallBack,
             refcon: *mut c_void,
-        ) -> *mut c_void;
-        pub fn CFRunLoopSourceCreate(
-            allocator: *mut c_void,
-            order: isize,
-            context: *mut c_void,
-        ) -> CFRunLoopSourceRef;
-        pub fn CFRunLoopGetCurrent() -> CFRunLoopRef;
-        pub fn CFRunLoopAddSource(
-            rl: CFRunLoopRef,
-            source: CFRunLoopSourceRef,
-            mode: CFStringRef,
-        );
-        pub fn CFRunLoopRun();
+        ) -> CFMachPortRef;
+        pub fn CGEventTapEnable(tap: CFMachPortRef, enable: bool);
         pub fn CGEventGetFlags(event: CGEventRef) -> u64;
         pub fn CGEventGetIntegerValueField(event: CGEventRef, field: u32) -> i64;
-        
+    }
+
+    #[link(name = "CoreFoundation", kind = "framework")]
+    extern "C" {
+        pub fn CFMachPortCreateRunLoopSource(
+            allocator: *mut c_void,
+            port: CFMachPortRef,
+            order: isize,
+        ) -> CFRunLoopSourceRef;
+        pub fn CFRunLoopGetCurrent() -> CFRunLoopRef;
+        pub fn CFRunLoopAddSource(rl: CFRunLoopRef, source: CFRunLoopSourceRef, mode: CFStringRef);
+        pub fn CFRunLoopRun();
+        pub fn CFRelease(value: *const c_void);
         pub static kCFRunLoopCommonModes: CFStringRef;
     }
 
@@ -347,7 +467,10 @@ mod macos_impl {
     pub const kCGEventKeyDown: u32 = 10;
     pub const kCGEventKeyUp: u32 = 11;
     pub const kCGEventFlagsChanged: u32 = 12;
+    pub const kCGEventTapDisabledByTimeout: u32 = u32::MAX - 1;
+    pub const kCGEventTapDisabledByUserInput: u32 = u32::MAX;
 
+    static EVENT_TAP: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
     pub const kCGKeyboardEventKeycode: u32 = 9;
 
     pub const kCGEventFlagMaskAlternate: u64 = 0x00080000;
@@ -369,7 +492,7 @@ mod macos_impl {
 
     fn parse_hotkey(hotkey_str: &str) -> Option<(u64, u32)> {
         let mut modifier_mask = 0;
-        let mut key = 0;
+        let mut key = None;
 
         for part in hotkey_str.split('+') {
             let clean = part.trim().to_lowercase();
@@ -379,87 +502,194 @@ mod macos_impl {
                 "shift" => modifier_mask |= kCGEventFlagMaskShift,
                 "cmd" | "command" | "win" => modifier_mask |= kCGEventFlagMaskCommand,
                 other => {
-                    if other.len() == 1 {
-                        let ch = other.chars().next().unwrap().to_ascii_uppercase();
-                        key = match ch {
-                            'A' => 0, 'B' => 11, 'C' => 8, 'D' => 2, 'E' => 14, 'F' => 3, 'G' => 5,
-                            'H' => 4, 'I' => 34, 'J' => 38, 'K' => 40, 'L' => 37, 'M' => 46, 'N' => 45,
-                            'O' => 31, 'P' => 35, 'Q' => 12, 'R' => 15, 'S' => 1, 'T' => 17, 'U' => 32,
-                            'V' => 9, 'W' => 13, 'X' => 7, 'Y' => 16, 'Z' => 6,
-                            _ => 0,
-                        };
+                    let parsed = if let [byte] = other.as_bytes() {
+                        match byte.to_ascii_uppercase() {
+                            b'A' => Some(0),
+                            b'B' => Some(11),
+                            b'C' => Some(8),
+                            b'D' => Some(2),
+                            b'E' => Some(14),
+                            b'F' => Some(3),
+                            b'G' => Some(5),
+                            b'H' => Some(4),
+                            b'I' => Some(34),
+                            b'J' => Some(38),
+                            b'K' => Some(40),
+                            b'L' => Some(37),
+                            b'M' => Some(46),
+                            b'N' => Some(45),
+                            b'O' => Some(31),
+                            b'P' => Some(35),
+                            b'Q' => Some(12),
+                            b'R' => Some(15),
+                            b'S' => Some(1),
+                            b'T' => Some(17),
+                            b'U' => Some(32),
+                            b'V' => Some(9),
+                            b'W' => Some(13),
+                            b'X' => Some(7),
+                            b'Y' => Some(16),
+                            b'Z' => Some(6),
+                            _ => None,
+                        }
                     } else {
                         match other {
-                            "space" => key = 49,
-                            "capslock" => key = 57,
-                            "tab" => key = 48,
-                            "f1" => key = 122, "f2" => key = 120, "f3" => key = 99, "f4" => key = 118,
-                            "f5" => key = 96, "f6" => key = 97, "f7" => key = 98, "f8" => key = 100,
-                            "f9" => key = 101, "f10" => key = 109, "f11" => key = 103, "f12" => key = 111,
-                            _ => {}
+                            "space" => Some(49),
+                            "capslock" => Some(57),
+                            "tab" => Some(48),
+                            "f1" => Some(122),
+                            "f2" => Some(120),
+                            "f3" => Some(99),
+                            "f4" => Some(118),
+                            "f5" => Some(96),
+                            "f6" => Some(97),
+                            "f7" => Some(98),
+                            "f8" => Some(100),
+                            "f9" => Some(101),
+                            "f10" => Some(109),
+                            "f11" => Some(103),
+                            "f12" => Some(111),
+                            _ => None,
                         }
+                    }?;
+                    if key.replace(parsed).is_some() {
+                        return None;
                     }
                 }
             }
         }
 
-        if key == 0 { None } else { Some((modifier_mask, key)) }
+        key.map(|key| (modifier_mask, key))
     }
 
-    pub fn update_hotkey(hotkey_str: &str) {
-        let Some((modifier, key)) = parse_hotkey(hotkey_str) else {
-            eprintln!("Aura Dev Log ERROR: Could not parse hotkey '{}'; keeping previous.", hotkey_str);
-            return;
+    pub fn validate_hotkey(hotkey_str: &str) -> Result<(), String> {
+        parse_hotkey(hotkey_str)
+            .map(|_| ())
+            .ok_or_else(|| format!("Unsupported hotkey: {hotkey_str}"))
+    }
+
+    pub fn update_hotkey(hotkey_str: &str) -> Result<(), String> {
+        let (modifier, key) =
+            parse_hotkey(hotkey_str).ok_or_else(|| format!("Unsupported hotkey: {hotkey_str}"))?;
+
+        let mut guard = match HOTKEY_CONFIG.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                crate::logger::log(
+                    "ERROR",
+                    "Hotkey",
+                    None,
+                    "Recovering poisoned macOS hotkey mutex",
+                );
+                poisoned.into_inner()
+            }
         };
-
-        if let Ok(mut guard) = HOTKEY_CONFIG.lock() {
-            guard.modifier_mask = modifier;
-            guard.key_code = key;
-
-            SHORTCUT_ACTIVE.store(false, Ordering::SeqCst);
-            KEY_SUPPRESSED.store(false, Ordering::SeqCst);
-        }
+        guard.modifier_mask = modifier;
+        guard.key_code = key;
+        SHORTCUT_ACTIVE.store(false, Ordering::SeqCst);
+        KEY_SUPPRESSED.store(false, Ordering::SeqCst);
+        Ok(())
     }
 
-    pub fn start_hook<F>(callback: F) -> Result<(), &'static str>
+    pub fn start_hook<F>(callback: F) -> Result<(), String>
     where
         F: Fn(bool) + Send + Sync + 'static,
     {
         if CALLBACK.set(Box::new(callback)).is_err() {
-            return Err("Hook callback is already initialized");
+            return Err("Hook callback is already initialized".to_string());
         }
 
-        std::thread::spawn(|| unsafe {
-            let event_mask = (1u64 << kCGEventKeyDown) 
-                | (1u64 << kCGEventKeyUp) 
-                | (1u64 << kCGEventFlagsChanged);
+        let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
+        std::thread::Builder::new()
+            .name("aura-macos-keyboard-hook".to_string())
+            .spawn(move || unsafe {
+                let event_mask = (1u64 << kCGEventKeyDown)
+                    | (1u64 << kCGEventKeyUp)
+                    | (1u64 << kCGEventFlagsChanged);
 
-            let tap = CGEventTapCreate(
-                kCGSessionEventTap,
-                kCGHeadInsertEventTap,
-                kCGEventTapOptionDefault,
-                event_mask,
-                macos_event_tap_callback,
-                std::ptr::null_mut(),
-            );
+                let tap = CGEventTapCreate(
+                    kCGSessionEventTap,
+                    kCGHeadInsertEventTap,
+                    kCGEventTapOptionDefault,
+                    event_mask,
+                    macos_event_tap_callback,
+                    std::ptr::null_mut(),
+                );
+                if tap.is_null() {
+                    let _ = ready_tx.send(Err(
+                        "Failed to create CGEventTap; grant Aura Accessibility permission"
+                            .to_string(),
+                    ));
+                    return;
+                }
 
-            if tap.is_null() {
-                eprintln!("Error: Failed to create CGEventTap. Ensure Accessibility permissions are granted.");
-                return;
+                let run_loop_source = CFMachPortCreateRunLoopSource(std::ptr::null_mut(), tap, 0);
+                if run_loop_source.is_null() {
+                    CFRelease(tap);
+                    let _ = ready_tx.send(Err(
+                        "Failed to create the macOS keyboard-hook run-loop source".to_string(),
+                    ));
+                    return;
+                }
+
+                let run_loop = CFRunLoopGetCurrent();
+                if run_loop.is_null() {
+                    CFRelease(run_loop_source);
+                    CFRelease(tap);
+                    let _ = ready_tx.send(Err(
+                        "Failed to access the macOS keyboard-hook run loop".to_string()
+                    ));
+                    return;
+                }
+
+                EVENT_TAP.store(tap, Ordering::SeqCst);
+                CGEventTapEnable(tap, true);
+                CFRunLoopAddSource(run_loop, run_loop_source, kCFRunLoopCommonModes);
+                if ready_tx.send(Ok(())).is_err() {
+                    EVENT_TAP.store(std::ptr::null_mut(), Ordering::SeqCst);
+                    CFRelease(run_loop_source);
+                    CFRelease(tap);
+                    return;
+                }
+
+                CFRunLoopRun();
+
+                EVENT_TAP.store(std::ptr::null_mut(), Ordering::SeqCst);
+                CFRelease(run_loop_source);
+                CFRelease(tap);
+            })
+            .map_err(|error| format!("Failed to spawn macOS keyboard-hook thread: {error}"))?;
+
+        ready_rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .map_err(|error| format!("macOS keyboard-hook initialization timed out: {error}"))?
+    }
+
+    fn notify_hotkey(is_down: bool) {
+        if let Some(callback) = CALLBACK.get() {
+            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| callback(is_down))).is_err()
+            {
+                crate::logger::log(
+                    "ERROR",
+                    "Hotkey",
+                    None,
+                    "Hotkey callback panicked; the panic was contained at the macOS FFI boundary",
+                );
             }
+        }
+    }
 
-            let run_loop_source = CFRunLoopSourceCreate(std::ptr::null_mut(), 0, tap);
-            if run_loop_source.is_null() {
-                eprintln!("Error: Failed to create CFRunLoopSource.");
-                return;
+    fn notify_cancel() {
+        if let Some(callback) = CANCEL_CALLBACK.get() {
+            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(callback)).is_err() {
+                crate::logger::log(
+                    "ERROR",
+                    "Hotkey",
+                    None,
+                    "Cancel callback panicked; the panic was contained at the macOS FFI boundary",
+                );
             }
-
-            let run_loop = CFRunLoopGetCurrent();
-            CFRunLoopAddSource(run_loop, run_loop_source, kCFRunLoopCommonModes);
-            CFRunLoopRun();
-        });
-
-        Ok(())
+        }
     }
 
     unsafe extern "C" fn macos_event_tap_callback(
@@ -468,34 +698,52 @@ mod macos_impl {
         event: CGEventRef,
         _refcon: *mut c_void,
     ) -> CGEventRef {
+        if type_ == kCGEventTapDisabledByTimeout || type_ == kCGEventTapDisabledByUserInput {
+            let tap = EVENT_TAP.load(Ordering::SeqCst);
+            if !tap.is_null() {
+                CGEventTapEnable(tap, true);
+            }
+            return event;
+        }
+        if event.is_null() {
+            return event;
+        }
+
         let keycode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode) as u32;
         let flags = CGEventGetFlags(event);
 
-        if keycode == VK_ESCAPE && type_ == kCGEventKeyDown && RECORDING_ACTIVE.load(Ordering::SeqCst) {
-            if let Some(cb) = CANCEL_CALLBACK.get() {
-                cb();
-            }
+        if keycode == VK_ESCAPE
+            && type_ == kCGEventKeyDown
+            && RECORDING_ACTIVE.load(Ordering::SeqCst)
+        {
+            notify_cancel();
             return std::ptr::null_mut(); // Suppress Escape key
         }
 
         let (modifier_mask, target_keycode) = {
-            if let Ok(guard) = HOTKEY_CONFIG.lock() {
-                (guard.modifier_mask, guard.key_code)
-            } else {
-                (kCGEventFlagMaskAlternate, 9)
-            }
+            let guard = match HOTKEY_CONFIG.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => {
+                    crate::logger::log(
+                        "ERROR",
+                        "Hotkey",
+                        None,
+                        "Recovering poisoned macOS hotkey mutex",
+                    );
+                    poisoned.into_inner()
+                }
+            };
+            (guard.modifier_mask, guard.key_code)
         };
 
-        let modifier_satisfied = modifier_mask == 0 || (flags & modifier_mask) != 0;
+        let modifier_satisfied = modifier_mask == 0 || (flags & modifier_mask) == modifier_mask;
 
         if keycode == target_keycode {
             if type_ == kCGEventKeyDown {
                 if modifier_satisfied || SHORTCUT_ACTIVE.load(Ordering::SeqCst) {
                     KEY_SUPPRESSED.store(true, Ordering::SeqCst);
                     if !SHORTCUT_ACTIVE.swap(true, Ordering::SeqCst) {
-                        if let Some(cb) = CALLBACK.get() {
-                            cb(true);
-                        }
+                        notify_hotkey(true);
                     }
                     return std::ptr::null_mut(); // Suppress target key
                 } else {
@@ -505,9 +753,7 @@ mod macos_impl {
                 let suppressed = KEY_SUPPRESSED.swap(false, Ordering::SeqCst);
                 let was_active = SHORTCUT_ACTIVE.swap(false, Ordering::SeqCst);
                 if was_active {
-                    if let Some(cb) = CALLBACK.get() {
-                        cb(false);
-                    }
+                    notify_hotkey(false);
                 }
                 if suppressed || modifier_satisfied || was_active {
                     return std::ptr::null_mut(); // Suppress target key release
@@ -515,12 +761,8 @@ mod macos_impl {
             }
         } else if type_ == kCGEventFlagsChanged && modifier_mask != 0 {
             // If the modifier mask is active and was released logical-wise
-            if !modifier_satisfied {
-                if SHORTCUT_ACTIVE.swap(false, Ordering::SeqCst) {
-                    if let Some(cb) = CALLBACK.get() {
-                        cb(false);
-                    }
-                }
+            if !modifier_satisfied && SHORTCUT_ACTIVE.swap(false, Ordering::SeqCst) {
+                notify_hotkey(false);
             }
         }
 
@@ -532,7 +774,7 @@ mod macos_impl {
 // EXPOSED PUBLIC API GATES
 // ============================================================================
 #[cfg(target_os = "windows")]
-pub use windows_impl::{start_hook, update_hotkey};
+pub use windows_impl::{start_hook, update_hotkey, validate_hotkey};
 
 #[cfg(target_os = "macos")]
-pub use macos_impl::{start_hook, update_hotkey};
+pub use macos_impl::{start_hook, update_hotkey, validate_hotkey};

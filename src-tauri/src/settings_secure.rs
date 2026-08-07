@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 use tauri::Manager;
+use zeroize::Zeroize;
 
 use crate::secure_storage;
 
@@ -17,12 +19,31 @@ const ALLOWED_MODELS: &[&str] = &[
     "parakeet-v3",
 ];
 const ALLOWED_ENGINES: &[&str] = &["whisper", "parakeet"];
+const ALLOWED_ACCELERATION: &[&str] = &["cpu", "cuda"];
 const ALLOWED_LANGUAGES: &[&str] = &[
     "auto", "layout", "ru", "en", "de", "es", "fr", "it", "zh", "pt", "tr",
 ];
 const ALLOWED_SOUND_THEMES: &[&str] = &["zen", "rhodes", "scifi", "classic"];
 const MAX_DICTIONARY_CHARS: usize = 4096;
 const MAX_HOTKEY_CHARS: usize = 64;
+
+static SETTINGS_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn lock_settings() -> MutexGuard<'static, ()> {
+    let mutex = SETTINGS_LOCK.get_or_init(|| Mutex::new(()));
+    match mutex.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            crate::logger::log(
+                "ERROR",
+                "Settings",
+                None,
+                "Recovering poisoned settings mutex",
+            );
+            poisoned.into_inner()
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default)]
@@ -45,14 +66,15 @@ pub struct Settings {
     pub dictionary: String,
     pub voice_punctuation: bool,
     pub autostart: bool,
+    pub automatic_update_checks: bool,
     pub overlay_sounds: bool,
     pub overlay_sound_theme: String,
     pub overlay_sound_volume: f32,
     pub cloud_fallback_enabled: bool,
     pub local_engine: String,
-    pub selection_edit_enabled: bool,
-    pub automatic_update_checks: bool,
-    pub history_enabled: bool,
+    pub copy_context_on_start: bool,
+    pub local_acceleration: String,
+    pub log_speech_text: bool,
 }
 
 impl Default for Settings {
@@ -72,14 +94,15 @@ impl Default for Settings {
             dictionary: String::new(),
             voice_punctuation: false,
             autostart: false,
+            automatic_update_checks: false,
             overlay_sounds: true,
             overlay_sound_theme: "zen".to_string(),
             overlay_sound_volume: 0.8,
             cloud_fallback_enabled: true,
             local_engine: "whisper".to_string(),
-            selection_edit_enabled: false,
-            automatic_update_checks: false,
-            history_enabled: true,
+            copy_context_on_start: false,
+            local_acceleration: "cpu".to_string(),
+            log_speech_text: false,
         }
     }
 }
@@ -99,12 +122,25 @@ impl Settings {
     }
 
     pub fn validate(&self) -> Result<(), String> {
-        validate_choice("transcription mode", &self.transcription_mode, ALLOWED_MODES)?;
+        validate_choice(
+            "transcription mode",
+            &self.transcription_mode,
+            ALLOWED_MODES,
+        )?;
         validate_choice("API provider", &self.api_provider, ALLOWED_PROVIDERS)?;
         validate_choice("model", &self.model_name, ALLOWED_MODELS)?;
         validate_choice("local engine", &self.local_engine, ALLOWED_ENGINES)?;
+        validate_choice(
+            "local acceleration",
+            &self.local_acceleration,
+            ALLOWED_ACCELERATION,
+        )?;
         validate_choice("language", &self.language, ALLOWED_LANGUAGES)?;
-        validate_choice("sound theme", &self.overlay_sound_theme, ALLOWED_SOUND_THEMES)?;
+        validate_choice(
+            "sound theme",
+            &self.overlay_sound_theme,
+            ALLOWED_SOUND_THEMES,
+        )?;
 
         let hotkey_len = self.hotkey.chars().count();
         if hotkey_len == 0 || hotkey_len > MAX_HOTKEY_CHARS {
@@ -225,22 +261,102 @@ fn load_config(path: &Path) -> Result<Settings, String> {
     })
 }
 
-fn load_secrets(path: &Path) -> Result<ProviderSecrets, String> {
-    if !path.exists() {
-        return Ok(ProviderSecrets::default());
-    }
-    let encrypted = fs::read(path)
-        .map_err(|error| format!("Failed to read encrypted API keys: {error}"))?;
-    let plaintext = secure_storage::unprotect_for_current_user(&encrypted)?;
-    serde_json::from_slice(&plaintext)
-        .map_err(|error| format!("Encrypted API key store is invalid: {error}"))
+fn unreadable_secrets_backup_path(path: &Path) -> PathBuf {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("secrets.dpapi");
+    path.with_file_name(format!(
+        "{file_name}.unreadable-{}-{}",
+        timestamp_millis(),
+        std::process::id()
+    ))
 }
 
+fn recover_unreadable_secrets(path: &Path, error: &str) -> ProviderSecrets {
+    let secrets = ProviderSecrets::default();
+    let backup = unreadable_secrets_backup_path(path);
+
+    match fs::rename(path, &backup) {
+        Ok(()) => {
+            crate::logger::log(
+                "WARN",
+                "Settings",
+                None,
+                &format!(
+                    "Encrypted API key store could not be read and was preserved at {}: {error}. API keys were reset and must be entered again.",
+                    backup.display()
+                ),
+            );
+            if let Err(reset_error) = save_secrets(path, &secrets) {
+                crate::logger::log(
+                    "ERROR",
+                    "Settings",
+                    None,
+                    &format!(
+                        "Could not initialize a replacement API key store after recovery: {reset_error}"
+                    ),
+                );
+            }
+        }
+        Err(rename_error) => {
+            crate::logger::log(
+                "ERROR",
+                "Settings",
+                None,
+                &format!(
+                    "Encrypted API key store could not be read ({error}) or preserved as {} ({rename_error}). Continuing without API keys; the original file was left unchanged.",
+                    backup.display()
+                ),
+            );
+        }
+    }
+
+    secrets
+}
+
+fn load_secrets(path: &Path) -> ProviderSecrets {
+    if !path.exists() {
+        return ProviderSecrets::default();
+    }
+
+    let encrypted = match fs::read(path) {
+        Ok(encrypted) => encrypted,
+        Err(error) => {
+            crate::logger::log(
+                "ERROR",
+                "Settings",
+                None,
+                &format!(
+                    "Failed to read encrypted API keys: {error}. Continuing without API keys."
+                ),
+            );
+            return ProviderSecrets::default();
+        }
+    };
+    let mut plaintext = match secure_storage::unprotect_for_current_user(&encrypted) {
+        Ok(plaintext) => plaintext,
+        Err(error) => return recover_unreadable_secrets(path, &error),
+    };
+    let result = serde_json::from_slice(&plaintext);
+    plaintext.zeroize();
+    match result {
+        Ok(secrets) => secrets,
+        Err(error) => recover_unreadable_secrets(
+            path,
+            &format!("Encrypted API key store is invalid: {error}"),
+        ),
+    }
+}
 fn save_secrets(path: &Path, secrets: &ProviderSecrets) -> Result<(), String> {
-    let plaintext = serde_json::to_vec(secrets)
+    let mut plaintext = serde_json::to_vec(secrets)
         .map_err(|error| format!("Failed to serialize API keys: {error}"))?;
-    let encrypted = secure_storage::protect_for_current_user(&plaintext)?;
-    secure_storage::atomic_write(path, &encrypted)
+    let encrypted_result = secure_storage::protect_for_current_user(&plaintext);
+    plaintext.zeroize();
+    let mut encrypted = encrypted_result?;
+    let result = secure_storage::atomic_write(path, &encrypted);
+    encrypted.zeroize();
+    result
 }
 
 fn save_config(path: &Path, settings: &Settings) -> Result<(), String> {
@@ -256,13 +372,21 @@ fn timestamp_millis() -> u128 {
         .unwrap_or_default()
 }
 
-pub fn load_settings<R: tauri::Runtime>(
+fn load_settings_unlocked<R: tauri::Runtime>(
     app_handle: &tauri::AppHandle<R>,
 ) -> Result<Settings, String> {
     let config_path = get_settings_path(app_handle)?;
     let secrets_path = get_secrets_path(app_handle)?;
     let mut settings = load_config(&config_path)?;
 
+    let migrated_unsupported_acceleration = settings.local_acceleration == "directml";
+    if migrated_unsupported_acceleration {
+        settings.local_acceleration = "cpu".to_string();
+    }
+    let config_contained_plaintext = !settings.api_key.is_empty()
+        || !settings.api_key_gemini.is_empty()
+        || !settings.api_key_openai.is_empty()
+        || !settings.api_key_groq.is_empty();
     let legacy_secrets = ProviderSecrets {
         gemini: if settings.api_key_gemini.is_empty() && settings.api_provider == "gemini" {
             settings.api_key.clone()
@@ -282,17 +406,26 @@ pub fn load_settings<R: tauri::Runtime>(
     };
 
     let secrets = if secrets_path.exists() {
-        load_secrets(&secrets_path)?
+        load_secrets(&secrets_path)
     } else {
         if !legacy_secrets.is_empty() {
             save_secrets(&secrets_path, &legacy_secrets)?;
-            save_config(&config_path, &settings)?;
         }
         legacy_secrets
     };
+    if config_contained_plaintext || migrated_unsupported_acceleration {
+        save_config(&config_path, &settings)?;
+    }
     secrets.apply_to(&mut settings);
     settings.validate()?;
     Ok(settings)
+}
+
+pub fn load_settings<R: tauri::Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+) -> Result<Settings, String> {
+    let _guard = lock_settings();
+    load_settings_unlocked(app_handle)
 }
 
 pub fn save_settings<R: tauri::Runtime>(
@@ -302,11 +435,11 @@ pub fn save_settings<R: tauri::Runtime>(
     let mut normalized = settings.clone();
     normalized.dictionary = normalized.dictionary.trim().to_string();
     normalized.hotkey = normalized.hotkey.trim().to_string();
-    normalized.sync_active_api_key();
     normalized.validate()?;
+    let _guard = lock_settings();
 
-    let secrets = ProviderSecrets::from_settings(&normalized);
-    save_secrets(&get_secrets_path(app_handle)?, &secrets)?;
+    // API keys are write-only and are updated solely by set_provider_key.
+    // Saving a redacted SettingsView must never erase the encrypted store.
     save_config(&get_settings_path(app_handle)?, &normalized)
 }
 
@@ -320,16 +453,19 @@ pub fn set_provider_key<R: tauri::Runtime>(
         return Err("API key is invalid or too long".to_string());
     }
 
-    let mut settings = load_settings(app_handle)?;
+    let _guard = lock_settings();
+    let mut settings = load_settings_unlocked(app_handle)?;
     let normalized = key.trim().to_string();
     match provider {
         "gemini" => settings.api_key_gemini = normalized,
         "openai" => settings.api_key_openai = normalized,
         "groq" => settings.api_key_groq = normalized,
-        _ => unreachable!(),
+        _ => return Err(format!("Unsupported API provider: {provider}")),
     }
     settings.sync_active_api_key();
-    save_settings(app_handle, &settings)
+    let secrets = ProviderSecrets::from_settings(&settings);
+    save_secrets(&get_secrets_path(app_handle)?, &secrets)?;
+    save_config(&get_settings_path(app_handle)?, &settings)
 }
 
 #[cfg(test)]
@@ -339,9 +475,9 @@ mod tests {
     #[test]
     fn defaults_are_private_and_safe() {
         let settings = Settings::default();
-        assert!(!settings.selection_edit_enabled);
-        assert!(!settings.automatic_update_checks);
-        assert!(settings.history_enabled);
+        assert!(!settings.copy_context_on_start);
+        assert_eq!(settings.local_acceleration, "cpu");
+        assert!(!settings.log_speech_text);
         assert_eq!(settings.active_api_key(), "");
         settings.validate().unwrap();
     }
@@ -382,5 +518,44 @@ mod tests {
             ..Settings::default()
         };
         assert!(invalid.validate().is_err());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn unreadable_secret_store_is_preserved_and_reinitialized() {
+        let directory = std::env::temp_dir().join(format!(
+            "aura-secrets-recovery-{}-{}",
+            std::process::id(),
+            timestamp_millis()
+        ));
+        let path = directory.join("secrets.dpapi");
+        let corrupted = b"AURA-DPAPI-1\0invalid-dpapi-payload";
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(&path, corrupted).unwrap();
+
+        let secrets = load_secrets(&path);
+
+        assert!(secrets.is_empty());
+        let backups: Vec<PathBuf> = fs::read_dir(&directory)
+            .unwrap()
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .filter(|candidate| {
+                candidate
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(|name| name.starts_with("secrets.dpapi.unreadable-"))
+            })
+            .collect();
+        assert_eq!(backups.len(), 1);
+        assert_eq!(fs::read(&backups[0]).unwrap(), corrupted);
+
+        let encrypted = fs::read(&path).unwrap();
+        let mut plaintext = secure_storage::unprotect_for_current_user(&encrypted).unwrap();
+        let replacement: ProviderSecrets = serde_json::from_slice(&plaintext).unwrap();
+        plaintext.zeroize();
+        assert!(replacement.is_empty());
+
+        let _ = fs::remove_dir_all(directory);
     }
 }

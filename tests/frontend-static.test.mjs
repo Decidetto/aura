@@ -1,0 +1,254 @@
+import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
+import test from "node:test";
+import vm from "node:vm";
+
+const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+const json = (path) => JSON.parse(read(path));
+const parseI18nDictionaries = () => {
+  const normalized = read("src/main.js").replaceAll("\r\n", "\n");
+  const marker = "const i18nDict =";
+  const start = normalized.indexOf(marker) + marker.length;
+  const end = normalized.indexOf("\n};\n\nlet currentLanguage", start) + 2;
+  assert.ok(start >= marker.length && end > 1, "i18n dictionary bounds must be discoverable");
+  return vm.runInNewContext("(" + normalized.slice(start, end) + ")");
+};
+const parseOverlayNotices = () => {
+  const normalized = read("src/overlay.js").replaceAll("\r\n", "\n");
+  const marker = "const noticeTranslations =";
+  const start = normalized.indexOf(marker) + marker.length;
+  const end = normalized.indexOf("\n};\n\nconst errorTranslations", start) + 2;
+  assert.ok(start >= marker.length && end > 1, "overlay notice bounds must be discoverable");
+  return vm.runInNewContext("(" + normalized.slice(start, end) + ")");
+};
+
+test("Tauri capabilities isolate main and overlay with least privilege", () => {
+  assert.equal(existsSync(new URL("../src-tauri/capabilities/default.json", import.meta.url)), false);
+
+  const main = json("src-tauri/capabilities/main.json");
+  const overlay = json("src-tauri/capabilities/overlay.json");
+
+  assert.deepEqual(main.windows, ["main"]);
+  assert.deepEqual(overlay.windows, ["overlay"]);
+  for (const capability of [main, overlay]) {
+    assert.equal(capability.permissions.includes("core:default"), false);
+    assert.equal(capability.permissions.includes("opener:default"), false);
+    assert.equal(capability.permissions.includes("updater:default"), false);
+  }
+
+  assert.ok(main.permissions.includes("allow-get-settings"));
+  assert.ok(main.permissions.includes("allow-set-provider-key"));
+  assert.ok(main.permissions.includes("allow-check-for-app-update"));
+  assert.ok(main.permissions.includes("allow-install-app-update"));
+  assert.equal(main.permissions.some((permission) => permission.startsWith("updater:")), false);
+  assert.deepEqual(
+    overlay.permissions.toSorted(),
+    ["allow-hide-overlay-window", "core:event:allow-listen", "core:event:allow-unlisten"].toSorted(),
+  );
+
+  const build = read("src-tauri/build.rs");
+  assert.match(build, /AppManifest::new\(\)\.commands/);
+  assert.match(build, /"set_provider_key"/);
+  assert.match(build, /"hide_overlay_window"/);
+});
+
+test("offline frontend neither loads Google Fonts nor performs an unconditional update request", () => {
+  const html = read("src/index.html");
+  const config = read("src-tauri/tauri.conf.json");
+  const main = read("src/main.js");
+
+  assert.doesNotMatch(html, /fonts\.googleapis|fonts\.gstatic/i);
+  assert.doesNotMatch(config, /fonts\.googleapis|fonts\.gstatic/i);
+  assert.match(config, /base-uri 'none'/);
+  assert.match(html, /id="checkbox-automatic-update-checks"/);
+  assert.match(html, /id="btn-check-updates"/);
+  assert.match(main, /automatic_update_checks/);
+  assert.match(main, /if \(settings\?\.automatic_update_checks\)/);
+  assert.doesNotMatch(main, /invoke\("check_for_update"\)/);
+});
+
+test("frontend uses redacted key metadata and write-only provider-key IPC", () => {
+  const html = read("src/index.html");
+  const main = read("src/main.js");
+  const settingsLiteral = main.match(/const settings = \{([\s\S]*?)\n\s*\};/u)?.[1] ?? "";
+
+  assert.match(main, /has_api_key_gemini/);
+  assert.match(main, /invoke\("set_provider_key"/);
+  assert.doesNotMatch(settingsLiteral, /api_key(?:_gemini|_openai|_groq)?\s*:/);
+  assert.match(html, /id="checkbox-selection-edit-enabled"/);
+  const dictionaries = parseI18nDictionaries();
+  assert.match(html, /data-i18n="cloud_data_desc"/);
+  assert.match(dictionaries.en.cloud_data_desc, /audio[^.]*transcript[^.]*selected text[^.]*dictionary/i);
+  assert.match(html, /value="parakeet"[^>]*disabled/);
+  assert.match(html, /data-i18n="model_integrity_desc"/);
+  assert.match(dictionaries.en.model_integrity_desc, /source[^.]*size[^.]*SHA-256/i);
+});
+
+
+test("settings translations cover every supported locale without fallback gaps", () => {
+  const expectedLocales = ["ru", "en", "de", "es", "fr", "it", "zh", "pt", "tr"];
+  const dictionaries = parseI18nDictionaries();
+  const referenceKeys = Object.keys(dictionaries.ru).toSorted();
+  assert.deepEqual(Object.keys(dictionaries), expectedLocales);
+
+  for (const locale of expectedLocales) {
+    assert.deepEqual(
+      Object.keys(dictionaries[locale]).toSorted(),
+      referenceKeys,
+      locale + " must define the same translation keys as Russian",
+    );
+  }
+
+  const html = read("src/index.html");
+  const renderedKeys = [...html.matchAll(/data-i18n="([^"]+)"/g)].map((match) => match[1]);
+  for (const locale of expectedLocales) {
+    for (const key of renderedKeys) {
+      assert.equal(typeof dictionaries[locale][key], "string", locale + "." + key + " is missing");
+      assert.notEqual(dictionaries[locale][key].trim(), "", locale + "." + key + " is empty");
+    }
+  }
+
+  const newlyLocalizedSettings = [
+    "update_checks_title", "update_checks_desc", "update_checks_checkbox", "update_check_now",
+    "model_integrity_desc", "cloud_data_desc", "local_model_desc", "fallback_title",
+    "copy_context_title", "copy_context_desc", "copy_context_checkbox",
+    "gpu_accel_label", "gpu_accel_cpu_title", "gpu_accel_cpu_desc",
+    "gpu_accel_cuda_title", "gpu_accel_cuda_desc", "gpu_accel_dml_title", "gpu_accel_dml_desc",
+    "update_current", "update_available_pattern", "update_check_error_pattern",
+    "update_installing", "update_installed_restarting", "update_install_error_open_release",
+  ];
+  for (const locale of expectedLocales.slice(1)) {
+    for (const key of newlyLocalizedSettings) {
+      assert.notEqual(
+        dictionaries[locale][key],
+        dictionaries.ru[key],
+        locale + "." + key + " must not silently fall back to Russian",
+      );
+    }
+  }
+
+  const generalPanel = html.match(/id="panel-general"[\s\S]*?id="panel-speech"/)?.[0] ?? "";
+  const aboutPanel = html.match(/id="panel-about"[\s\S]*?<\/section>/)?.[0] ?? "";
+  assert.doesNotMatch(generalPanel, /cloud_data_desc|Какие данные использует облачный режим/);
+  assert.match(aboutPanel, /data-i18n="cloud_data_desc"/);
+  assert.doesNotMatch(read("src/main.js") + html, /�/);
+  assert.match(read("src/main.js"), /getTranslation\("update_current"\)/);
+  assert.match(read("src/main.js"), /getTranslation\("update_installing"\)/);
+});
+
+test("safe clipboard handoff notice is translated in every overlay locale", () => {
+  const notices = parseOverlayNotices();
+  const translated = notices["final-copied-after-edit"];
+  const expectedLocales = ["ru", "en", "de", "fr", "it", "es", "pt", "zh", "ja", "tr"];
+
+  assert.deepEqual(Object.keys(translated), expectedLocales);
+  for (const locale of expectedLocales) {
+    assert.equal(typeof translated[locale], "string");
+    assert.notEqual(translated[locale].trim(), "");
+  }
+});
+
+test("settings UI exposes native accessible controls and responsive motion-safe behavior", () => {
+  const html = read("src/index.html");
+  const main = read("src/main.js");
+  const css = read("src/style.css");
+
+  assert.match(html, /role="tablist"/);
+  assert.match(html, /role="tab"/);
+  assert.match(html, /role="tabpanel"/);
+  assert.match(html, /<dialog[^>]+id="custom-confirm-modal"/);
+  assert.match(html, /aria-live="polite"/);
+  assert.doesNotMatch(main, /select\.style\.display\s*=\s*"none"/);
+  assert.doesNotMatch(main, /initCustomSelects/);
+  assert.match(main, /document\.documentElement\.lang/);
+  assert.match(main, /\.showModal\(\)/);
+  assert.match(main, /addEventListener\("cancel"/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  assert.match(css, /@media\s*\(max-width:\s*680px\)/);
+  assert.equal(existsSync(new URL("../src/styles.css", import.meta.url)), false);
+  assert.equal(existsSync(new URL("../src/ui-accessibility.js", import.meta.url)), true);
+});
+
+test("package scripts provide reproducible lint, type, test and build gates", () => {
+  const pkg = json("package.json");
+  const lock = json("package-lock.json");
+
+  for (const script of ["lint", "typecheck", "check", "test", "build"]) {
+    assert.equal(typeof pkg.scripts[script], "string");
+    assert.doesNotMatch(pkg.scripts[script], /^echo\b/);
+  }
+  assert.equal(pkg.devDependencies.sharp, undefined);
+  assert.doesNotMatch(pkg.devDependencies["@tauri-apps/cli"], /^[~^]/);
+  assert.equal(typeof pkg.devDependencies.typescript, "string");
+  assert.equal(lock.packages[""].version, pkg.version);
+  assert.equal(lock.packages[""].license, pkg.license);
+});
+
+test("release manifests and localized UI expose one authoritative version", () => {
+  const pkg = json("package.json");
+  const packageLock = json("package-lock.json");
+  const tauri = json("src-tauri/tauri.conf.json");
+  const cargoManifest = read("src-tauri/Cargo.toml");
+  const cargoLock = read("src-tauri/Cargo.lock");
+  const dictionaries = parseI18nDictionaries();
+
+  const cargoVersion = cargoManifest.match(/\[package\][\s\S]*?\nversion\s*=\s*"([^"]+)"/)?.[1];
+  const lockedCargoVersion = cargoLock.match(
+    /\[\[package\]\]\r?\nname\s*=\s*"aura-app"\r?\nversion\s*=\s*"([^"]+)"/,
+  )?.[1];
+
+  assert.equal(tauri.version, pkg.version);
+  assert.equal(packageLock.version, pkg.version);
+  assert.equal(packageLock.packages[""].version, pkg.version);
+  assert.equal(cargoVersion, pkg.version);
+  assert.equal(lockedCargoVersion, pkg.version);
+
+  for (const [locale, dictionary] of Object.entries(dictionaries)) {
+    assert.equal(dictionary.about_version, `v${pkg.version}`, `${locale} UI version must match`);
+  }
+  assert.match(read("src/index.html"), new RegExp(`>v${pkg.version.replaceAll(".", "\\.")}<`));
+});
+
+test("CI and release workflows pin actions and enforce frontend and dependency gates", () => {
+  for (const path of [".github/workflows/ci.yml", ".github/workflows/release.yml"]) {
+    const workflow = read(path);
+    const refs = [...workflow.matchAll(/uses:\s*[^@\s]+@([^\s#]+)/g)].map((match) => match[1]);
+    assert.ok(refs.length > 0);
+    refs.forEach((ref) => assert.match(ref, /^[a-f0-9]{40}$/));
+    assert.match(workflow, /npm ci/);
+    assert.match(workflow, /npm run check/);
+    assert.match(workflow, /npm test/);
+    assert.match(workflow, /npm audit/);
+    assert.match(workflow, /cargo fmt/);
+    assert.match(workflow, /cargo clippy/);
+    assert.match(workflow, /cargo audit/);
+    assert.match(workflow, /osv-scanner/i);
+  }
+  assert.match(read(".github/workflows/release.yml"), /needs:\s*verify/);
+});
+
+test("website describes provider data flow and unsigned installer honestly", () => {
+  const pkg = json("package.json");
+  const release = json(`release-manifest-${pkg.version}.json`);
+  const en = read("website/index.html");
+  const ru = read("website/index_ru.html");
+  const nsis = release.artifacts.find((artifact) => artifact.kind === "nsis");
+
+  assert.equal(release.version, pkg.version);
+  assert.equal(release.published, false);
+  assert.equal(release.authenticodeSigned, false);
+  assert.ok(nsis);
+  assert.equal(nsis.file, `Aura_${pkg.version}_x64-setup.exe`);
+  assert.match(nsis.sha256, /^[A-F0-9]{64}$/);
+  assert.ok(nsis.bytes > 0);
+
+  assert.match(en, /cloud mode[^.]*audio[^.]*transcript[^.]*selected text[^.]*dictionary/is);
+  assert.match(en, /optional update check/is);
+  assert.match(en, /not digitally signed|not Authenticode-signed/i);
+  assert.ok(en.includes(nsis.sha256));
+
+  assert.match(ru, /облачн[^.]*аудио[^.]*транскрипт[^.]*выделенн[^.]*словар/is);
+  assert.match(ru, /необязательн[^.]*провер[^.]*обновлен/is);
+  assert.match(ru, /не подписан[^.]*Authenticode|нет подписи Authenticode/i);
+  assert.ok(ru.includes(nsis.sha256));
+});

@@ -57,7 +57,11 @@ fn replace_file(source: &Path, destination: &Path) -> Result<(), String> {
     };
 
     let source_wide: Vec<u16> = source.as_os_str().encode_wide().chain(Some(0)).collect();
-    let destination_wide: Vec<u16> = destination.as_os_str().encode_wide().chain(Some(0)).collect();
+    let destination_wide: Vec<u16> = destination
+        .as_os_str()
+        .encode_wide()
+        .chain(Some(0))
+        .collect();
     let flags = MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH;
     let result = unsafe { MoveFileExW(source_wide.as_ptr(), destination_wide.as_ptr(), flags) };
     if result == 0 {
@@ -105,9 +109,13 @@ pub fn protect_for_current_user(plaintext: &[u8]) -> Result<Vec<u8>, String> {
         )
     };
     if ok == 0 {
-        return Err(format!("DPAPI encryption failed: {}", std::io::Error::last_os_error()));
+        return Err(format!(
+            "DPAPI encryption failed: {}",
+            std::io::Error::last_os_error()
+        ));
     }
-    let encrypted = unsafe { std::slice::from_raw_parts(output.pbData, output.cbData as usize) }.to_vec();
+    let encrypted =
+        unsafe { std::slice::from_raw_parts(output.pbData, output.cbData as usize) }.to_vec();
     unsafe {
         LocalFree(output.pbData.cast());
     }
@@ -128,7 +136,10 @@ pub fn unprotect_for_current_user(ciphertext: &[u8]) -> Result<Vec<u8>, String> 
             .map_err(|_| "Encrypted secret is too large for DPAPI".to_string())?,
         pbData: ciphertext.as_ptr() as *mut u8,
     };
-    let mut output = CRYPT_INTEGER_BLOB { cbData: 0, pbData: std::ptr::null_mut() };
+    let mut output = CRYPT_INTEGER_BLOB {
+        cbData: 0,
+        pbData: std::ptr::null_mut(),
+    };
     let ok = unsafe {
         CryptUnprotectData(
             &input,
@@ -141,10 +152,17 @@ pub fn unprotect_for_current_user(ciphertext: &[u8]) -> Result<Vec<u8>, String> 
         )
     };
     if ok == 0 {
-        return Err(format!("DPAPI decryption failed: {}", std::io::Error::last_os_error()));
+        return Err(format!(
+            "DPAPI decryption failed: {}",
+            std::io::Error::last_os_error()
+        ));
     }
-    let plaintext = unsafe { std::slice::from_raw_parts(output.pbData, output.cbData as usize) }.to_vec();
+    let plaintext =
+        unsafe { std::slice::from_raw_parts(output.pbData, output.cbData as usize) }.to_vec();
     unsafe {
+        // CryptUnprotectData allocates this buffer with LocalAlloc. Scrub the
+        // decrypted bytes before returning the allocation to the OS.
+        std::ptr::write_bytes(output.pbData, 0, output.cbData as usize);
         LocalFree(output.pbData.cast());
     }
     Ok(plaintext)
@@ -197,7 +215,9 @@ mod tests {
         let ciphertext = protect_for_current_user(plaintext).expect("DPAPI encryption should work");
 
         assert_ne!(ciphertext, plaintext);
-        assert!(!ciphertext.windows(plaintext.len()).any(|window| window == plaintext));
+        assert!(!ciphertext
+            .windows(plaintext.len())
+            .any(|window| window == plaintext));
         assert_eq!(
             unprotect_for_current_user(&ciphertext).expect("DPAPI decryption should work"),
             plaintext

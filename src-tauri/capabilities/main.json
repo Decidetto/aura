@@ -6,8 +6,8 @@
   "permissions": [
     "core:event:allow-listen",
     "core:event:allow-unlisten",
-    "updater:allow-check",
-    "updater:allow-download-and-install",
+    "allow-check-for-app-update",
+    "allow-install-app-update",
     "allow-get-settings",
     "allow-set-settings",
     "allow-set-provider-key",

@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Настройка параметров голосового ввода Aura" />
   <title>Настройки Aura</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
   <link rel="stylesheet" href="style.css?v=2.0.15" />
   <script type="module" src="main.js" defer></script>
 </head>
@@ -38,29 +36,29 @@
 
     <div class="main-layout">
       <!-- Навигационная панель -->
-      <nav class="settings-nav" aria-label="Категории настроек">
+      <nav class="settings-nav" role="tablist" aria-label="Категории настроек">
         <div class="nav-title" data-i18n="title_settings">Настройки</div>
-        <button type="button" class="nav-tab active" id="tab-btn-general" data-tab="general">
+        <button type="button" class="nav-tab active" id="tab-btn-general" data-tab="general" role="tab" aria-selected="true" aria-controls="panel-general">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
           <span data-i18n="tab_general">Основные</span>
         </button>
-        <button type="button" class="nav-tab" id="tab-btn-speech" data-tab="speech">
+        <button type="button" class="nav-tab" id="tab-btn-speech" data-tab="speech" role="tab" aria-selected="false" aria-controls="panel-speech">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
           <span data-i18n="tab_speech">Голос</span>
         </button>
-        <button type="button" class="nav-tab" id="tab-btn-hotkeys" data-tab="hotkeys">
+        <button type="button" class="nav-tab" id="tab-btn-hotkeys" data-tab="hotkeys" role="tab" aria-selected="false" aria-controls="panel-hotkeys">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><line x1="6" y1="8" x2="6" y2="8"></line><line x1="10" y1="8" x2="10" y2="8"></line><line x1="14" y1="8" x2="14" y2="8"></line><line x1="18" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="18" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
           <span data-i18n="tab_hotkeys">Управление</span>
         </button>
-        <button type="button" class="nav-tab" id="tab-btn-apikeys" data-tab="apikeys">
+        <button type="button" class="nav-tab" id="tab-btn-apikeys" data-tab="apikeys" role="tab" aria-selected="false" aria-controls="panel-apikeys">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
           <span data-i18n="tab_apikeys">API-ключи</span>
         </button>
-        <button type="button" class="nav-tab" id="tab-btn-history" data-tab="history">
+        <button type="button" class="nav-tab" id="tab-btn-history" data-tab="history" role="tab" aria-selected="false" aria-controls="panel-history">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
           <span data-i18n="tab_history">История</span>
         </button>
-        <button type="button" class="nav-tab" id="tab-btn-about" data-tab="about">
+        <button type="button" class="nav-tab" id="tab-btn-about" data-tab="about" role="tab" aria-selected="false" aria-controls="panel-about">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
           <span data-i18n="tab_about">О программе</span>
           <span id="update-dot" class="nav-update-dot" style="display: none;"></span>
@@ -70,7 +68,7 @@
       <!-- Основная область содержимого -->
       <main class="settings-content" id="settings-main-content">
         <!-- 1. GENERAL PANEL -->
-        <section class="tab-panel active" id="panel-general" aria-labelledby="tab-btn-general">
+        <section class="tab-panel active" id="panel-general" role="tabpanel" tabindex="0" aria-labelledby="tab-btn-general">
           <div class="card">
             <h2 class="card-title" data-i18n="general_autostart_title">Автозапуск Aura</h2>
             <p class="card-desc" data-i18n="general_autostart_desc">Запускать приложение автоматически при входе в операционную систему Windows.</p>
@@ -101,6 +99,17 @@
             </div>
           </div>
 
+          <div class="card">
+            <h2 class="card-title" data-i18n="update_checks_title">Проверка обновлений</h2>
+            <p class="card-desc" data-i18n="update_checks_desc">Aura обращается к GitHub только при ручной проверке или если вы включили автоматическую проверку.</p>
+            <label class="toggle-switch">
+              <input type="checkbox" id="checkbox-automatic-update-checks" />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              <span class="toggle-label" data-i18n="update_checks_checkbox">Автоматически проверять обновления при запуске</span>
+            </label>
+            <button type="button" class="btn btn-secondary" id="btn-check-updates" data-i18n="update_check_now">Проверить обновления</button>
+          </div>
+
           <div class="setting-card">
             <div class="setting-info">
               <div class="setting-title" data-i18n="diag_speech_text_title">Логирование текста речи</div>
@@ -114,7 +123,7 @@
         </section>
 
         <!-- 2. SPEECH PANEL -->
-        <section class="tab-panel" id="panel-speech" aria-labelledby="tab-btn-speech" style="display: none;">
+        <section class="tab-panel" id="panel-speech" role="tabpanel" tabindex="0" aria-labelledby="tab-btn-speech" style="display: none;">
           <div class="card">
             <h2 class="card-title" data-i18n="engine_title">Способ распознавания</h2>
             <p class="card-desc" data-i18n="engine_desc">Выберите между облачной обработкой высокого качества или полностью автономным локальным распознаванием речи.</p>
@@ -140,12 +149,13 @@
           <div class="card" id="card-local-model" style="display: none;">
             <h2 class="card-title" data-i18n="local_model_title">Локальное распознавание</h2>
             <p class="card-desc" data-i18n="local_model_desc">Настройте локальный движок распознавания речи для полной приватности.</p>
+            <p class="card-desc" data-i18n="model_integrity_desc">Перед установкой Aura проверяет источник, ожидаемый размер и SHA-256 каждого файла модели.</p>
             
             <div class="form-group" style="margin-bottom: 20px;">
               <label for="select-local-engine" class="field-label" data-i18n="local_engine_label">Движок распознавания</label>
               <select id="select-local-engine" class="custom-select">
                 <option value="whisper" data-i18n="local_engine_whisper">Whisper.cpp (на базе OpenAI Whisper)</option>
-                <option value="parakeet" data-i18n="local_engine_parakeet">NVIDIA Parakeet (через sherpa-onnx)</option>
+                <option value="parakeet" disabled data-i18n="local_engine_parakeet">NVIDIA Parakeet (через sherpa-onnx)</option>
               </select>
             </div>
 
@@ -182,7 +192,7 @@
                   </div>
                 </div>
                 <!-- DirectML Card -->
-                <div class="model-card" data-gpu="directml" role="radio" aria-checked="false" tabindex="0">
+                <div class="model-card" data-gpu="directml" role="radio" aria-checked="false" aria-disabled="true" hidden>
                   <div class="model-card-main">
                     <div class="model-card-info">
                       <span class="model-name" data-i18n="gpu_accel_dml_title">DirectML (Универсальный)</span>
@@ -378,7 +388,7 @@
         </section>
 
         <!-- 3. HOTKEYS PANEL -->
-        <section class="tab-panel" id="panel-hotkeys" aria-labelledby="tab-btn-hotkeys" style="display: none;">
+        <section class="tab-panel" id="panel-hotkeys" role="tabpanel" tabindex="0" aria-labelledby="tab-btn-hotkeys" style="display: none;">
           <div class="card">
             <h2 class="card-title" data-i18n="hotkey_title">Глобальная горячая клавиша</h2>
             <p class="card-desc" data-i18n="hotkey_desc">Зажмите выбранную комбинацию для начала записи, отпустите для распознавания.</p>
@@ -431,20 +441,20 @@
             </div>
           </div>
           <div class="card">
-            <h2 class="card-title" data-i18n="copy_context_title">Захват выделенного текста</h2>
-            <p class="card-desc" data-i18n="copy_context_desc">При старте записи Aura отправляет Ctrl+C, чтобы захватить выделенный текст как контекст для AI. Отключите, если работаете в терминале — там Ctrl+C прерывает процесс.</p>
+            <h2 class="card-title" data-i18n="copy_context_title">Редактирование выделенного текста</h2>
+            <p class="card-desc" data-i18n="copy_context_desc">Если включено, Aura отправляет Ctrl+C и передает selected text выбранному облачному провайдеру как контекст для команды редактирования. Отключите эту функцию при работе в терминале.</p>
             <label class="toggle-switch">
-              <input type="checkbox" id="checkbox-copy-context" checked />
+              <input type="checkbox" id="checkbox-selection-edit-enabled" />
               <span class="toggle-track">
                 <span class="toggle-thumb"></span>
               </span>
-              <span class="toggle-label" data-i18n="copy_context_checkbox">Захватывать выделение через Ctrl+C</span>
+              <span class="toggle-label" data-i18n="copy_context_checkbox">Разрешить захват и облачное редактирование выделения</span>
             </label>
           </div>
         </section>
 
         <!-- 4. API KEYS PANEL (Renamed from Cloud AI) -->
-        <section class="tab-panel" id="panel-apikeys" aria-labelledby="tab-btn-apikeys" style="display: none;">
+        <section class="tab-panel" id="panel-apikeys" role="tabpanel" tabindex="0" aria-labelledby="tab-btn-apikeys" style="display: none;">
           <div class="card">
             <h2 class="card-title" data-i18n="api_title">Авторизация API-ключей</h2>
             <p class="card-desc" data-i18n="api_desc">Укажите ваши API-ключи для авторизации в облачных сервисах Gemini, OpenAI или Groq.</p>
@@ -475,13 +485,13 @@
         </section>
 
         <!-- 5. HISTORY PANEL (New!) -->
-        <section class="tab-panel" id="panel-history" aria-labelledby="tab-btn-history" style="display: none;">
+        <section class="tab-panel" id="panel-history" role="tabpanel" tabindex="0" aria-labelledby="tab-btn-history" style="display: none;">
           <div class="card card-history">
             <div class="history-header">
               <h2 class="card-title" data-i18n="history_title">История транскрипций</h2>
               <button type="button" class="btn-clear-history" id="btn-clear-history" data-i18n="history_clear">Очистить историю</button>
             </div>
-            <p class="card-desc" data-i18n="history_desc">Последние на��иктованные фразы хранятся локально.</p>
+            <p class="card-desc" data-i18n="history_desc">Последние надиктованные фразы хранятся локально.</p>
             
             <div class="history-list" id="history-items-container">
               <!-- Entries dynamically injected here -->
@@ -491,7 +501,7 @@
         </section>
 
         <!-- 6. ABOUT PANEL -->
-        <section class="tab-panel" id="panel-about" aria-labelledby="tab-btn-about" style="display: none;">
+        <section class="tab-panel" id="panel-about" role="tabpanel" tabindex="0" aria-labelledby="tab-btn-about" style="display: none;">
           <div class="card about-card">
             <div class="about-icon logo-container">
               <svg class="about-logo-svg" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -501,13 +511,16 @@
               </svg>
             </div>
             <h2 class="about-app-title">Aura</h2>
-            <p class="about-version" data-i18n="about_version">v1.0.7</p>
+            <p class="about-version" data-i18n="about_version">v1.0.9</p>
             <button type="button" id="update-badge" class="update-badge" style="display: none;">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
               <span id="update-badge-text">Доступно обновление</span>
             </button>
             <p class="about-description" data-i18n="about_description">
               Инструмент глобального голосового ввода для Windows. Программа переводит речь в текст и вставляет его в любое активное окно с автоматическим форматированием и расстановкой пунктуации.
+            </p>
+            <p class="about-description" data-i18n="cloud_data_desc">
+              Облачному провайдеру передаются аудио и транскрипт, а при включённых функциях — выделенный текст и пользовательский словарь. Локальный режим эти данные не отправляет.
             </p>
             <button id="btn-copy-diagnostics" class="btn-secondary" data-i18n="btn_copy_diagnostics">Скопировать отчет диагностики</button>
           </div>
@@ -516,7 +529,7 @@
     </div>
 
     <footer class="app-footer">
-      <div class="footer-status">
+      <div class="footer-status" role="status" aria-live="polite">
         <span id="footer-status-icon" class="status-icon-wrapper">
           <svg class="icon-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </span>
@@ -527,7 +540,7 @@
   </div>
 
   <!-- Custom modal overlay for confirmation dialogs -->
-  <div id="custom-confirm-modal" class="modal-overlay" style="display: none;">
+  <dialog id="custom-confirm-modal" class="modal-overlay" aria-labelledby="confirm-modal-title">
     <div class="modal-card">
       <h3 class="modal-title" id="confirm-modal-title" data-i18n="confirm_title">Подтверждение</h3>
       <p class="modal-message" id="confirm-modal-message" data-i18n="confirm_message">Вы действительно хотите выполнить это действие?</p>
@@ -536,6 +549,6 @@
         <button type="button" class="btn btn-primary" id="btn-confirm-ok" data-i18n="confirm_ok">Подтвердить</button>
       </div>
     </div>
-  </div>
+  </dialog>
 </body>
 </html>

@@ -2,47 +2,101 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-    name: Build Windows installer
+  verify:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Install Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          workspaces: src-tauri
+          node-version: "22.17.0"
+          cache: npm
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Go for OSV-Scanner
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
-          node-version: 20
+          go-version: "1.25.1"
+          cache: false
 
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
 
-      # tauri-apps/tauri-action builds, signs, creates the GitHub release, uploads
-      # the installers, AND generates latest.json for the in-app updater endpoint —
-      # a plain `tauri build` + manual asset upload does the first two but never
-      # produces latest.json, which silently broke the updater in v1.0.3/v1.0.4.
-      - name: Build and publish release (with signed updater manifest)
-        uses: tauri-apps/tauri-action@v0
+      - name: Lint and typecheck frontend
+        run: npm run check
+
+      - name: Test frontend
+        run: npm test
+
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=high
+
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt,clippy
+          rustup override set 1.96.0
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+
+      - name: Lint Rust
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Test Rust
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets
+
+      - name: Install and run cargo-audit
+        run: |
+          cargo install cargo-audit --locked --version 0.22.2
+          cargo audit --file src-tauri/Cargo.lock
+
+      - name: Install and run osv-scanner
+        run: |
+          go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.3.8
+          & "$(go env GOPATH)/bin/osv-scanner.exe" scan source -r .
+
+  build:
+    needs: verify
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22.17.0"
+          cache: npm
+
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal
+          rustup override set 1.96.0
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build, sign, and publish Tauri artifacts
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Aura ${{ github.ref_name }}"
+          releaseName: "Aura v__VERSION__"
+          generateReleaseNotes: true
           releaseDraft: true
           prerelease: false
