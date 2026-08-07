@@ -432,14 +432,33 @@ impl AudioRecorder {
         let worker = thread::Builder::new()
             .name("aura-audio-recorder".to_string())
             .spawn(move || {
-                recorder_worker(
-                    output_path,
-                    command_rx,
-                    ready_tx,
-                    worker_shared,
-                    sample_stream_publisher,
-                    Box::new(on_volume),
-                )
+                // A panic anywhere in the worker must become a session error
+                // instead of silently killing the recording thread.
+                let panic_shared = Arc::clone(&worker_shared);
+                let panic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    recorder_worker(
+                        output_path,
+                        command_rx,
+                        ready_tx,
+                        worker_shared,
+                        sample_stream_publisher,
+                        Box::new(on_volume),
+                    )
+                }));
+                match panic_result {
+                    Ok(recorder_result) => recorder_result,
+                    Err(payload) => {
+                        let message = panic_payload_text(payload);
+                        remember_runtime_error(&panic_shared, &message);
+                        crate::logger::log(
+                            "ERROR",
+                            "Audio",
+                            None,
+                            &format!("Audio recorder worker panicked: {message}"),
+                        );
+                        Err(message)
+                    }
+                }
             })
             .map_err(|e| format!("Failed to start audio owner thread: {e}"))?;
 
@@ -679,8 +698,24 @@ fn recorder_worker(
 }
 
 fn remember_runtime_error(shared: &Arc<Mutex<RecordingBuffer>>, error: &str) {
-    if let Ok(mut buffer) = shared.lock() {
-        buffer.runtime_error = Some(error.to_string());
+    match shared.lock() {
+        Ok(mut buffer) => buffer.runtime_error = Some(error.to_string()),
+        Err(poisoned) => {
+            // A panic while the guard was held must not discard this error nor
+            // keep the buffer poisoned for the rest of the session.
+            poisoned.into_inner().runtime_error = Some(error.to_string());
+            shared.clear_poison();
+        }
+    }
+}
+
+fn panic_payload_text(payload: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(message) = payload.downcast_ref::<&str>() {
+        (*message).to_string()
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else {
+        "unknown panic payload".to_string()
     }
 }
 
@@ -998,6 +1033,30 @@ mod tests {
         let output = resample_to_16k_mono(&[f32::NAN, f32::INFINITY, -f32::INFINITY], 1, 16_000)
             .expect("valid format");
         assert_eq!(output, vec![0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn poisoned_recording_buffer_still_records_runtime_error() {
+        let shared = Arc::new(Mutex::new(RecordingBuffer::default()));
+        // Simulate a worker panic that happened while the guard was held.
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = shared.lock().expect("lock the buffer");
+            panic!("simulated panic while holding the buffer lock");
+        }));
+
+        remember_runtime_error(
+            &shared,
+            "Audio recorder worker panicked: simulated panic while holding the buffer lock",
+        );
+
+        let buffer = shared.lock().expect("buffer is recoverable after poison");
+        assert!(
+            buffer
+                .runtime_error
+                .as_deref()
+                .unwrap_or_default()
+                .contains("simulated panic")
+        );
     }
 
     #[test]
