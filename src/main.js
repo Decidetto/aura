@@ -1383,10 +1383,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const checkboxCloudFallback = document.getElementById("checkbox-cloud-fallback");
   const checkboxAutostart = document.getElementById("checkbox-autostart");
   const checkboxAutomaticUpdateChecks = document.getElementById("checkbox-automatic-update-checks");
-  const btnSaveSettings = document.getElementById("btn-save-settings");
-  if (btnSaveSettings) {
-    btnSaveSettings.addEventListener("click", saveSettings);
-  }
+const btnSaveSettings = document.getElementById("btn-save-settings");
+  // NOTE: the click binding for the Save button lives once, in the "Bind Events"
+  // block below — it must not be re-registered here (would double-save).
   
   const checkboxSounds = document.getElementById("checkbox-sounds");
   const checkboxCopyContext = document.getElementById("checkbox-selection-edit-enabled");
@@ -1802,7 +1801,18 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Save Settings to Backend
+  let saveInFlight = false;
+
   async function saveSettings() {
+    // Guard against re-entrancy: rapid clicks or duplicate bindings must not
+    // start a second save while one is already running.
+    if (saveInFlight) {
+      return;
+    }
+    saveInFlight = true;
+    if (btnSaveSettings) {
+      btnSaveSettings.disabled = true;
+    }
     try {
       const dict = i18nDict[currentLanguage] || i18nDict.ru;
       showStatus(dict.status_saving || "Сохранение настроек...");
@@ -1861,9 +1871,14 @@ document.addEventListener("DOMContentLoaded", () => {
           showStatus(currentDict.status_ready || "Готово");
         }
       }, 3000);
-    } catch (err) {
+} catch (err) {
       console.error(err);
       showStatus(`${getTranslation("status_save_error")}${err}`, true);
+    } finally {
+      saveInFlight = false;
+      if (btnSaveSettings) {
+        btnSaveSettings.disabled = false;
+      }
     }
   }
 
@@ -2277,7 +2292,9 @@ card.addEventListener("keydown", async (e) => {
   }
 
   // Bind Events
-  btnSaveSettings.addEventListener("click", saveSettings);
+  if (btnSaveSettings) {
+    btnSaveSettings.addEventListener("click", saveSettings);
+  }
   selectProvider.addEventListener("change", () => {
     // Keep only unsaved drafts in memory; stored keys are never returned by IPC.
     apiKeys[previousSelProvider] = apiKeyInput.value;
