@@ -195,20 +195,21 @@ function playBell(freq, duration, gainStart = 0.07) {
 let soundsEnabled = true;
 let soundTheme = "zen";
 
-async function updateActiveThemeSettings() {
-  try {
-    const settings = await window.__TAURI__.core.invoke("get_settings");
-    soundsEnabled = settings.overlay_sounds !== false;
-    soundTheme = settings.overlay_sound_theme || "zen";
-    soundVolume = typeof settings.overlay_sound_volume === "number" ? settings.overlay_sound_volume : 0.8;
-    if (globalGain) {
-      globalGain.gain.setValueAtTime(soundVolume, audioCtx.currentTime);
-    }
-  } catch (e) {
-    console.error("Failed to query settings in overlay", e);
+function applyActiveThemeSettings(settings) {
+  if (!settings || typeof settings !== "object") {
+    return;
+  }
+  soundsEnabled = settings.overlay_sounds !== false;
+  soundTheme = settings.overlay_sound_theme || "zen";
+  soundVolume = typeof settings.overlay_sound_volume === "number" ? settings.overlay_sound_volume : 0.8;
+  if (globalGain) {
+    globalGain.gain.setValueAtTime(soundVolume, audioCtx.currentTime);
   }
 }
 
+listen("overlay-preferences", (event) => {
+  applyActiveThemeSettings(event.payload);
+});
 function playThemeStart() {
   if (!soundsEnabled) return;
   if (soundTheme === "rhodes") {
@@ -354,6 +355,21 @@ const processingTranslations = {
   zh: "处理中…",
   ja: "処理中…",
   tr: "İşleniyor…"
+};
+
+const noticeTranslations = {
+  "final-copied-after-edit": {
+    ru: "Финальный текст скопирован",
+    en: "Final text copied",
+    de: "Finaltext kopiert",
+    fr: "Texte final copié",
+    it: "Testo finale copiato",
+    es: "Texto final copiado",
+    pt: "Texto final copiado",
+    zh: "最终文本已复制",
+    ja: "最終テキストをコピーしました",
+    tr: "Son metin kopyalandı"
+  }
 };
 
 const errorTranslations = {
@@ -517,11 +533,10 @@ function translateError(errStr, lang) {
 }
 
 // Listen for recording-state updates: "recording" | "processing" | "error"
-listen("recording-state", async (event) => {
+listen("recording-state", (event) => {
   currentState = event.payload;
 
   if (currentState === "recording") {
-    await updateActiveThemeSettings();
     recordStart = Date.now();
     statusEl.textContent = "0:00";
     statusEl.classList.remove("error");
@@ -538,9 +553,13 @@ listen("recording-state", async (event) => {
     statusEl.classList.remove("error");
   } else if (currentState.startsWith("notice:")) {
     // Non-alarming transient message (e.g. cloud->local fallback); no error sound.
-    statusEl.textContent = currentState.substring("notice:".length);
+    const notice = currentState.substring("notice:".length);
+    const uiLang = localStorage.getItem("aura_ui_lang") || "ru";
+    const translations = noticeTranslations[notice];
+    statusEl.textContent = translations?.[uiLang] || translations?.en || notice;
     statusEl.classList.remove("error");
     setBarColor("#FE4200");
+    pill.classList.add("visible");
   } else if (currentState.startsWith("error")) {
     recordStart = null;
     let errMsg = "Ошибка распознавания";

@@ -522,7 +522,7 @@
           </div>
           <div class="privacy-text-area">
             <h3 class="privacy-title">Uncompromising Privacy</h3>
-            <p class="privacy-desc">Data privacy is Aura's highest priority. The local mode runs entirely offline on your PC and never transmits your audio recordings over the network. In cloud mode, audio is only sent directly to your chosen provider (Gemini, OpenAI, or Groq) over secure connections. The software contains no hidden tracking systems or telemetry. All settings and API keys are stored locally on your device.</p>
+            <p class="privacy-desc">Local mode runs entirely offline and does not transmit recordings. In cloud mode, audio, the generated transcript, selected text (only when selection editing is enabled), and custom dictionary terms are sent directly to your chosen provider over TLS. Aura contains no telemetry. API keys and transcript history are stored locally and protected with Windows DPAPI. Aura performs an optional update check only when you request it or explicitly enable automatic checks. The current Windows installer is not Authenticode-signed; before running it, verify SHA-256: 0F48923BD58A0A8D002A758D13F67EB46188905093AFFE90B2B9C23289EE9325.</p>
           </div>
         </div>
       </div>
@@ -560,7 +560,7 @@
           </button>
           <div class="faq-answer-pane">
             <div class="faq-answer-content">
-              <p>Completely secure. The program has no built-in telemetry or hidden data collection servers. If you use local mode (Whisper Offline), audio data is processed directly on your CPU/GPU and is never transmitted anywhere. When using cloud mode, the audio is sent directly to the providers (Google, OpenAI, Groq) via encrypted connections. API keys are stored locally in the settings file.</p>
+              <p>Completely secure. The program has no built-in telemetry or hidden data collection servers. If you use local mode (Whisper Offline), audio data is processed directly on your CPU/GPU and is never transmitted anywhere. When using cloud mode, the audio is sent directly to the providers (Google, OpenAI, Groq) via encrypted connections. API keys are encrypted locally with Windows DPAPI.</p>
             </div>
           </div>
         </div>

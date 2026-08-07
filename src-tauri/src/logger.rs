@@ -1,7 +1,8 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{self, Sender};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc::{self, SyncSender, TrySendError};
 use std::sync::Mutex;
 use std::thread;
 use std::time::SystemTime;
@@ -9,8 +10,10 @@ use tauri::Manager;
 
 pub const MAX_LOG_SIZE: u64 = 10 * 1024 * 1024; // 10 MB
 pub const LOG_FILE_NAME: &str = "aura_diagnostics.log";
+const LOGGER_QUEUE_CAPACITY: usize = 2_048;
 
-static LOGGER_TX: Mutex<Option<Sender<String>>> = Mutex::new(None);
+static LOGGER_TX: Mutex<Option<SyncSender<String>>> = Mutex::new(None);
+static DROPPED_LOG_LINES: AtomicU64 = AtomicU64::new(0);
 static LOGGER_DIR: Mutex<Option<PathBuf>> = Mutex::new(None);
 
 pub fn anonymize_speech(text: &str, log_speech_text: bool) -> String {
@@ -33,7 +36,7 @@ pub fn init(log_dir: PathBuf) {
         return;
     }
 
-    let (tx, rx) = mpsc::channel::<String>();
+    let (tx, rx) = mpsc::sync_channel::<String>(LOGGER_QUEUE_CAPACITY);
     let dir = log_dir.clone();
 
     thread::spawn(move || {
@@ -65,12 +68,30 @@ pub fn log(level: &str, tag: &str, session: Option<&str>, message: &str) {
         None => String::new(),
     };
 
-    let formatted_line = format!("{} [{}] [{}]{} {}", timestamp, level_str, tag, session_str, message);
+    let formatted_line = format!(
+        "{} [{}] [{}]{} {}",
+        timestamp, level_str, tag, session_str, message
+    );
     eprintln!("{}", formatted_line);
 
-    if let Ok(lock) = LOGGER_TX.lock() {
-        if let Some(tx) = lock.as_ref() {
-            let _ = tx.send(formatted_line);
+    let lock = match LOGGER_TX.lock() {
+        Ok(lock) => lock,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    if let Some(tx) = lock.as_ref() {
+        match tx.try_send(formatted_line) {
+            Ok(()) => {}
+            Err(TrySendError::Full(_)) => {
+                let dropped = DROPPED_LOG_LINES.fetch_add(1, Ordering::Relaxed) + 1;
+                if dropped == 1 || dropped.is_multiple_of(1_000) {
+                    eprintln!(
+                        "[LOGGER WARN] Dropped {dropped} log lines because the disk writer is behind"
+                    );
+                }
+            }
+            Err(TrySendError::Disconnected(_)) => {
+                eprintln!("[LOGGER ERROR] Background log writer is unavailable");
+            }
         }
     }
 }
@@ -117,7 +138,7 @@ pub fn get_recent_logs(max_lines: usize) -> Vec<String> {
     };
 
     let reader = BufReader::new(file);
-    let lines: Vec<String> = reader.lines().filter_map(|l| l.ok()).collect();
+    let lines: Vec<String> = reader.lines().map_while(Result::ok).collect();
 
     if lines.len() > max_lines {
         lines[lines.len() - max_lines..].to_vec()
@@ -127,7 +148,9 @@ pub fn get_recent_logs(max_lines: usize) -> Vec<String> {
 }
 
 fn format_timestamp(now: SystemTime) -> String {
-    let duration = now.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+    let duration = now
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
     let secs = duration.as_secs();
     let millis = duration.subsec_millis();
 
@@ -148,16 +171,20 @@ fn format_timestamp(now: SystemTime) -> String {
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     let year = if m <= 2 { y + 1 } else { y };
 
-    format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03}Z", year, m, d, hours, mins, seconds, millis)
+    format!(
+        "{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03}Z",
+        year, m, d, hours, mins, seconds, millis
+    )
 }
 
-pub fn generate_diagnostic_report<R: tauri::Runtime>(app_handle: &tauri::AppHandle<R>) -> Result<String, String> {
+pub fn generate_diagnostic_report<R: tauri::Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+) -> Result<String, String> {
     let version = app_handle.package_info().version.to_string();
     let os = std::env::consts::OS;
     let arch = std::env::consts::ARCH;
 
-    let settings = crate::settings::load_settings(app_handle)
-        .unwrap_or_default();
+    let settings = crate::settings::load_settings(app_handle).unwrap_or_default();
 
     let app_local_data = app_handle
         .path()
@@ -169,14 +196,17 @@ pub fn generate_diagnostic_report<R: tauri::Runtime>(app_handle: &tauri::AppHand
     let parakeet_decoder = parakeet_dir.join("decoder.onnx").exists();
     let parakeet_joiner = parakeet_dir.join("joiner.onnx").exists();
     let parakeet_tokens = parakeet_dir.join("tokens.txt").exists();
-    let parakeet_complete = parakeet_encoder && parakeet_decoder && parakeet_joiner && parakeet_tokens;
+    let parakeet_complete =
+        parakeet_encoder && parakeet_decoder && parakeet_joiner && parakeet_tokens;
 
     let punc_dir = app_local_data.join("models").join("punctuation");
-    let punc_model = punc_dir.join("model.onnx").exists();
+    let punc_model = punc_dir.join("model.int8.onnx").exists();
 
     let cuda_bin_dir = app_local_data.join("binaries").join("cuda").join("bin");
     let cuda_dll = cuda_bin_dir.join("cudart64_110.dll").exists();
-    let cuda_exe = cuda_bin_dir.join("sherpa-onnx-offline-websocket-server.exe").exists();
+    let cuda_exe = cuda_bin_dir
+        .join("sherpa-onnx-offline-websocket-server.exe")
+        .exists();
 
     let mut whisper_models = Vec::new();
     let models_dir = app_local_data.join("models");
@@ -205,7 +235,9 @@ pub fn generate_diagnostic_report<R: tauri::Runtime>(app_handle: &tauri::AppHand
         arch,
         &settings.transcription_mode,
         &settings.local_engine,
+        &settings.model_name,
         &settings.local_acceleration,
+        settings.streaming_enabled,
         settings.voice_punctuation,
         settings.cloud_fallback_enabled,
         parakeet_complete,
@@ -244,13 +276,16 @@ pub fn sanitize_logs_for_report(logs: &[String], log_speech_text: bool) -> Vec<S
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn format_diagnostic_report(
     version: &str,
     os: &str,
     arch: &str,
     transcription_mode: &str,
     local_engine: &str,
+    model_name: &str,
     acceleration: &str,
+    streaming_enabled: bool,
     voice_punctuation: bool,
     cloud_fallback: bool,
     parakeet_complete: bool,
@@ -284,7 +319,9 @@ pub fn format_diagnostic_report(
         - **Architecture**: {}\n\
         - **Transcription Mode**: {}\n\
         - **Local Engine**: {}\n\
+        - **Selected Model**: {}\n\
         - **Acceleration**: {}\n\
+        - **Real-time Streaming**: {}\n\
         - **Voice Punctuation**: {}\n\
         - **Cloud Fallback**: {}\n\n\
         ## Component Verification\n\
@@ -307,16 +344,46 @@ pub fn format_diagnostic_report(
         arch,
         transcription_mode,
         local_engine,
+        model_name,
         acceleration,
+        streaming_enabled,
         voice_punctuation,
         cloud_fallback,
-        if parakeet_complete { "Installed" } else { "Incomplete/Missing" },
-        if parakeet_encoder { "Present" } else { "Missing" },
-        if parakeet_decoder { "Present" } else { "Missing" },
-        if parakeet_joiner { "Present" } else { "Missing" },
-        if parakeet_tokens { "Present" } else { "Missing" },
-        if punctuation_model { "Present" } else { "Missing" },
-        if cuda_dll || cuda_exe { "Present" } else { "Missing" },
+        if parakeet_complete {
+            "Installed"
+        } else {
+            "Incomplete/Missing"
+        },
+        if parakeet_encoder {
+            "Present"
+        } else {
+            "Missing"
+        },
+        if parakeet_decoder {
+            "Present"
+        } else {
+            "Missing"
+        },
+        if parakeet_joiner {
+            "Present"
+        } else {
+            "Missing"
+        },
+        if parakeet_tokens {
+            "Present"
+        } else {
+            "Missing"
+        },
+        if punctuation_model {
+            "Present"
+        } else {
+            "Missing"
+        },
+        if cuda_dll || cuda_exe {
+            "Present"
+        } else {
+            "Missing"
+        },
         if cuda_dll { "Present" } else { "Missing" },
         if cuda_exe { "Present" } else { "Missing" },
         whisper_models_str,
@@ -340,10 +407,7 @@ mod tests {
             anonymize_speech("hello world from aura", false),
             "[REDACTED: 4 words, 21 chars]"
         );
-        assert_eq!(
-            anonymize_speech("", false),
-            "[REDACTED: 0 words, 0 chars]"
-        );
+        assert_eq!(anonymize_speech("", false), "[REDACTED: 0 words, 0 chars]");
     }
 
     #[test]
@@ -368,7 +432,10 @@ mod tests {
         rotate_logs_if_needed(&temp_dir, 50).unwrap();
         assert!(temp_dir.join(LOG_FILE_NAME).exists());
         assert!(temp_dir.join(format!("{}.1", LOG_FILE_NAME)).exists());
-        assert_eq!(fs::read_to_string(temp_dir.join(format!("{}.1", LOG_FILE_NAME))).unwrap(), "A".repeat(100));
+        assert_eq!(
+            fs::read_to_string(temp_dir.join(format!("{}.1", LOG_FILE_NAME))).unwrap(),
+            "A".repeat(100)
+        );
 
         // Fill current log file again
         fs::write(&log_file, "B".repeat(100)).unwrap();
@@ -378,8 +445,14 @@ mod tests {
         assert!(temp_dir.join(LOG_FILE_NAME).exists());
         assert!(temp_dir.join(format!("{}.1", LOG_FILE_NAME)).exists());
         assert!(temp_dir.join(format!("{}.2", LOG_FILE_NAME)).exists());
-        assert_eq!(fs::read_to_string(temp_dir.join(format!("{}.1", LOG_FILE_NAME))).unwrap(), "B".repeat(100));
-        assert_eq!(fs::read_to_string(temp_dir.join(format!("{}.2", LOG_FILE_NAME))).unwrap(), "A".repeat(100));
+        assert_eq!(
+            fs::read_to_string(temp_dir.join(format!("{}.1", LOG_FILE_NAME))).unwrap(),
+            "B".repeat(100)
+        );
+        assert_eq!(
+            fs::read_to_string(temp_dir.join(format!("{}.2", LOG_FILE_NAME))).unwrap(),
+            "A".repeat(100)
+        );
 
         let _ = fs::remove_dir_all(&temp_dir);
     }
@@ -393,12 +466,14 @@ mod tests {
         let whisper_models = vec!["small".to_string(), "base".to_string()];
 
         let report = format_diagnostic_report(
-            "1.0.8",
+            "1.0.9",
             "windows",
             "x86_64",
             "cloud",
             "parakeet",
+            "parakeet-v3",
             "cuda",
+            true,
             true,
             true,
             true,
@@ -417,7 +492,9 @@ mod tests {
         assert!(report.contains("## System & Config Specs"));
         assert!(report.contains("## Component Verification"));
         assert!(report.contains("## Unified Log (Last 50 Lines)"));
-        assert!(report.contains("- **App Version**: 1.0.8"));
+        assert!(report.contains("- **App Version**: 1.0.9"));
+        assert!(report.contains("- **Selected Model**: parakeet-v3"));
+        assert!(report.contains("- **Real-time Streaming**: true"));
         assert!(report.contains("Test log line 1"));
         assert!(report.contains("Test log line 2"));
     }

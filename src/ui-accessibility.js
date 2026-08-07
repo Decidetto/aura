@@ -38,8 +38,3 @@ export function setDocumentLanguage(language) {
   const supported = new Set(["ru", "en", "de", "es", "fr", "it", "zh", "pt", "tr"]);
   document.documentElement.lang = supported.has(language) ? language : "ru";
 }
-
-/**
- * Prevents stale plaintext secrets from remaining in an input after a save.
- * @param {HTMLInputElement} input
- */

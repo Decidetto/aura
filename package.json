@@ -1,17 +1,21 @@
 {
   "name": "aura-voice",
   "private": true,
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Aura — voice dictation for Windows (Whisper + LLM cleanup)",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
-    "build": "echo \"No frontend build step needed\""
+    "lint": "node --check src/main.js && node --check src/overlay.js && node --check src/ui-accessibility.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "check": "npm run lint && npm run typecheck",
+    "test": "node --test tests/frontend-static.test.mjs",
+    "build": "tauri build"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2",
-    "sharp": "^0.35.2"
+    "@tauri-apps/cli": "2.11.4",
+    "typescript": "5.9.3"
   }
 }

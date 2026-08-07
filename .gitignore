@@ -1,4 +1,4 @@
-# Ignore binary executables (whisper sidecar in src-tauri/binaries is intentionally tracked)
+﻿# Ignore binary executables (whisper sidecar in src-tauri/binaries is intentionally tracked)
 Aura.exe
 *.exe
 !src-tauri/binaries/*.exe
@@ -37,3 +37,11 @@ PRODUCT.md
 *.key
 *.pem
 minisign*
+
+.superpowers/
+skill-observations/
+skill-updates/
+tasks/
+log.txt
+# Downloaded GPU runtimes (fetched at install time, not committed)
+src-tauri/binaries/cuda/

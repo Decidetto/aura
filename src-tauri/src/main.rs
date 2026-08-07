@@ -5,4 +5,3 @@ fn main() {
     // The global Win32 keyboard hook is initialized during the Tauri app setup in lib.rs
     aura_app_lib::run()
 }
-

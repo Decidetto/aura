@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-check-gpu-downloaded"
+description = "Enables the check_gpu_downloaded command without any pre-configured scope."
+commands.allow = ["check_gpu_downloaded"]
+
+[[permission]]
+identifier = "deny-check-gpu-downloaded"
+description = "Denies the check_gpu_downloaded command without any pre-configured scope."
+commands.deny = ["check_gpu_downloaded"]
