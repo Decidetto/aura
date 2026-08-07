@@ -10,6 +10,9 @@ let angle = 0;
 // a newer session owns the overlay, so it can never hide a fresh recording.
 let hideTimerId = null;
 
+// Windows "Show animations" off: static bars, no pill transition.
+const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+
 let audioCtx = null;
 let soundVolume = 0.8;
 let globalGain = null;
@@ -318,6 +321,25 @@ setInterval(updateTimer, 500);
 
 // Main animation and physics loop (60fps)
 function updateAnimation() {
+  if (reduceMotionQuery.matches) {
+    // Static rendering: no lerping, no breathing wave. Volume still moves the
+    // bars in recording state, but instantly and without oscillation.
+    if (currentState === "recording") {
+      bars.forEach((bar, index) => {
+        const h = barStates[index].targetHeight;
+        bar.setAttribute("height", h.toString());
+        bar.setAttribute("y", (14.6 - h / 2).toString());
+      });
+    } else if (currentState === "processing") {
+      bars.forEach(bar => {
+        bar.setAttribute("height", "10.5");
+        bar.setAttribute("y", "9.35");
+      });
+    }
+    requestAnimationFrame(updateAnimation);
+    return;
+  }
+
   if (currentState === "processing") {
     // Slow, organic breathing wave centered around the middle bar (index 4)
     bars.forEach((bar, index) => {
@@ -593,15 +615,27 @@ listen("recording-state", (event) => {
       // session (recording/processing/notice) owns the overlay otherwise.
       if (currentState !== stateAtError) return;
       pill.classList.remove("visible");
-      // Safe hide on animation finish
-      pill.addEventListener("transitionend", function handler() {
-        pill.removeEventListener("transitionend", handler);
-        if (currentState !== stateAtError) return;
-        window.__TAURI__.core.invoke("hide_overlay_window");
-      });
+      hideOverlayAfterPillFade(stateAtError);
     }, 2500);
   }
 });
+
+// Hides the overlay window once the pill fade-out is done. With reduced
+// motion the transition is disabled, so the hide must happen immediately.
+function hideOverlayAfterPillFade(expectedState) {
+  const hideNow = () => {
+    if (currentState !== expectedState) return;
+    window.__TAURI__.core.invoke("hide_overlay_window");
+  };
+  if (reduceMotionQuery.matches) {
+    hideNow();
+    return;
+  }
+  pill.addEventListener("transitionend", function handler() {
+    pill.removeEventListener("transitionend", handler);
+    hideNow();
+  });
+}
 
 // Listen to the new event "hide-overlay-requested"
 listen("hide-overlay-requested", (event) => {
@@ -616,13 +650,9 @@ listen("hide-overlay-requested", (event) => {
 
   const stateAtRequest = currentState;
   pill.classList.remove("visible");
-  pill.addEventListener("transitionend", function handler() {
-    pill.removeEventListener("transitionend", handler);
-    // A brand-new recording may have started while the overlay was playing
-    // its hide animation — never hide a newer session's pill.
-    if (currentState !== stateAtRequest) return;
-    window.__TAURI__.core.invoke("hide_overlay_window");
-  });
+  // A brand-new recording may have started while the overlay was playing
+  // its hide animation — never hide a newer session's pill.
+  hideOverlayAfterPillFade(stateAtRequest);
 });
 
 
