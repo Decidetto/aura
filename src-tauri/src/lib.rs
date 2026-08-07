@@ -993,22 +993,38 @@ impl Drop for ClipboardGuard {
 }
 
 /// Runs the blocking whisper.cpp sidecar off the async runtime.
+///
+/// `generation` identifies the owning session: the sidecar decodes are aborted
+/// as soon as a newer session supersedes the current one, so a stale
+/// verification decode never keeps the overlay stuck on "processing".
 async fn run_local_whisper_async(
     app_handle: tauri::AppHandle,
     model: String,
     wav: String,
     language: String,
     dictionary: String,
+    generation: u64,
 ) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         if model == "parakeet-v3" {
-            whisper_runner::run_parakeet(&app_handle, &wav, &language, &dictionary)
+            whisper_runner::run_parakeet(&app_handle, &wav, &language, &dictionary, || {
+                session_stale_for_abort(&app_handle, generation)
+            })
         } else {
             whisper_runner::run_local_whisper(&app_handle, &model, &wav, &language, &dictionary)
         }
     })
     .await
     .map_err(|e| format!("Local ASR task failed: {e}"))?
+}
+
+/// True when `generation` is no longer the current session and blocking work
+/// belonging to it should be abandoned immediately.
+fn session_stale_for_abort(app_handle: &tauri::AppHandle, generation: u64) -> bool {
+    app_handle
+        .try_state::<AppState>()
+        .map(|state| state.session_gen.load(Ordering::SeqCst) != generation)
+        .unwrap_or(true)
 }
 
 type ParakeetPreviewSocket =
@@ -2756,6 +2772,7 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                                 chunk_path_str.clone(),
                                 language.clone(),
                                 settings.dictionary.clone(),
+                                my_gen,
                             )
                             .await
                         } else {
@@ -3041,6 +3058,7 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
                 temp_path_str.clone(),
                 language.clone(),
                 settings.dictionary.clone(),
+                my_gen,
             )
             .await
         } else {
@@ -3082,6 +3100,7 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
                                 temp_path_str.clone(),
                                 language.clone(),
                                 settings.dictionary.clone(),
+                                my_gen,
                             )
                             .await;
                             if local_result.is_ok() {
