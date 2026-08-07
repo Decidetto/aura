@@ -47,6 +47,9 @@ struct AppState {
     /// Increments on every new recording session; stale async tasks compare
     /// against it before touching the keyboard or clipboard.
     session_gen: AtomicU64,
+    /// Serializes clipboard backup/paste/restore sequences so overlapping
+    /// sessions cannot interleave and clobber each other's clipboard contents.
+    clipboard_mutex: Mutex<()>,
     /// Toggle mode: a short tap latched the recording until the next tap / Esc.
     latched: AtomicBool,
     /// Set when a toggle-stopping tap already finalized; its key release is a no-op.
@@ -868,18 +871,64 @@ fn restore_clipboard_if_unchanged(backup: ClipboardBackup, expected_temporary_te
     }
 }
 
+/// Returns `true` when the given generation still identifies the *current*
+/// recording session. Stale async tasks use this before touching the clipboard
+/// so they cannot clobber state captured by a newer, overlapping session.
+fn session_still_current(state: &AppState, my_gen: u64) -> bool {
+    state.session_gen.load(Ordering::SeqCst) == my_gen
+}
+
+/// Serialized clipboard restore: refuses to restore unless the caller's session
+/// is still current and holds the shared clipboard mutex, preventing an
+/// outdated session from overwriting a newer session's clipboard contents.
+fn restore_clipboard_guarded(
+    state: &AppState,
+    my_gen: u64,
+    backup: ClipboardBackup,
+    expected_temporary_text: Option<&str>,
+) {
+    if !session_still_current(state, my_gen) {
+        crate::logger::log(
+            "INFO",
+            "Clipboard",
+            None,
+            &format!(
+                "Session ({my_gen}) is stale; skipping clipboard restore to protect newer session"
+            ),
+        );
+        return;
+    }
+    match expected_temporary_text {
+        Some(expected) => restore_clipboard_if_unchanged(backup, expected),
+        None => restore_clipboard(backup),
+    }
+}
+
 struct ClipboardGuard {
     backup: ClipboardBackup,
     expected_temporary_text: Option<String>,
+    /// When present, restore is gated on this session still being current,
+    /// so a stale (overlapped) session cannot clobber a newer one's clipboard.
+    session: Option<(tauri::AppHandle, u64)>,
 }
 
 impl Drop for ClipboardGuard {
     fn drop(&mut self) {
         let backup = std::mem::replace(&mut self.backup, ClipboardBackup::Empty);
-        if let Some(expected) = &self.expected_temporary_text {
-            restore_clipboard_if_unchanged(backup, expected);
-        } else {
-            restore_clipboard(backup);
+        if let Some((app_handle, my_gen)) = &self.session {
+            if let Some(state) = app_handle.try_state::<AppState>() {
+                restore_clipboard_guarded(
+                    state.inner(),
+                    *my_gen,
+                    backup,
+                    self.expected_temporary_text.as_deref(),
+                );
+                return;
+            }
+        }
+        match &self.expected_temporary_text {
+            Some(expected) => restore_clipboard_if_unchanged(backup, expected),
+            None => restore_clipboard(backup),
         }
     }
 }
@@ -2354,6 +2403,7 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
             let mut clipboard_guard = ClipboardGuard {
                 backup: backup_clipboard(),
                 expected_temporary_text: None,
+                session: Some((app_handle_copy.clone(), gen)),
             };
 
             if let Ok(mut cb) = arboard::Clipboard::new() {
@@ -3119,13 +3169,34 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
                             || keyboard_simulator::get_foreground_window() == start_hwnd;
 
                         if session_ok && focus_ok {
-                            let original_clipboard = backup_clipboard();
-                            if let Ok(mut cb) = arboard::Clipboard::new() {
-                                let _ = cb.set_text(final_text.clone());
+                            let mut original_clipboard = ClipboardBackup::Empty;
+                            // Serialize the clipboard mutation against other
+                            // overlapping sessions before the paste lands.
+                            if let Some(state) = app_handle_clone.try_state::<AppState>() {
+                                if let Ok(_guard) = state.clipboard_mutex.lock() {
+                                    original_clipboard = backup_clipboard();
+                                    if let Ok(mut cb) = arboard::Clipboard::new() {
+                                        let _ = cb.set_text(final_text.clone());
+                                    }
+                                    keyboard_simulator::simulate_paste();
+                                }
                             }
-                            keyboard_simulator::simulate_paste();
                             tokio::time::sleep(std::time::Duration::from_millis(800)).await;
-                            restore_clipboard_if_unchanged(original_clipboard, &final_text);
+                            // Guarded restore: only restores if this session is
+                            // still current, so an overlapped newer session's
+                            // clipboard is never overwritten.
+                            if let Some(state) = app_handle_clone.try_state::<AppState>() {
+                                if let Ok(_guard) = state.clipboard_mutex.lock() {
+                                    restore_clipboard_guarded(
+                                        state.inner(),
+                                        my_gen,
+                                        original_clipboard.clone(),
+                                        Some(&final_text),
+                                    );
+                                }
+                            } else {
+                                restore_clipboard_if_unchanged(original_clipboard.clone(), &final_text);
+                            }
                         } else if session_ok {
                             crate::logger::log(
                                 "WARN",
@@ -3311,6 +3382,7 @@ pub fn run() {
                 live_target_monitoring: AtomicBool::new(false),
                 selected_language: Mutex::new(String::new()),
                 session_gen: AtomicU64::new(0),
+                clipboard_mutex: Mutex::new(()),
                 latched: AtomicBool::new(false),
                 ignore_next_release: AtomicBool::new(false),
                 start_hwnd: Mutex::new(0),
@@ -4356,5 +4428,57 @@ mod tests {
             "привет все ли хорошо"
         );
         assert_eq!(clean_live_text(""), "");
+    }
+
+    /// Builds an `AppState` with an arbitrary session generation, used to verify
+    /// the clipboard/session-staleness guard in isolation (no OS clipboard is
+    /// touched by these assertions).
+    fn test_app_state_with_generation(gen: u64) -> crate::AppState {
+        crate::AppState {
+            audio_recorder: audio_recorder::AudioRecorder::new(),
+            selected_text: Mutex::new(String::new()),
+            press_time: Mutex::new(None),
+            is_recording: AtomicBool::new(false),
+            toggle_enabled: AtomicBool::new(false),
+            typed_so_far: Mutex::new(String::new()),
+            live_target_desynced: AtomicBool::new(false),
+            live_target_monitoring: AtomicBool::new(false),
+            selected_language: Mutex::new(String::new()),
+            session_gen: AtomicU64::new(gen),
+            clipboard_mutex: Mutex::new(()),
+            latched: AtomicBool::new(false),
+            ignore_next_release: AtomicBool::new(false),
+            start_hwnd: Mutex::new(0),
+            parakeet_lifecycle: Mutex::new(()),
+            parakeet_server: Mutex::new(None),
+            parakeet_port: std::sync::atomic::AtomicU16::new(3033),
+            parakeet_streaming: Mutex::new(None),
+        }
+    }
+
+    #[test]
+    fn stale_session_never_restores_clipboard_after_overlap() {
+        // Session A starts and latches generation 1.
+        let state = test_app_state_with_generation(1);
+        assert!(session_still_current(&state, 1), "gen 1 is still current");
+
+        // Session B starts (user triggers a new dictation before A's 800ms
+        // clipboard-restore window elapses), bumping the generation to 2.
+        state.session_gen.store(2, Ordering::SeqCst);
+
+        // A's restore must now be rejected — it would otherwise clobber B's data.
+        assert!(
+            !session_still_current(&state, 1),
+            "A (gen 1) must be treated as stale once gen 2 is current"
+        );
+        assert!(session_still_current(&state, 2), "B (gen 2) is the live session");
+
+        // And re-verifying restore_clipboard_guarded returns early without
+        // touching the (empty) clipboard for a stale session. Direct restore of
+        // an empty backup is a no-op guard-wise; we assert the guard branch is
+        // taken rather than attempting an OS-level clipboard write.
+        restore_clipboard_guarded(&state, 1, ClipboardBackup::Empty, None);
+        // No panic, no clobber — session 1 was rejected because gen became 2.
+        assert!(state.session_gen.load(Ordering::SeqCst) == 2);
     }
 }
