@@ -8,7 +8,11 @@ use std::thread;
 use std::time::Duration;
 
 const OUTPUT_SAMPLE_RATE: u32 = 16_000;
-const AUDIO_QUEUE_CAPACITY: usize = 32;
+/// Bounded queue between the audio callback and the record worker. Sized so a
+/// transient stall in downstream processing (WAV write, streaming publish, UI
+/// volume emission) absorbs ~1.3 s of audio at 10 ms chunks instead of dropping
+/// dictation. Overflow is still counted and surfaced via `dropped_chunks`.
+const AUDIO_QUEUE_CAPACITY: usize = 128;
 const SAMPLE_STREAM_QUEUE_CAPACITY: usize = 256;
 const CONTROL_POLL_INTERVAL: Duration = Duration::from_millis(10);
 const START_TIMEOUT: Duration = Duration::from_secs(10);

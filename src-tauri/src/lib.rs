@@ -2518,7 +2518,13 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
             enable_parakeet_sample_stream,
             retain_samples_for_batch_preview,
             move |vol| {
-                let _ = app_handle_vol.emit("volume-level", vol);
+                // Decouple the overlay's volume IPC from the record worker: a
+                // slow/busy overlay webview must never stall audio processing
+                // and overflow the capture queue.
+                let app_handle_vol = app_handle_vol.clone();
+                tauri::async_runtime::spawn(async move {
+                    let _ = app_handle_vol.emit("volume-level", vol);
+                });
             },
         )
     })
