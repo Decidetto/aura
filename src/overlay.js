@@ -6,6 +6,9 @@ const pill = document.querySelector(".overlay-pill");
 let currentState = "recording";
 let recordStart = null;
 let angle = 0;
+// Pending auto-hide timer from a previous state (e.g. an error). Cleared when
+// a newer session owns the overlay, so it can never hide a fresh recording.
+let hideTimerId = null;
 
 let audioCtx = null;
 let soundVolume = 0.8;
@@ -534,6 +537,12 @@ function translateError(errStr, lang) {
 
 // Listen for recording-state updates: "recording" | "processing" | "error"
 listen("recording-state", (event) => {
+  // Any incoming state invalidates a pending auto-hide from a previous state
+  // (an old error timer must never hide a brand-new recording).
+  if (hideTimerId !== null) {
+    clearTimeout(hideTimerId);
+    hideTimerId = null;
+  }
   currentState = event.payload;
 
   if (currentState === "recording") {
@@ -577,11 +586,17 @@ listen("recording-state", (event) => {
 
     // Play error sound and animate hide after a brief delay
     playThemeError();
-    setTimeout(() => {
+    const stateAtError = currentState;
+    hideTimerId = setTimeout(() => {
+      hideTimerId = null;
+      // Only hide if the overlay still shows this same error; a newer
+      // session (recording/processing/notice) owns the overlay otherwise.
+      if (currentState !== stateAtError) return;
       pill.classList.remove("visible");
       // Safe hide on animation finish
       pill.addEventListener("transitionend", function handler() {
         pill.removeEventListener("transitionend", handler);
+        if (currentState !== stateAtError) return;
         window.__TAURI__.core.invoke("hide_overlay_window");
       });
     }, 2500);
@@ -599,9 +614,13 @@ listen("hide-overlay-requested", (event) => {
     playThemeError();
   }
 
+  const stateAtRequest = currentState;
   pill.classList.remove("visible");
   pill.addEventListener("transitionend", function handler() {
     pill.removeEventListener("transitionend", handler);
+    // A brand-new recording may have started while the overlay was playing
+    // its hide animation — never hide a newer session's pill.
+    if (currentState !== stateAtRequest) return;
     window.__TAURI__.core.invoke("hide_overlay_window");
   });
 });
