@@ -188,8 +188,15 @@ pub struct SettingsView {
 
 impl SettingsView {
     pub fn from_settings(settings: &Settings) -> Self {
+        let mut view = settings.clone();
+        // The view is serialized to the webview; keep a second in-memory copy
+        // of the secrets only for as long as it takes to scrub it.
+        view.api_key.zeroize();
+        view.api_key_gemini.zeroize();
+        view.api_key_openai.zeroize();
+        view.api_key_groq.zeroize();
         Self {
-            settings: settings.clone(),
+            settings: view,
             has_api_key_gemini: !settings.api_key_gemini.is_empty(),
             has_api_key_openai: !settings.api_key_openai.is_empty(),
             has_api_key_groq: !settings.api_key_groq.is_empty(),
@@ -433,6 +440,12 @@ pub fn save_settings<R: tauri::Runtime>(
     settings: &Settings,
 ) -> Result<(), String> {
     let mut normalized = settings.clone();
+    // Keys are never serialized into settings.json; scrub the transient copy
+    // instead of letting it linger until the struct is dropped.
+    normalized.api_key.zeroize();
+    normalized.api_key_gemini.zeroize();
+    normalized.api_key_openai.zeroize();
+    normalized.api_key_groq.zeroize();
     normalized.dictionary = normalized.dictionary.trim().to_string();
     normalized.hotkey = normalized.hotkey.trim().to_string();
     normalized.validate()?;
@@ -457,9 +470,19 @@ pub fn set_provider_key<R: tauri::Runtime>(
     let mut settings = load_settings_unlocked(app_handle)?;
     let normalized = key.trim().to_string();
     match provider {
-        "gemini" => settings.api_key_gemini = normalized,
-        "openai" => settings.api_key_openai = normalized,
-        "groq" => settings.api_key_groq = normalized,
+        // Scrub the replaced secret's buffer before overwriting it.
+        "gemini" => {
+            settings.api_key_gemini.zeroize();
+            settings.api_key_gemini = normalized;
+        }
+        "openai" => {
+            settings.api_key_openai.zeroize();
+            settings.api_key_openai = normalized;
+        }
+        "groq" => {
+            settings.api_key_groq.zeroize();
+            settings.api_key_groq = normalized;
+        }
         _ => return Err(format!("Unsupported API provider: {provider}")),
     }
     settings.sync_active_api_key();
