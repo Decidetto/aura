@@ -1196,6 +1196,7 @@ pub(crate) struct RunningParakeetServer {
     provider: String,
     executable: PathBuf,
     port: u16,
+    readers: SidecarPipeReaders,
     #[cfg(target_os = "windows")]
     _kill_on_close_job: Option<KillOnCloseJob>,
 }
@@ -1206,6 +1207,9 @@ impl Drop for RunningParakeetServer {
         // code path forgets to stop it explicitly (early return or panic).
         let _ = self.child.kill();
         let _ = self.child.wait();
+        // The child is gone, so the pipes reached EOF; reap the reader threads
+        // so restarts do not accumulate them.
+        self.readers.join();
     }
 }
 
@@ -1325,39 +1329,130 @@ fn is_routine_parakeet_status_line(line: &str) -> bool {
         || (line.contains(":OnClose:") && line.contains("Number of active connections:"))
 }
 
-fn pipe_child_output(child: &mut std::process::Child) -> SidecarDiagnostics {
+/// Owns the two pipe-reader threads of a sidecar plus the diagnostics buffer.
+/// Dropping it joins both readers, so restarts never accumulate threads that
+/// keep blocking on a half-closed pipe.
+struct SidecarPipeReaders {
+    diagnostics: SidecarDiagnostics,
+    stdout: Option<std::thread::JoinHandle<()>>,
+    stderr: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Default for SidecarPipeReaders {
+    fn default() -> Self {
+        Self {
+            diagnostics: std::sync::Arc::new(std::sync::Mutex::new(
+                std::collections::VecDeque::new(),
+            )),
+            stdout: None,
+            stderr: None,
+        }
+    }
+}
+
+impl SidecarPipeReaders {
+    /// Must be called after the child has been killed/waited: the pipes hit EOF
+    /// only once the sidecar is gone, and `join` reaps the reader threads.
+    fn join(&mut self) {
+        for handle in [self.stdout.take(), self.stderr.take()]
+            .into_iter()
+            .flatten()
+        {
+            let _ = handle.join();
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn prevent_pipe_inheritance(pipe: &impl std::os::windows::io::AsRawHandle, name: &str) {
+    use windows_sys::Win32::Foundation::{SetHandleInformation, HANDLE_FLAG_INHERIT};
+    let raw = pipe.as_raw_handle() as windows_sys::Win32::Foundation::HANDLE;
+    if unsafe { SetHandleInformation(raw, HANDLE_FLAG_INHERIT, 0) } == 0 {
+        crate::logger::log(
+            "WARN",
+            "Sidecar",
+            None,
+            &format!(
+                "Could not mark the Parakeet {name} pipe as non-inheritable: {}",
+                std::io::Error::last_os_error()
+            ),
+        );
+    }
+}
+
+fn pipe_child_output(child: &mut std::process::Child) -> SidecarPipeReaders {
     let diagnostics = std::sync::Arc::new(std::sync::Mutex::new(std::collections::VecDeque::new()));
-    if let Some(stdout) = child.stdout.take() {
+    let stdout_reader = if let Some(stdout) = child.stdout.take() {
+        #[cfg(target_os = "windows")]
+        prevent_pipe_inheritance(&stdout, "stdout");
         let stdout_diagnostics = std::sync::Arc::clone(&diagnostics);
-        std::thread::spawn(move || {
-            use std::io::BufRead;
-            let reader = std::io::BufReader::new(stdout);
-            for line in reader.lines().map_while(Result::ok) {
-                if is_benign_websocket_shutdown_line(&line) {
-                    continue;
+        let handle = std::thread::Builder::new()
+            .name("parakeet-stdout-reader".to_string())
+            .spawn(move || {
+                use std::io::BufRead;
+                let reader = std::io::BufReader::new(stdout);
+                for line in reader.lines().map_while(Result::ok) {
+                    if is_benign_websocket_shutdown_line(&line) {
+                        continue;
+                    }
+                    remember_sidecar_line(&stdout_diagnostics, &line);
+                    crate::logger::log("INFO", "Sidecar", None, &line);
                 }
-                remember_sidecar_line(&stdout_diagnostics, &line);
-                crate::logger::log("INFO", "Sidecar", None, &line);
+            });
+        match handle {
+            Ok(handle) => Some(handle),
+            Err(error) => {
+                crate::logger::log(
+                    "WARN",
+                    "Sidecar",
+                    None,
+                    &format!("Could not start the Parakeet stdout reader: {error}"),
+                );
+                None
             }
-        });
-    }
-    if let Some(stderr) = child.stderr.take() {
+        }
+    } else {
+        None
+    };
+    let stderr_reader = if let Some(stderr) = child.stderr.take() {
+        #[cfg(target_os = "windows")]
+        prevent_pipe_inheritance(&stderr, "stderr");
         let stderr_diagnostics = std::sync::Arc::clone(&diagnostics);
-        std::thread::spawn(move || {
-            use std::io::BufRead;
-            let reader = std::io::BufReader::new(stderr);
-            for line in reader.lines().map_while(Result::ok) {
-                if is_benign_websocket_shutdown_line(&line) {
-                    continue;
+        let handle = std::thread::Builder::new()
+            .name("parakeet-stderr-reader".to_string())
+            .spawn(move || {
+                use std::io::BufRead;
+                let reader = std::io::BufReader::new(stderr);
+                for line in reader.lines().map_while(Result::ok) {
+                    if is_benign_websocket_shutdown_line(&line) {
+                        continue;
+                    }
+                    remember_sidecar_line(&stderr_diagnostics, &line);
+                    if !is_routine_parakeet_status_line(&line) {
+                        crate::logger::log("WARN", "Sidecar", None, &line);
+                    }
                 }
-                remember_sidecar_line(&stderr_diagnostics, &line);
-                if !is_routine_parakeet_status_line(&line) {
-                    crate::logger::log("WARN", "Sidecar", None, &line);
-                }
+            });
+        match handle {
+            Ok(handle) => Some(handle),
+            Err(error) => {
+                crate::logger::log(
+                    "WARN",
+                    "Sidecar",
+                    None,
+                    &format!("Could not start the Parakeet stderr reader: {error}"),
+                );
+                None
             }
-        });
+        }
+    } else {
+        None
+    };
+    SidecarPipeReaders {
+        diagnostics,
+        stdout: stdout_reader,
+        stderr: stderr_reader,
     }
-    diagnostics
 }
 
 fn recent_sidecar_diagnostics(diagnostics: &SidecarDiagnostics) -> String {
@@ -1489,21 +1584,27 @@ fn spawn_ready_server(
         None => None,
     };
 
-    let diagnostics = pipe_child_output(&mut child);
+    let mut readers = pipe_child_output(&mut child);
     let timeout = if provider == "cpu" {
         std::time::Duration::from_secs(45)
     } else {
         std::time::Duration::from_secs(25)
     };
-    let warm_up_ms =
-        match wait_for_server_warm_up(&mut child, port, timeout, &diagnostics, should_abort) {
-            Ok(elapsed_ms) => elapsed_ms,
-            Err(error) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(format!("{provider} sidecar failed readiness: {error}"));
-            }
-        };
+    let warm_up_ms = match wait_for_server_warm_up(
+        &mut child,
+        port,
+        timeout,
+        &readers.diagnostics,
+        should_abort,
+    ) {
+        Ok(elapsed_ms) => elapsed_ms,
+        Err(error) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            readers.join();
+            return Err(format!("{provider} sidecar failed readiness: {error}"));
+        }
+    };
     crate::logger::log(
         "INFO",
         "Sidecar",
@@ -1516,6 +1617,7 @@ fn spawn_ready_server(
         provider: provider.to_string(),
         executable: executable.to_path_buf(),
         port,
+        readers,
         #[cfg(target_os = "windows")]
         _kill_on_close_job: kill_on_close_job,
     })
@@ -2661,6 +2763,7 @@ mod tests {
             provider: "test".to_string(),
             executable: PathBuf::from("sleeper"),
             port: 0,
+            readers: SidecarPipeReaders::default(),
             #[cfg(target_os = "windows")]
             _kill_on_close_job: None,
         };
@@ -2689,5 +2792,36 @@ mod tests {
         );
         drop(job);
         wait_for_process_exit(pid);
+    }
+
+    #[test]
+    fn pipe_readers_join_after_the_child_is_killed() {
+        let mut child = {
+            #[cfg(target_os = "windows")]
+            {
+                let mut command = Command::new("cmd");
+                command.args(["/c", "echo sidecar-hello"]);
+                command
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                let mut command = Command::new("sh");
+                command.args(["-c", "echo sidecar-hello"]);
+                command
+            }
+        }
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn echo sidecar");
+        let mut readers = pipe_child_output(&mut child);
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        let _ = child.kill();
+        let _ = child.wait();
+        readers.join();
+        assert!(
+            recent_sidecar_diagnostics(&readers.diagnostics).contains("sidecar-hello"),
+            "the joined reader must have drained the sidecar output"
+        );
     }
 }
