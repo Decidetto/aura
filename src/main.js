@@ -2040,10 +2040,13 @@ document.addEventListener("DOMContentLoaded", () => {
       cancelBtn.title = cancelLabel;
       cancelBtn.setAttribute("aria-label", cancelLabel);
       cancelBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-      cancelBtn.addEventListener("click", (e) => {
+cancelBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         cancelBtn.disabled = true;
-        invoke("cancel_model_download", { modelName: `gpu-${provider}` }).catch(e2 => console.error(e2));
+        invoke("cancel_gpu_download", { provider }).catch((e2) => {
+          console.error(e2);
+          cancelBtn.disabled = false;
+        });
       });
       progressEl.appendChild(cancelBtn);
     }

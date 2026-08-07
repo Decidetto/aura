@@ -3588,6 +3588,7 @@ pub fn run() {
             start_dragging_command,
             hide_overlay_window,
             download_gpu_binaries,
+            cancel_gpu_download,
             delete_gpu_binaries,
             check_gpu_downloaded,
             get_diagnostic_report,
@@ -3833,6 +3834,26 @@ async fn delete_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -> 
 static ACTIVE_GPU_DOWNLOADS: std::sync::LazyLock<
     std::sync::Mutex<std::collections::HashSet<String>>,
 > = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashSet::new()));
+
+#[tauri::command]
+async fn cancel_gpu_download(provider: String) -> Result<(), String> {
+    if provider != "cuda" {
+        return Err("Invalid provider".to_string());
+    }
+    if !lock_active_gpu_downloads().contains(&provider) {
+        return Err(format!(
+            "No active GPU download for '{provider}' to cancel"
+        ));
+    }
+    whisper_runner::request_cancel_download(&format!("gpu-{provider}"));
+    crate::logger::log(
+        "INFO",
+        "GPU",
+        None,
+        &format!("GPU download cancellation requested for '{provider}'"),
+    );
+    Ok(())
+}
 
 #[tauri::command]
 async fn download_gpu_binaries(
