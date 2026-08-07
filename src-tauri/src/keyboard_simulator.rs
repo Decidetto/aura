@@ -397,7 +397,7 @@ mod windows_impl {
         unsafe {
             let hwnd = GetForegroundWindow();
             if hwnd == 0 {
-                return "ru".to_string();
+                return "auto".to_string();
             }
             let thread_id = GetWindowThreadProcessId(hwnd, std::ptr::null_mut());
             let layout = GetKeyboardLayout(thread_id);
@@ -415,7 +415,9 @@ mod windows_impl {
                 0x0404 | 0x0804 | 0x0c04 | 0x1004 | 0x1404 => "zh".to_string(),
                 0x0416 | 0x0816 => "pt".to_string(),
                 0x041f => "tr".to_string(),
-                _ => "ru".to_string(),
+                // Unknown layout: let the recognizer auto-detect instead of
+                // forcing Russian on every other language of the world.
+                _ => "auto".to_string(),
             }
         }
     }
@@ -706,21 +708,21 @@ mod macos_impl {
         unsafe {
             let source = tis::TISCopyCurrentKeyboardInputSource();
             let Some(_source_guard) = OwnedCf::new(source) else {
-                return "ru".to_string();
+                return "auto".to_string();
             };
             let langs_array =
                 tis::TISGetInputSourceProperty(source, tis::kTISPropertyInputSourceLanguages)
                     as tis::CFArrayRef;
             if langs_array.is_null() {
-                return "ru".to_string();
+                return "auto".to_string();
             }
             let count = tis::CFArrayGetCount(langs_array);
             if count <= 0 {
-                return "ru".to_string();
+                return "auto".to_string();
             }
             let lang_string = tis::CFArrayGetValueAtIndex(langs_array, 0) as tis::CFStringRef;
             if lang_string.is_null() {
-                return "ru".to_string();
+                return "auto".to_string();
             }
 
             let mut buf = [0u8; 16];
@@ -753,7 +755,9 @@ mod macos_impl {
                     return "tr".to_string();
                 }
             }
-            "ru".to_string()
+            // Unknown input source: let the recognizer auto-detect instead of
+            // forcing Russian on every other keyboard in the world.
+            "auto".to_string()
         }
     }
 
