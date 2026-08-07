@@ -137,11 +137,19 @@ async fn set_settings(
 ) -> Result<(), String> {
     keyboard_hook::validate_hotkey(&settings.hotkey)?;
     let save_handle = app_handle.clone();
-    let saved_settings = settings.clone();
+    let mut saved_settings = settings.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        settings::save_settings(&save_handle, &saved_settings)?;
-        sync_autostart(&save_handle, saved_settings.autostart);
-        Ok::<(), String>(())
+        let result: Result<(), String> = (|| {
+            settings::save_settings(&save_handle, &saved_settings)?;
+            sync_autostart(&save_handle, saved_settings.autostart);
+            Ok(())
+        })();
+        // The moved-in copy may carry secrets from the request; scrub it.
+        zeroize::Zeroize::zeroize(&mut saved_settings.api_key);
+        zeroize::Zeroize::zeroize(&mut saved_settings.api_key_gemini);
+        zeroize::Zeroize::zeroize(&mut saved_settings.api_key_openai);
+        zeroize::Zeroize::zeroize(&mut saved_settings.api_key_groq);
+        result
     })
     .await
     .map_err(|error| format!("Settings storage worker failed: {error}"))??;
