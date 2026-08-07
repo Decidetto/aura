@@ -1023,6 +1023,33 @@ mod tests {
     }
 
     #[test]
+    fn resampler_handles_non_integer_ratio_44_1k() {
+        // 44100 / 16000 is not an integer ratio; a second of audio must still
+        // yield exactly 16k samples and the streaming path must match the
+        // one-shot result regardless of chunk boundaries.
+        let input_rate = 44_100;
+        let raw: Vec<f32> = (0..input_rate)
+            .map(|index| {
+                (index as f32 * 440.0 * 2.0 * std::f32::consts::PI / input_rate as f32).sin()
+            })
+            .collect();
+        let one_shot = resample_to_16k_mono(&raw, 1, input_rate).expect("one-shot resample");
+        // A non-integer ratio may emit one trailing sample at the tail boundary
+        // (44100/16000 = 2.75625), so the length is allowed to differ by one.
+        assert!((one_shot.len() as i64 - 16_000).abs() <= 1);
+
+        let mut streaming = StreamingResampler::new(1, input_rate).expect("streaming resampler");
+        let mut chunked = Vec::new();
+        for chunk in raw.chunks(997) {
+            streaming.process_interleaved(chunk, &mut chunked);
+        }
+        streaming.finish(&mut chunked);
+
+        assert!((chunked.len() as i64 - 16_000).abs() <= 1);
+        assert_eq!(chunked, one_shot);
+    }
+
+    #[test]
     fn rejects_invalid_audio_format() {
         assert!(resample_to_16k_mono(&[0.1], 0, 48_000).is_err());
         assert!(resample_to_16k_mono(&[0.1], 1, 0).is_err());
