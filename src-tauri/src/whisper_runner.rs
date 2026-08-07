@@ -1730,6 +1730,10 @@ pub fn ensure_parakeet_server_state<R: Runtime>(
 
 /// Transcribes a 16 kHz mono WAV via the resident Parakeet WebSocket server.
 ///
+/// `is_cancelled` is polled while the response is awaited; the read timeout is
+/// kept short so a session that was superseded (or aborted) never leaves the
+/// overlay stuck on "processing" for the full response deadline.
+///
 /// Note: `language` and `dictionary` are intentionally unused. Parakeet v3 auto-detects the
 /// language, and the custom dictionary (hotwords) can't be applied here because the server is a
 /// long-lived daemon started once with fixed args — biasing would require a `--hotwords-file`
@@ -1741,6 +1745,7 @@ pub fn run_parakeet<R: Runtime>(
     wav_path: &str,
     _language: &str,
     _dictionary: &str,
+    mut is_cancelled: impl FnMut() -> bool,
 ) -> Result<String, String> {
     if let Err(e) = start_parakeet_server(app_handle) {
         return Err(format!(
@@ -1796,6 +1801,9 @@ pub fn run_parakeet<R: Runtime>(
                     if start_connect.elapsed().as_secs() > 15 {
                         return Err(format!("Parakeet server connection timeout: {}", e));
                     }
+                    if is_cancelled() {
+                        return Err("Parakeet request was cancelled".to_string());
+                    }
                     // First failed connect = the server is still loading the model into RAM.
                     // Tell the user so the wait doesn't look like a freeze.
                     if !notified {
@@ -1810,10 +1818,10 @@ pub fn run_parakeet<R: Runtime>(
 
     // Guard against a hung/dead server: without a read timeout, socket.read() below
     // would block this dictation forever, leaving the overlay stuck on "processing".
+    // The timeout is kept short so cancellation is polled at the same cadence as
+    // the streaming previews; the hard deadline is enforced in the read loop.
     if let tungstenite::stream::MaybeTlsStream::Plain(stream) = socket.get_ref() {
-        let audio_seconds = sample_count / u64::from(spec.sample_rate);
-        let response_timeout = std::time::Duration::from_secs((30 + audio_seconds / 2).min(360));
-        let _ = stream.set_read_timeout(Some(response_timeout));
+        let _ = stream.set_read_timeout(Some(std::time::Duration::from_millis(250)));
         let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(30)));
     }
 
@@ -1855,19 +1863,37 @@ pub fn run_parakeet<R: Runtime>(
         ));
     }
 
+    let response_deadline = std::time::Instant::now()
+        + std::time::Duration::from_secs((30 + sample_count / u64::from(spec.sample_rate) / 2).min(360));
     let response_text = loop {
-        match socket
-            .read()
-            .map_err(|e| format!("Failed to read transcription response: {e}"))?
-        {
-            tungstenite::Message::Text(text) => break text,
-            tungstenite::Message::Ping(_) | tungstenite::Message::Pong(_) => continue,
-            tungstenite::Message::Close(frame) => {
+        if is_cancelled() {
+            return Err("Parakeet request was cancelled".to_string());
+        }
+        match socket.read() {
+            Ok(tungstenite::Message::Text(text)) => break text,
+            Ok(tungstenite::Message::Ping(payload)) => socket
+                .send(tungstenite::Message::Pong(payload))
+                .map_err(|e| format!("Failed to answer Parakeet ping: {e}"))?,
+            Ok(tungstenite::Message::Pong(_)) => {}
+            Ok(tungstenite::Message::Close(frame)) => {
                 return Err(format!(
                     "Parakeet server closed before returning a result: {frame:?}"
                 ));
             }
-            _ => return Err("Unexpected binary message from Parakeet server".to_string()),
+            Ok(_) => return Err("Unexpected binary message from Parakeet server".to_string()),
+            Err(tungstenite::Error::Io(error))
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                ) =>
+            {
+                if std::time::Instant::now() >= response_deadline {
+                    return Err(format!(
+                        "Parakeet transcription timed out for {sample_count} samples"
+                    ));
+                }
+            }
+            Err(error) => return Err(format!("Failed to read transcription response: {error}")),
         }
     };
 
