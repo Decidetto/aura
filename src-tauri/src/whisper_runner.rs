@@ -2107,8 +2107,6 @@ const PUNCTUATION_ARCHIVE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/rel
 const PUNCTUATION_ARCHIVE_SIZE: u64 = 64_717_756;
 const PUNCTUATION_ARCHIVE_SHA256: &str =
     "c0d5aa5f8eeb686032345e180bedf39319dc2e0556781c6264bcadba8328a6e1";
-const PUNCTUATION_ARCHIVE_ROOT: &str =
-    "sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8";
 
 struct RemoveDirectoryOnDrop(PathBuf);
 
@@ -2131,13 +2129,35 @@ impl Drop for RemoveDirectoryOnDrop {
 }
 
 pub(crate) fn punctuation_files_complete(directory: &Path) -> bool {
-    ["model.int8.onnx", "tokens.txt"].into_iter().all(|name| {
-        directory
-            .join(name)
-            .metadata()
-            .map(|metadata| metadata.is_file() && metadata.len() > 0)
-            .unwrap_or(false)
-    })
+    // The CT-transformer run path only needs model.int8.onnx (--ct-transformer).
+    // Old builds also required tokens.txt, which this archive does not ship:
+    // it carries tokens.json, so tokens must not gate installation.
+    directory
+        .join("model.int8.onnx")
+        .metadata()
+        .map(|metadata| metadata.is_file() && metadata.len() > 0)
+        .unwrap_or(false)
+}
+
+/// Locate the directory that directly holds the punctuation model inside an
+/// extraction tree, tolerating a versioned top-level folder (the archives
+/// ship as `sherpa-onnx-punct-ct-transformer-.../model.int8.onnx`).
+fn find_dir_containing_punctuation_model(root: &Path, depth: usize) -> Option<PathBuf> {
+    if punctuation_files_complete(root) {
+        return Some(root.to_path_buf());
+    }
+    if depth == 0 {
+        return None;
+    }
+    for entry in std::fs::read_dir(root).ok()?.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            if let Some(found) = find_dir_containing_punctuation_model(&path, depth - 1) {
+                return Some(found);
+            }
+        }
+    }
+    None
 }
 
 fn unique_punctuation_staging_dir(models_dir: &Path) -> PathBuf {
@@ -2167,13 +2187,10 @@ fn install_punctuation_archive(
         .unpack(&extraction_dir)
         .map_err(|error| format!("Failed to extract punctuation archive safely: {error}"))?;
 
-    let source = extraction_dir.join(PUNCTUATION_ARCHIVE_ROOT);
-    if !punctuation_files_complete(&source) {
-        return Err(
-            "Verified punctuation archive does not contain model.int8.onnx and tokens.txt"
-                .to_string(),
-        );
-    }
+    // The archives ship inside a versioned top-level directory; resolve it
+    // instead of assuming a fixed folder name at a fixed depth.
+    let source = find_dir_containing_punctuation_model(&extraction_dir, 2)
+        .ok_or_else(|| "Verified punctuation archive does not contain model.int8.onnx".to_string())?;
     let parent = destination
         .parent()
         .ok_or_else(|| "Punctuation destination has no parent directory".to_string())?;
@@ -2516,6 +2533,42 @@ fn get_short_path(path: &Path) -> Result<PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn punctuation_complete_requires_only_the_onnx_model() {
+        let unique_id = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("aura_punct_test_{unique_id}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(!punctuation_files_complete(&dir));
+        std::fs::write(dir.join("model.int8.onnx"), b"model").unwrap();
+        assert!(punctuation_files_complete(&dir));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn punctuation_archive_with_nested_versioned_folder_is_locatable() {
+        let unique_id = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("aura_punct_frame_{unique_id}"));
+        let _ = std::fs::remove_dir_all(&root);
+        // Replicates the real archive layout: top-level versioned folder.
+        let inner = root.join("sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8");
+        std::fs::create_dir_all(&inner).unwrap();
+        std::fs::write(inner.join("model.int8.onnx"), b"model").unwrap();
+        std::fs::write(inner.join("tokens.json"), b"[]").unwrap();
+        std::fs::write(root.join("README.md"), b"readme").unwrap();
+
+        let found = find_dir_containing_punctuation_model(&root, 2).unwrap();
+        assert!(found.ends_with("sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8"));
+        assert!(punctuation_files_complete(&found));
+        let _ = std::fs::remove_dir_all(&root);
+    }
 
     /// Network reproduction for the "stream changed size" reports: downloads
     /// with the real client and reports received bytes vs pinned size.
