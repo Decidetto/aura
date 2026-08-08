@@ -2220,7 +2220,7 @@ pub async fn download_punctuation_model<R: Runtime>(
         match download_punctuation_model_attempt(app_handle).await {
             Ok(()) => return Ok(()),
             Err(error) => {
-                let retryable = error.contains("stream changed size")
+                let retryable = error.contains("grew beyond twice its pinned size")
                     || error.contains("Incomplete punctuation download")
                     || error.contains("stalled for more than 30 seconds");
                 if retryable && attempt == 1 {
@@ -2257,12 +2257,19 @@ async fn download_punctuation_model_attempt<R: Runtime>(
     }
     let _lease = match begin_model_download("punctuation") {
         Ok(lease) => lease,
-        Err(error) => {
-            // A concurrent download is already in flight (e.g. a self-heal
-            // task from startup alongside a user-initiated one).
-            return Err(format!(
-                "Punctuation model download is already in progress: {error}"
-            ));
+        Err(_) => {
+            // A concurrent download (e.g. a startup self-heal) already owns
+            // the lease; wait for it to land its files instead of failing.
+            for _ in 0..120 {
+                if punctuation_files_complete(&punc_dir) {
+                    return Ok(());
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            }
+            return Err(
+                "Punctuation model download is already in progress; timed out waiting for it"
+                    .to_string(),
+            );
         }
     };
     clear_cancel("punctuation");
@@ -2332,9 +2339,12 @@ async fn download_punctuation_model_attempt<R: Runtime>(
         downloaded = downloaded
             .checked_add(chunk.len() as u64)
             .ok_or_else(|| "Punctuation download byte count overflow".to_string())?;
-        if downloaded > PUNCTUATION_ARCHIVE_SIZE {
+        // Sanity cap only: the authoritative integrity check is the SHA-256
+        // digest below. A slightly-off stream must not hard-fail mid-flight,
+        // only a runaway/garbage response should.
+        if downloaded > PUNCTUATION_ARCHIVE_SIZE.saturating_mul(2) {
             return Err(format!(
-                "Punctuation download stream changed size: received {downloaded} bytes so far, expected {PUNCTUATION_ARCHIVE_SIZE}"
+                "Punctuation download stream grew beyond twice its pinned size: received {downloaded} bytes now, expected {PUNCTUATION_ARCHIVE_SIZE}"
             ));
         }
         let _ = app_handle.emit(
@@ -2361,9 +2371,14 @@ async fn download_punctuation_model_attempt<R: Runtime>(
     drop(file);
 
     if downloaded != PUNCTUATION_ARCHIVE_SIZE {
-        return Err(format!(
-            "Incomplete punctuation download: expected {PUNCTUATION_ARCHIVE_SIZE} bytes, received {downloaded}"
-        ));
+        crate::logger::log(
+            "WARN",
+            "Punctuation",
+            None,
+            &format!(
+                "Punctuation download size differs from pinned ({downloaded} bytes vs {PUNCTUATION_ARCHIVE_SIZE}); SHA-256 decides"
+            ),
+        );
     }
     let actual_hash = format!("{:x}", hasher.finalize());
     if actual_hash != PUNCTUATION_ARCHIVE_SHA256 {
@@ -2518,6 +2533,36 @@ fn get_short_path(path: &Path) -> Result<PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Network reproduction for the "stream changed size" reports: downloads
+    /// with the real client and reports received bytes vs pinned size.
+    /// Run: cargo test --lib -- --ignored reproduce_punctuation_download
+    #[ignore = "requires network"]
+    #[tokio::test]
+    async fn reproduce_punctuation_download_with_app_client() {
+        let client = crate::ai_client::build_download_client();
+        let mut response = client
+            .get(PUNCTUATION_ARCHIVE_URL)
+            .send()
+            .await
+            .expect("send");
+        let advertised = response.content_length();
+        let mut received: u64 = 0;
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        loop {
+            let Some(chunk) = response.chunk().await.expect("chunk") else {
+                break;
+            };
+            received = received.saturating_add(chunk.len() as u64);
+            hasher.update(&chunk);
+        }
+        eprintln!(
+            "REPRO received={received} advertised={advertised:?} pinned={PUNCTUATION_ARCHIVE_SIZE} sha256={:x}",
+            hasher.finalize()
+        );
+        assert_eq!(received, PUNCTUATION_ARCHIVE_SIZE, "stream byte count mismatch");
+    }
 
     #[test]
     fn test_filename_parsing() {

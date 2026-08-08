@@ -50,10 +50,6 @@ const i18nDict = {
     engine_health_whisper: "Whisper: встроенный движок, запускается по требованию",
     engine_health_parakeet_running: "Parakeet: сервер запущен ({provider}, порт {port})",
     engine_health_parakeet_stopped: "Parakeet: сервер не запущен",
-    cuda_warning_title: "Ускорение CUDA не активно",
-    cuda_warning_msg: "Parakeet заметно ускоряется на CUDA. Сейчас выбран режим без GPU — диктовка может тормозить. Скачать CUDA-библиотеки (≈220 МБ)?",
-    cuda_warning_download: "Скачать CUDA",
-    cuda_warning_later: "Позже",
     local_model_title: "Локальное распознавание",
     local_model_desc: "Настройте локальный движок распознавания речи для полной приватности.",
     local_model_label: "Размер модели",
@@ -203,10 +199,6 @@ const i18nDict = {
     engine_health_whisper: "Whisper: in-process engine, spawned on demand",
     engine_health_parakeet_running: "Parakeet: server running ({provider}, port {port})",
     engine_health_parakeet_stopped: "Parakeet: server not running",
-    cuda_warning_title: "CUDA acceleration inactive",
-    cuda_warning_msg: "Parakeet is noticeably faster on CUDA. You currently have no GPU acceleration selected, so dictation may lag. Download CUDA libraries (~220 MB)?",
-    cuda_warning_download: "Download CUDA",
-    cuda_warning_later: "Later",
     local_model_title: "Local Recognition",
     local_model_desc: "Configure a local speech-to-text engine for complete privacy.",
     local_model_label: "Model Size",
@@ -1427,25 +1419,10 @@ async function refreshEngineHealth() {
   }
 
   if (selectLocalEngine) {
-    selectLocalEngine.addEventListener("change", async () => {
+    selectLocalEngine.addEventListener("change", () => {
       updateLocalEngineUI();
       markSettingsModified();
       refreshEngineHealth();
-      if (selectLocalEngine.value === "parakeet" && activeLocalAcceleration !== "cuda") {
-        const cudaInstalled = await checkGpuInstalled("cuda");
-        if (cudaInstalled) {
-          const downloadCuda = await showConfirm(
-            getTranslation("cuda_warning_title") || "CUDA acceleration inactive",
-            getTranslation("cuda_warning_msg") || "Parakeet is noticeably faster on CUDA.",
-            getTranslation("cuda_warning_download") || "Download CUDA",
-            getTranslation("cuda_warning_later") || "Later"
-          );
-          if (downloadCuda) {
-            selectGpuProvider("cuda");
-            downloadGpuBinaries("cuda");
-          }
-        }
-      }
     });
   }
 
@@ -2064,7 +2041,8 @@ async function downloadModelCard(model) {
         progressEl.appendChild(cancelBtn);
       }
 
-      await invoke("download_model_command", { modelName: model });
+await invoke("download_model_command", { modelName: model });
+      refreshDownloadedModels();
     } catch (err) {
       console.error(err);
       const errStr = String(err).toLowerCase();
