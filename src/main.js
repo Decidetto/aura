@@ -2706,6 +2706,187 @@ if (e.button === 0 && !e.target.closest(".window-control-btn") && !e.target.clos
   if (updateBadge) {
     updateBadge.addEventListener("click", installAvailableUpdate);
   }
+  // ---- Custom dropdown panels ----
+  // WebView2 renders <select> options as an unstyleable OS popup, so every
+  // .custom-select opens a styled panel instead. Native semantics are kept
+  // (value + "change" event), so existing handlers work unchanged.
+  let selectPanelEl = null;
+  let selectPanelOwner = null;
+  let selectPanelItem = -1;
+
+  function closeSelectPanel() {
+    if (!selectPanelEl) return;
+    if (selectPanelOwner) {
+      selectPanelOwner.setAttribute("aria-expanded", "false");
+    }
+    selectPanelEl.remove();
+    selectPanelEl = null;
+    selectPanelOwner = null;
+    selectPanelItem = -1;
+  }
+
+  function refreshSelectHighlight(item) {
+    selectPanelEl.querySelectorAll(".cs-option.active").forEach((option) => {
+      option.classList.remove("active");
+    });
+    if (item) {
+      item.classList.add("active");
+      item.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function stepSelectHighlight(select, direction) {
+    const itemEls = Array.from(selectPanelEl.querySelectorAll(".cs-option"));
+    if (!itemEls.length) return;
+    let index = selectPanelItem;
+    if (index < 0 || index >= itemEls.length) {
+      index = select.selectedIndex >= 0 ? select.selectedIndex : 0;
+    }
+    let next = index;
+    for (let stepCount = 0; stepCount < itemEls.length; stepCount += 1) {
+      next = (next + direction + itemEls.length) % itemEls.length;
+      if (!itemEls[next].classList.contains("disabled")) {
+        selectPanelItem = next;
+        refreshSelectHighlight(itemEls[next]);
+        return;
+      }
+    }
+  }
+
+  function jumpSelectHighlight(select, position) {
+    const itemEls = Array.from(selectPanelEl.querySelectorAll(".cs-option"));
+    const isFirst = position === "start";
+    const bounds = isFirst ? itemEls : itemEls.slice().reverse();
+    for (const item of bounds) {
+      if (!item.classList.contains("disabled")) {
+        selectPanelItem = itemEls.indexOf(item);
+        refreshSelectHighlight(item);
+        return;
+      }
+    }
+  }
+
+  function commitSelectOption(select, item) {
+    if (!item || item.classList.contains("disabled")) return;
+    if (select.value !== item.dataset.value) {
+      select.value = item.dataset.value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    closeSelectPanel();
+  }
+
+  function openSelectPanel(select) {
+    closeSelectPanel();
+    const rect = select.getBoundingClientRect();
+    const panel = document.createElement("div");
+    panel.className = "custom-select-panel";
+    panel.setAttribute("role", "listbox");
+    panel.style.width = `${Math.min(Math.max(rect.width, 180), window.innerWidth - 16)}px`;
+    const estimate = Math.min(select.options.length, 13) * 40 + 14;
+    const openAbove = rect.bottom + 6 + estimate > window.innerHeight;
+    panel.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 192))}px`;
+    panel.style.top = openAbove
+      ? `${Math.max(8, rect.top - estimate - 6)}px`
+      : `${rect.bottom + 6}px`;
+
+    let selectedIndex = -1;
+    Array.from(select.options).forEach((option, index) => {
+      const item = document.createElement("div");
+      item.className = "cs-option";
+      if (option.disabled) item.classList.add("disabled");
+      if (option.selected) {
+        item.classList.add("selected");
+        selectedIndex = index;
+      }
+      item.dataset.value = option.value;
+      item.textContent = option.textContent;
+      item.setAttribute("role", "option");
+      item.setAttribute("aria-selected", String(option.selected));
+      item.addEventListener("mouseenter", () => {
+        selectPanelItem = index;
+        refreshSelectHighlight(item);
+      });
+      item.addEventListener("click", () => commitSelectOption(select, item));
+      panel.appendChild(item);
+    });
+
+    document.body.appendChild(panel);
+    selectPanelEl = panel;
+    selectPanelOwner = select;
+    select.setAttribute("aria-expanded", "true");
+    if (selectedIndex >= 0 && !panel.children[selectedIndex].classList.contains("disabled")) {
+      selectPanelItem = selectedIndex;
+      refreshSelectHighlight(panel.children[selectedIndex]);
+    }
+  }
+
+  function onSelectKeydown(event) {
+    const select = event.currentTarget;
+    if (selectPanelOwner !== select) {
+      if (["ArrowDown", "ArrowUp", "Enter", " ", "Spacebar"].includes(event.key)) {
+        event.preventDefault();
+        openSelectPanel(select);
+      }
+      return;
+    }
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        stepSelectHighlight(select, 1);
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        stepSelectHighlight(select, -1);
+        break;
+      case "Home":
+        event.preventDefault();
+        jumpSelectHighlight(select, "first");
+        break;
+      case "End":
+        event.preventDefault();
+        jumpSelectHighlight(select, "last");
+        break;
+      case "Enter":
+      case " ":
+      case "Spacebar": {
+        event.preventDefault();
+        const active = selectPanelEl.querySelector(".cs-option.active") ||
+          selectPanelEl.querySelector(".cs-option.selected");
+        commitSelectOption(select, active);
+        break;
+      }
+      case "Escape":
+        event.preventDefault();
+        closeSelectPanel();
+        break;
+      default:
+        break;
+    }
+  }
+
+  document.querySelectorAll("select.custom-select").forEach((select) => {
+    select.setAttribute("aria-haspopup", "listbox");
+    select.setAttribute("aria-expanded", "false");
+    select.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+    });
+    select.addEventListener("click", () => {
+      if (selectPanelOwner === select) {
+        closeSelectPanel();
+        return;
+      }
+      select.focus();
+      openSelectPanel(select);
+    });
+    select.addEventListener("keydown", onSelectKeydown);
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!selectPanelEl) return;
+    if (event.target === selectPanelOwner || selectPanelEl.contains(event.target)) return;
+    closeSelectPanel();
+  });
+  window.addEventListener("resize", () => closeSelectPanel());
+
   // Initialize UI language and Settings
   (async () => {
     let settings = null;
