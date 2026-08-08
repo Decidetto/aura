@@ -1666,7 +1666,11 @@ const providerDict = i18nDict[currentLanguage] || i18nDict.ru;
     });
   });
 
-  function selectModelCard(model) {
+function selectModelCard(model) {
+    if (model === "parakeet-v3") {
+      const parakeetOpt = selectLocalEngine?.querySelector('option[value="parakeet"]');
+      if (parakeetOpt?.disabled) return;
+    }
     if (selectedModelName !== model) {
       selectedModelName = model;
       markSettingsModified();
@@ -1787,7 +1791,15 @@ const providerDict = i18nDict[currentLanguage] || i18nDict.ru;
     try {
       const downloaded = await invoke("get_downloaded_models");
       const parakeetOption = selectLocalEngine?.querySelector('option[value="parakeet"]');
-      if (parakeetOption) parakeetOption.disabled = !downloaded.includes("parakeet-v3");
+      if (parakeetOption) {
+        const parakeetInstalled = downloaded.includes("parakeet-v3");
+        parakeetOption.disabled = !parakeetInstalled;
+        if (!parakeetInstalled && selectLocalEngine.value === "parakeet") {
+          selectLocalEngine.value = "whisper";
+          updateLocalEngineUI();
+          markSettingsModified();
+        }
+      }
       const dict = i18nDict[currentLanguage] || i18nDict.ru;
 modelCards.forEach(card => {
         const model = card.dataset.model;
