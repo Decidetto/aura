@@ -44,6 +44,16 @@ const i18nDict = {
     vocab_desc: "Внесите термины, имена или брендовые названия через запятую, чтобы улучшить их распознавание.",
     vocab_placeholder: "Например: Аура, коммит, репозиторий...",
     vocab_parakeet_hint: "Словарь применяется к облачному распознаванию и Whisper. NVIDIA Parakeet не поддерживает пользовательские слова — для него добавьте термины в саму диктовку.",
+    punct_model_label: "Пунктуация (для английского)",
+    punct_model_name: "CT-Transformer (zh-en, int8)",
+    punct_model_meta: "~62 МБ — голосовая пунктуация",
+    engine_health_whisper: "Whisper: встроенный движок, запускается по требованию",
+    engine_health_parakeet_running: "Parakeet: сервер запущен ({provider}, порт {port})",
+    engine_health_parakeet_stopped: "Parakeet: сервер не запущен",
+    cuda_warning_title: "Ускорение CUDA не активно",
+    cuda_warning_msg: "Parakeet заметно ускоряется на CUDA. Сейчас выбран режим без GPU — диктовка может тормозить. Скачать CUDA-библиотеки (≈220 МБ)?",
+    cuda_warning_download: "Скачать CUDA",
+    cuda_warning_later: "Позже",
     local_model_title: "Локальное распознавание",
     local_model_desc: "Настройте локальный движок распознавания речи для полной приватности.",
     local_model_label: "Размер модели",
@@ -187,6 +197,16 @@ const i18nDict = {
     vocab_desc: "Add specific terms, names, or jargon separated by commas to improve recognition.",
     vocab_placeholder: "e.g. Aura, commit, repository...",
     vocab_parakeet_hint: "The dictionary applies to cloud recognition and Whisper. NVIDIA Parakeet does not support custom words — spell the terms out for it.",
+    punct_model_label: "Punctuation (for English)",
+    punct_model_name: "CT-Transformer (zh-en, int8)",
+    punct_model_meta: "~62 MB — spoken punctuation",
+    engine_health_whisper: "Whisper: in-process engine, spawned on demand",
+    engine_health_parakeet_running: "Parakeet: server running ({provider}, port {port})",
+    engine_health_parakeet_stopped: "Parakeet: server not running",
+    cuda_warning_title: "CUDA acceleration inactive",
+    cuda_warning_msg: "Parakeet is noticeably faster on CUDA. You currently have no GPU acceleration selected, so dictation may lag. Download CUDA libraries (~220 MB)?",
+    cuda_warning_download: "Download CUDA",
+    cuda_warning_later: "Later",
     local_model_title: "Local Recognition",
     local_model_desc: "Configure a local speech-to-text engine for complete privacy.",
     local_model_label: "Model Size",
@@ -1380,10 +1400,52 @@ function updateLocalEngineUI() {
     }
   }
 
+async function refreshEngineHealth() {
+    const chip = document.getElementById("engine-health-chip");
+    if (!chip) return;
+    try {
+      const health = await invoke("get_engine_health");
+      if (health.engine === "whisper" || health.engine === "parakeet-local-fallback") {
+        chip.textContent = getTranslation("engine_health_whisper") || "Whisper: in-process";
+        chip.classList.add("health-ok");
+        chip.classList.remove("health-warn");
+      } else if (health.running) {
+        chip.textContent = getTranslation("engine_health_parakeet_running", {
+          provider: health.provider || "cpu",
+          port: health.port ?? "?",
+        });
+        chip.classList.add("health-ok");
+        chip.classList.remove("health-warn");
+      } else {
+        chip.textContent = getTranslation("engine_health_parakeet_stopped");
+        chip.classList.remove("health-ok");
+        chip.classList.add("health-warn");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   if (selectLocalEngine) {
-    selectLocalEngine.addEventListener("change", () => {
+    selectLocalEngine.addEventListener("change", async () => {
       updateLocalEngineUI();
       markSettingsModified();
+      refreshEngineHealth();
+      if (selectLocalEngine.value === "parakeet" && activeLocalAcceleration !== "cuda") {
+        const cudaInstalled = await checkGpuInstalled("cuda");
+        if (cudaInstalled) {
+          const downloadCuda = await showConfirm(
+            getTranslation("cuda_warning_title") || "CUDA acceleration inactive",
+            getTranslation("cuda_warning_msg") || "Parakeet is noticeably faster on CUDA.",
+            getTranslation("cuda_warning_download") || "Download CUDA",
+            getTranslation("cuda_warning_later") || "Later"
+          );
+          if (downloadCuda) {
+            selectGpuProvider("cuda");
+            downloadGpuBinaries("cuda");
+          }
+        }
+      }
     });
   }
 
@@ -1629,6 +1691,9 @@ const providerDict = i18nDict[currentLanguage] || i18nDict.ru;
 
   modelCards.forEach(card => {
     card.addEventListener("click", (e) => {
+      if (e.target.closest("[data-static]")) {
+        return;
+      }
       // Prevent selection trigger when clicking delete/download buttons inside the card
       if (e.target.closest(".btn-delete-card-model") || e.target.closest(".btn-download-card-model") || e.target.closest(".btn-cancel-download")) {
         return;
@@ -1637,6 +1702,9 @@ const providerDict = i18nDict[currentLanguage] || i18nDict.ru;
     });
 
     card.addEventListener("keydown", (e) => {
+      if (e.target.closest("[data-static]")) {
+        return;
+      }
       // Inner buttons (delete/download/cancel) handle their own keys
       if (e.target.closest("button")) {
         return;
@@ -1667,6 +1735,9 @@ const providerDict = i18nDict[currentLanguage] || i18nDict.ru;
   });
 
 function selectModelCard(model) {
+    if (model === "punctuation") {
+      return;
+    }
     if (model === "parakeet-v3") {
       const parakeetOpt = selectLocalEngine?.querySelector('option[value="parakeet"]');
       if (parakeetOpt?.disabled) return;
@@ -1770,12 +1841,19 @@ function selectModelCard(model) {
         updateEngineUI();
         await refreshDownloadedModels();
 
-        activeLocalAcceleration = settings.local_acceleration || "cpu";
+activeLocalAcceleration = settings.local_acceleration || "cpu";
         selectGpuProvider(activeLocalAcceleration);
         await updateGpuCardStates();
         
         isSettingsLoaded = true;
         settingsModified = false;
+        
+        refreshEngineHealth();
+        setInterval(() => {
+          if (document.hasFocus()) {
+            refreshEngineHealth();
+          }
+        }, 10000);
         
         showStatus(getTranslation("status_loaded"));
         
@@ -1842,10 +1920,11 @@ modelCards.forEach(card => {
               ${dict.model_action_download || "Скачать"}
             </button>
           `;
-          // Bind click to the download button
+// Bind click to the download button
           actionEl.querySelector(".btn-download-card-model").addEventListener("click", () => downloadModelCard(model));
         }
       });
+      refreshEngineHealth();
     } catch (err) {
       console.error("Failed to check downloaded models", err);
     }

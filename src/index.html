@@ -151,12 +151,13 @@
             <p class="card-desc" data-i18n="local_model_desc">Настройте локальный движок распознавания речи для полной приватности.</p>
             <p class="card-desc" data-i18n="model_integrity_desc">Перед установкой Aura проверяет источник, ожидаемый размер и SHA-256 каждого файла модели.</p>
             
-            <div class="form-group" style="margin-bottom: 20px;">
+<div class="form-group" style="margin-bottom: 20px;">
               <label for="select-local-engine" class="field-label" data-i18n="local_engine_label">Движок распознавания</label>
               <select id="select-local-engine" class="custom-select">
                 <option value="whisper" data-i18n="local_engine_whisper">Whisper.cpp (на базе OpenAI Whisper)</option>
                 <option value="parakeet" disabled data-i18n="local_engine_parakeet">NVIDIA Parakeet (через sherpa-onnx)</option>
               </select>
+              <div id="engine-health-chip" class="engine-health-chip" role="status" aria-live="polite"></div>
             </div>
 
             <div class="form-group" id="gpu-acceleration-settings" style="display: none; margin-bottom: 20px;">
@@ -313,10 +314,29 @@
                     <div class="progress-bar-bg"><div class="progress-bar-fill" id="fill-parakeet-v3"></div></div>
                     <span class="progress-pct" id="pct-parakeet-v3">0%</span>
                   </div>
+</div>
+              </div>
+            </div>
+
+            <div class="form-group" id="group-punctuation-models" style="margin-top: 20px;">
+              <label class="field-label" data-i18n="punct_model_label">Пунктуация (для английского)</label>
+              <div class="model-cards-group" role="group" aria-label="Пунктуационная модель">
+                <div class="model-card" data-model="punctuation" data-static="true" tabindex="0">
+                  <div class="model-card-main">
+                    <div class="model-card-info">
+                      <span class="model-name" data-i18n="punct_model_name">CT-Transformer (zh-en, int8)</span>
+                      <span class="model-meta" data-i18n="punct_model_meta">~62 МБ — голосовая пунктуация</span>
+                    </div>
+                    <div class="model-card-action" id="action-punctuation"></div>
+                  </div>
+                  <div class="model-card-progress" id="progress-punctuation" style="display: none;">
+                    <div class="progress-bar-bg"><div class="progress-bar-fill" id="fill-punctuation"></div></div>
+                    <span class="progress-pct" id="pct-punctuation">0%</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+</div>
 
           <div class="card">
             <h2 class="card-title" data-i18n="lang_bias_title">Язык распознавания</h2>

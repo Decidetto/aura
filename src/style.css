@@ -402,6 +402,20 @@ body {
   color: var(--text-muted);
 }
 
+.engine-health-chip {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.engine-health-chip.health-ok {
+  color: var(--success, #2e9e5b);
+}
+
+.engine-health-chip.health-warn {
+  color: var(--warning, #c97b2d);
+}
+
 /* Forms */
 .form-group {
   display: flex;

@@ -190,7 +190,7 @@ fn canonical_model_name(model_name: &str) -> Result<String, String> {
     if model_name.len() > 64 {
         return Err("Invalid model name".to_string());
     }
-    if model_name == "parakeet-v3" {
+    if model_name == "parakeet-v3" || model_name == "punctuation" {
         return Ok(model_name.to_string());
     }
     let filename = whisper_runner::whisper_model_filename(model_name)?;
@@ -221,6 +221,8 @@ async fn download_model_command(
             ),
         }
         Ok(())
+    } else if model_name == "punctuation" {
+        whisper_runner::download_punctuation_model(&app_handle).await
     } else {
         whisper_runner::download_model(&app_handle, model_name.as_str())
             .await
@@ -266,6 +268,19 @@ async fn delete_model_command(
         .map_err(|error| format!("Parakeet deletion worker failed: {error}"))??;
         reset_engine_after_model_deletion(&app_handle)?;
         return Ok(());
+    }
+
+    if model_name == "punctuation" {
+        let punctuation_dir = app_local_data.join("models").join("punctuation");
+        return tauri::async_runtime::spawn_blocking(move || {
+            match std::fs::remove_dir_all(&punctuation_dir) {
+                Ok(()) => Ok(()),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(error) => Err(format!("Failed to delete punctuation model: {error}")),
+            }
+        })
+        .await
+        .map_err(|error| format!("Punctuation deletion worker failed: {error}"))?;
     }
 
     let filename = whisper_runner::whisper_model_filename(&model_name)?;
@@ -315,6 +330,9 @@ async fn get_downloaded_models(app_handle: tauri::AppHandle) -> Result<Vec<Strin
         let parakeet_dir = models_dir.join("parakeet-v3");
         if whisper_runner::parakeet_model_is_installed(&parakeet_dir) {
             downloaded.push("parakeet-v3".to_string());
+        }
+        if whisper_runner::punctuation_files_complete(&models_dir.join("punctuation")) {
+            downloaded.push("punctuation".to_string());
         }
 
         let entries = match std::fs::read_dir(&models_dir) {
@@ -455,6 +473,41 @@ async fn get_diagnostic_report(app_handle: tauri::AppHandle) -> Result<String, S
     tauri::async_runtime::spawn_blocking(move || logger::generate_diagnostic_report(&app_handle))
         .await
         .map_err(|error| format!("Diagnostic report worker failed: {error}"))?
+}
+
+#[derive(Clone, serde::Serialize)]
+struct EngineHealth {
+    engine: String,
+    running: bool,
+    provider: Option<String>,
+    port: Option<u16>,
+}
+
+#[tauri::command]
+fn get_engine_health(app_handle: tauri::AppHandle) -> EngineHealth {
+    let settings = settings::load_settings(&app_handle).unwrap_or_default();
+    if settings.local_engine != "parakeet" {
+        return EngineHealth {
+            engine: settings.local_engine,
+            running: true,
+            provider: None,
+            port: None,
+        };
+    }
+    match whisper_runner::parakeet_server_status(&app_handle) {
+        Some((provider, port)) => EngineHealth {
+            engine: "parakeet".to_string(),
+            running: true,
+            provider: Some(provider),
+            port: Some(port),
+        },
+        None => EngineHealth {
+            engine: "parakeet".to_string(),
+            running: false,
+            provider: None,
+            port: None,
+        },
+    }
 }
 
 #[tauri::command]
@@ -3826,6 +3879,7 @@ pub fn run() {
             delete_gpu_binaries,
             check_gpu_downloaded,
             get_diagnostic_report,
+            get_engine_health,
             log_frontend_event
         ])
         .build(tauri::generate_context!());
@@ -4277,6 +4331,15 @@ async fn download_gpu_binaries(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn canonical_model_name_accepts_punctuation_and_parakeet() {
+        assert_eq!(canonical_model_name("punctuation").unwrap(), "punctuation");
+        assert_eq!(canonical_model_name("parakeet-v3").unwrap(), "parakeet-v3");
+        assert_eq!(canonical_model_name("base").unwrap(), "base");
+        assert!(canonical_model_name("../../evil").is_err());
+        assert!(canonical_model_name("nope").is_err());
+    }
 
     #[test]
     fn parakeet_protocol_reuses_one_socket_for_sequential_requests() {
