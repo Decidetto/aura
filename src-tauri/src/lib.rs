@@ -3285,6 +3285,7 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
             },
         );
         let mut used_local_fallback = false;
+        let asr_started = std::time::Instant::now();
         let mut transcription_result = if empty_session {
             Ok(String::new())
         } else if let Some(text) = streaming_transcript.take() {
@@ -3440,7 +3441,25 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
                     } else {
                         settings.transcription_mode.as_str()
                     };
-                    match history::add_entry(&app_handle_clone, &final_text, history_mode) {
+                    let is_local_text = settings.transcription_mode == "local"
+                        || used_local_fallback;
+                    let history_engine = if is_local_text {
+                        Some(settings.local_engine.as_str())
+                    } else {
+                        None
+                    };
+                    let history_processing_ms = if is_local_text {
+                        asr_started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64
+                    } else {
+                        0
+                    };
+                    match history::add_entry(
+                        &app_handle_clone,
+                        &final_text,
+                        history_mode,
+                        history_engine,
+                        history_processing_ms,
+                    ) {
                         Ok(()) => {
                             let _ = app_handle_clone.emit("history-updated", ());
                         }
