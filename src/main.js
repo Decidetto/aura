@@ -74,6 +74,9 @@ const i18nDict = {
     api_provider: "Провайдер API",
     api_key: "API-ключ",
     api_key_placeholder: "Введите ваш API-ключ...",
+    hotkey_prompt: "Нажмите клавиши...",
+    key_saved_placeholder: "•••••••• (сохранён безопасно)",
+    key_placeholder: "Введите API-ключ",
     api_get_key: "Получить ключ API",
     history_title: "История транскрипций",
     history_clear: "Очистить историю",
@@ -213,6 +216,9 @@ const i18nDict = {
     api_provider: "API Provider",
     api_key: "API Key",
     api_key_placeholder: "Enter your API key...",
+    hotkey_prompt: "Press keys...",
+    key_saved_placeholder: "•••••••• (saved securely)",
+    key_placeholder: "Enter API key",
     api_get_key: "Get API Key",
     history_title: "Transcription History",
     history_clear: "Clear History",
@@ -356,6 +362,9 @@ const i18nDict = {
     api_provider: "API-Provider",
     api_key: "API-Schlüssel",
     api_key_placeholder: "Geben Sie Ihren API-Schlüssel ein...",
+    hotkey_prompt: "Tasten drücken...",
+    key_saved_placeholder: "•••••••• (sicher gespeichert)",
+    key_placeholder: "API-Schlüssel eingeben",
     api_get_key: "API-Schlüssel erhalten",
     history_title: "Diktatverlauf",
     history_clear: "Verlauf löschen",
@@ -488,6 +497,9 @@ const i18nDict = {
     api_provider: "Proveedor de API",
     api_key: "Clave API",
     api_key_placeholder: "Introduzca su clave API...",
+    hotkey_prompt: "Pulse las teclas...",
+    key_saved_placeholder: "•••••••• (guardado de forma segura)",
+    key_placeholder: "Introduzca la clave API",
     api_get_key: "Obtener clave API",
     history_title: "Historial de transcripción",
     history_clear: "Limpiar historial",
@@ -627,6 +639,9 @@ const i18nDict = {
     api_provider: "Fournisseur d'API",
     api_key: "Clé d'API",
     api_key_placeholder: "Saisissez votre clé d'API...",
+    hotkey_prompt: "Appuyez sur les touches...",
+    key_saved_placeholder: "•••••••• (enregistré en toute sécurité)",
+    key_placeholder: "Saisissez la clé API",
     api_get_key: "Obtenir une clé d'API",
     history_title: "Historique de dictée",
     history_clear: "Effacer l'historique",
@@ -766,6 +781,9 @@ const i18nDict = {
     api_provider: "Provider API",
     api_key: "Chiave API",
     api_key_placeholder: "Inserisci la tua chiave API...",
+    hotkey_prompt: "Premi i tasti...",
+    key_saved_placeholder: "•••••••• (salvato in modo sicuro)",
+    key_placeholder: "Inserisci la chiave API",
     api_get_key: "Ottieni chiave API",
     history_title: "Cronologia dettati",
     history_clear: "Cancella cronologia",
@@ -905,6 +923,9 @@ const i18nDict = {
     api_provider: "API 供应商",
     api_key: "API 密钥",
     api_key_placeholder: "在此输入您的 API 密钥...",
+    hotkey_prompt: "按键...",
+    key_saved_placeholder: "•••••••• (已安全保存)",
+    key_placeholder: "输入 API 密钥",
     api_get_key: "获取 API 密钥",
     history_title: "听写历史记录",
     history_clear: "清空历史",
@@ -1044,6 +1065,9 @@ const i18nDict = {
     api_provider: "Provedor de API",
     api_key: "Chave API",
     api_key_placeholder: "Insira sua chave API...",
+    hotkey_prompt: "Pressione as teclas...",
+    key_saved_placeholder: "•••••••• (salvo com segurança)",
+    key_placeholder: "Insira a chave da API",
     api_get_key: "Obter chave API",
     history_title: "Histórico de transcrição",
     history_clear: "Limpar histórico",
@@ -1183,6 +1207,9 @@ const i18nDict = {
     api_provider: "API Sağlayıcısı",
     api_key: "API Anahtarı",
     api_key_placeholder: "API anahtarınızı buraya girin...",
+    hotkey_prompt: "Tuşlara basın...",
+    key_saved_placeholder: "•••••••• (güvenle kaydedildi)",
+    key_placeholder: "API anahtarını girin",
     api_get_key: "API Anahtarı Al",
     history_title: "Yazım Geçmişi",
     history_clear: "Geçmişi Temizle",
@@ -1419,7 +1446,7 @@ const btnSaveSettings = document.getElementById("btn-save-settings");
     selectHotkey.addEventListener("focus", () => {
       isRecordingHotkey = true;
       hasRecordedThisSession = false;
-      selectHotkey.value = "Нажмите клавиши...";
+      selectHotkey.value = getTranslation("hotkey_prompt") || "Press keys...";
       selectHotkey.classList.add("recording");
     });
 
@@ -1545,9 +1572,10 @@ const btnSaveSettings = document.getElementById("btn-save-settings");
   function renderProviderKeyInput() {
     const provider = selectProvider.value;
     apiKeyInput.value = apiKeys[provider] || "";
+const providerDict = i18nDict[currentLanguage] || i18nDict.ru;
     apiKeyInput.placeholder = apiKeyPresent[provider]
-      ? "•••••••• (сохранён безопасно)"
-      : "Введите API-ключ";
+      ? providerDict.key_saved_placeholder || "•••••••• (saved securely)"
+      : providerDict.key_placeholder || "Enter API key";
   }
 
   apiKeyInput.addEventListener("input", () => {
@@ -1568,7 +1596,7 @@ const btnSaveSettings = document.getElementById("btn-save-settings");
     if (!isSettingsLoaded) return;
     if (!settingsModified) {
       settingsModified = true;
-      showStatus("Настройки изменены (не сохранены)", false, true);
+      showStatus(getTranslation("status_modified"), false, true);
     }
   }
 
@@ -1755,8 +1783,13 @@ const btnSaveSettings = document.getElementById("btn-save-settings");
       const parakeetOption = selectLocalEngine?.querySelector('option[value="parakeet"]');
       if (parakeetOption) parakeetOption.disabled = false;
       const dict = i18nDict[currentLanguage] || i18nDict.ru;
-      modelCards.forEach(card => {
+modelCards.forEach(card => {
         const model = card.dataset.model;
+        // Never tear down the UI of a download that is still running
+        // (a refresh triggered by a sibling download must not do it either).
+        if (inFlightModelDownloads.has(model)) {
+          return;
+        }
         const isDownloaded = downloaded.includes(model);
         const actionEl = document.getElementById(`action-${model}`);
 
@@ -1850,19 +1883,34 @@ const btnSaveSettings = document.getElementById("btn-save-settings");
     })()
   };
 
-      await invoke("set_settings", { settings });
+await invoke("set_settings", { settings });
+      const failedProviders = [];
       for (const provider of ["gemini", "openai", "groq"]) {
         if (apiKeyDirty[provider]) {
           const key = apiKeys[provider].trim();
-          await invoke("set_provider_key", { provider, key });
-          apiKeyPresent[provider] = key.length > 0;
-          apiKeyDirty[provider] = false;
-          apiKeys[provider] = "";
+          try {
+            await invoke("set_provider_key", { provider, key });
+            apiKeyPresent[provider] = key.length > 0;
+            apiKeyDirty[provider] = false;
+            apiKeys[provider] = "";
+          } catch (keyErr) {
+            // Save the rest of the keys anyway; only the failed provider
+            // stays dirty so the next save retries it.
+            console.error(`Failed to save ${provider} key:`, keyErr);
+            failedProviders.push(provider);
+          }
         }
       }
       renderProviderKeyInput();
       settingsModified = false;
-      showStatus(dict.status_saved || "Настройки успешно сохранены!");
+      if (failedProviders.length > 0) {
+        showStatus(
+          `${getTranslation("status_save_error")} (${failedProviders.join(", ")})`,
+          true
+        );
+      } else {
+        showStatus(dict.status_saved || "Настройки успешно сохранены!");
+      }
       
       // Temporary success animation in footer status
       setTimeout(() => {
@@ -1882,7 +1930,11 @@ const btnSaveSettings = document.getElementById("btn-save-settings");
     }
   }
 
-  async function downloadModelCard(model) {
+async function downloadModelCard(model) {
+    if (inFlightModelDownloads.has(model)) {
+      return;
+    }
+    inFlightModelDownloads.add(model);
     try {
       showStatus(getTranslation("model_downloading_pattern", { model }));
       const actionEl = document.getElementById(`action-${model}`);
@@ -1922,9 +1974,11 @@ const btnSaveSettings = document.getElementById("btn-save-settings");
       if (errStr.includes("cancel")) {
         showStatus(getTranslation("model_download_cancelled") || "Загрузка отменена");
       } else {
-        showStatus(getTranslation("model_download_error_pattern", { err }), true);
+showStatus(getTranslation("model_download_error_pattern", { err }), true);
       }
       refreshDownloadedModels();
+    } finally {
+      inFlightModelDownloads.delete(model);
     }
   }
 
@@ -2009,6 +2063,9 @@ const btnSaveSettings = document.getElementById("btn-save-settings");
   }
 
   const activeGpuDownloads = new Set();
+  // Whisper-model downloads in flight; refreshDownloadedModels must leave
+  // their progress UI untouched until they finish or fail.
+  const inFlightModelDownloads = new Set();
 
   async function updateGpuCardStates() {
     const providers = ["cuda"];
@@ -2308,10 +2365,10 @@ card.addEventListener("keydown", async (e) => {
   const btnWindowClose = document.getElementById("btn-window-close");
   
   if (btnWindowMinimize) {
-    btnWindowMinimize.addEventListener("click", () => invoke("minimize_window"));
+btnWindowMinimize.addEventListener("click", () => invoke("minimize_window").catch(e => console.error(e)));
   }
   if (btnWindowClose) {
-    btnWindowClose.addEventListener("click", () => invoke("close_window"));
+    btnWindowClose.addEventListener("click", () => invoke("close_window").catch(e => console.error(e)));
   }
 
   // Window dragging via mousedown on header (bypasses click-through/drag bugs in Webview2)
@@ -2319,8 +2376,8 @@ card.addEventListener("keydown", async (e) => {
   if (appHeader) {
     appHeader.addEventListener("mousedown", (e) => {
       // Only trigger drag on left click and avoid dragging when clicking on control buttons or select elements
-      if (e.button === 0 && !e.target.closest(".window-control-btn") && !e.target.closest("button") && !e.target.closest("select")) {
-        invoke("start_dragging_command");
+if (e.button === 0 && !e.target.closest(".window-control-btn") && !e.target.closest("button") && !e.target.closest("select")) {
+        invoke("start_dragging_command").catch(e => console.error(e));
       }
     });
   }
