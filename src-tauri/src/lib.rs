@@ -701,6 +701,16 @@ fn is_silence_hallucination(text: &str) -> bool {
         "you you",
         "you you you",
         "you you you you",
+        // NVIDIA Parakeet tends to emit a single affirmative word on silence
+        // or on a near-empty clip (e.g. a say-nothing quick hotkey press).
+        // Whole-utterance match only, so real dictation containing these as
+        // part of a longer phrase is never discarded.
+        "yeah",
+        "yeah yeah",
+        "yeah yeah yeah",
+        "yeah yeah yeah yeah",
+        "yep",
+        "yep yep",
     ];
     exact_markers.contains(&normalized.as_str())
 }
@@ -4216,6 +4226,10 @@ mod tests {
         assert!(is_silence_hallucination("You."));
         assert!(is_silence_hallucination("you you"));
         assert!(is_silence_hallucination("You You You"));
+        assert!(is_silence_hallucination("Yeah"));
+        assert!(is_silence_hallucination("yeah."));
+        assert!(is_silence_hallucination("Yeah Yeah"));
+        assert!(is_silence_hallucination("Yep"));
     }
 
     #[test]
@@ -4230,6 +4244,9 @@ mod tests {
         assert!(!is_silence_hallucination(
             "Обычное предложение для диктовки."
         ));
+        // "yeah" mid-sentence is normal speech and must survive.
+        assert!(!is_silence_hallucination("Yeah, call it done"));
+        assert!(!is_silence_hallucination("yep, that is my plan"));
     }
 
     #[test]
