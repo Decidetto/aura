@@ -404,7 +404,11 @@ where
         // dribbling one byte every few seconds would otherwise keep the
         // download (and its progress UI) alive forever. A size-proportional
         // wall-clock budget turns such a link into a bounded failure (C12).
-        let budget_secs = (spec.expected_size / 100_000).max(300);
+        // The 100 KB/s implied floor was too tight for slow-but-healthy links
+        // (same lesson as the cloud timeouts in ai_client.rs, where 300 s was
+        // too tight): 50 KB/s minimum sustained throughput still bounds a
+        // dribbling link while letting a real connection finish.
+        let budget_secs = (spec.expected_size / 50_000).max(600);
         let overall_deadline = std::time::Instant::now() + std::time::Duration::from_secs(budget_secs);
 
         loop {
