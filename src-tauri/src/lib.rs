@@ -1404,7 +1404,17 @@ fn apply_parakeet_decode_text(
         let recovered_preview = match transcript.commit_preview() {
             Some(overlap_is_safe) => {
                 if requires_transcript_overlap && !overlap_is_safe {
-                    return Err("Parakeet Endpoint preview could not align its overlap".to_string());
+                    // A forced-cut segment whose overlap decodes with zero
+                    // token overlap is a transient asr hiccup, not a reason to
+                    // abandon the whole session: keep the preview and let the
+                    // next segment decide. Previously this aborted the
+                    // streaming session and discarded the live preview.
+                    crate::logger::log(
+                        "WARN",
+                        "ASR",
+                        None,
+                        "Endpoint preview overlap could not be aligned; accepting preview instead of aborting session",
+                    );
                 }
                 true
             }
@@ -1422,10 +1432,16 @@ fn apply_parakeet_decode_text(
 
     let overlap_is_safe = transcript.commit(cleaned);
     if requires_transcript_overlap && !overlap_is_safe {
-        return Err(format!(
-            "Parakeet {:?} decode could not align its overlap",
-            reason
-        ));
+        // Forced-cut segments carry a decoding uncertainty that can surface as
+        // a zero token overlap. Aborting the session on one such hiccup threw
+        // away everything already dictated; committing with a possible brief
+        // duplication (handled by merge_transcripts) keeps the session alive.
+        crate::logger::log(
+            "WARN",
+            "ASR",
+            None,
+            "Forced-transcript overlap could not be aligned; committing with possible duplication",
+        );
     }
     Ok(ParakeetTranscriptUpdate::Committed)
 }
@@ -2439,11 +2455,34 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
         *guard = lang;
     }
 
-    if let Ok(mut guard) = state.typed_so_far.lock() {
-        *guard = String::new();
-    }
-    if let Ok(mut guard) = state.selected_text.lock() {
-        *guard = String::new();
+    // Resetting the mirror state must survive a poisoned mutex: an earlier
+    // panic inside a live-typing worker must never leave the previous
+    // session's mirror text in place, or the new session would plan
+    // backspaces against a phantom prefix and delete real text in the target.
+    let reset_session_mutex = |name: &str, value: &Mutex<String>| -> bool {
+        match value.lock() {
+            Ok(mut guard) => {
+                *guard = String::new();
+                false
+            }
+            Err(poisoned) => {
+                *poisoned.into_inner() = String::new();
+                crate::logger::log(
+                    "WARN",
+                    "Session",
+                    Some(session_tag.as_str()),
+                    &format!("{name} mutex was poisoned; mirror reset"),
+                );
+                true
+            }
+        }
+    };
+    let typed_recovered = reset_session_mutex("typed_so_far", &state.typed_so_far);
+    let selection_recovered = reset_session_mutex("selected_text", &state.selected_text);
+    if typed_recovered || selection_recovered {
+        // The mirror was rebuilt from scratch; do not trust destructive
+        // diffing against the target document until it re-syncs.
+        state.live_target_desynced.store(true, Ordering::Release);
     }
     state.latched.store(false, Ordering::SeqCst);
     state.ignore_next_release.store(false, Ordering::SeqCst);
@@ -2476,9 +2515,24 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
     if copy_context {
         let app_handle_copy = app_handle.clone();
         let session_tag_copy = session_tag.clone();
-        tauri::async_runtime::spawn(async move {
+        // Blocking worker: the clipboard mutex guard cannot be held across an
+        // async yield (MutexGuard is not Send), and the whole backup -> clear
+        // -> copy -> read -> restore sequence must stay serialized (C7).
+        tauri::async_runtime::spawn_blocking(move || {
             // Sleep 50ms to let the OS keyboard state settle after the physical hotkey down
-            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            std::thread::sleep(std::time::Duration::from_millis(50));
+
+            // Without the shared clipboard mutex, a session whose paste window
+            // overlaps this copy could capture this temporary text as its
+            // "original" and the user's real clipboard content would be lost.
+            let clipboard_mutex_guard = if let Some(state) = app_handle_copy.try_state::<AppState>() {
+                match state.inner().clipboard_mutex.lock() {
+                    Ok(guard) => Some(guard),
+                    Err(poisoned) => Some(poisoned.into_inner()),
+                }
+            } else {
+                None
+            };
 
             let mut clipboard_guard = ClipboardGuard {
                 backup: backup_clipboard(),
@@ -2490,7 +2544,7 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                 let _ = cb.clear();
             }
             keyboard_simulator::simulate_copy();
-            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            std::thread::sleep(std::time::Duration::from_millis(200));
 
             let copied = arboard::Clipboard::new()
                 .ok()
@@ -2514,6 +2568,11 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                     }
                 }
             }
+
+            // Restore first, then release the mutex: the Drop of the guard
+            // performs the clipboard restore while still serialized.
+            drop(clipboard_guard);
+            drop(clipboard_mutex_guard);
         });
     }
 

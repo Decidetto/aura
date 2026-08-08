@@ -411,6 +411,48 @@ pub(crate) fn whisper_model_is_installed(model_name: &str, path: &Path) -> bool 
         .unwrap_or(false)
 }
 
+/// Model paths whose SHA-256 was verified at least once in this process.
+/// Runtime checks are size-first (cheap, catches truncation) plus one hash
+/// pass per process, which catches same-size corruption that a size check
+/// cannot. Hashing a 1.5 GB model on every app start would be wasteful, so
+/// the result is memoized.
+static RUNTIME_VERIFIED_MODELS: OnceLock<Mutex<HashSet<PathBuf>>> = OnceLock::new();
+
+fn runtime_verify_model_file(
+    label: &str,
+    path: &Path,
+    expected_sha256: &str,
+) -> Result<(), String> {
+    let verified = RUNTIME_VERIFIED_MODELS.get_or_init(|| Mutex::new(HashSet::new()));
+    let mut verified = match verified.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            crate::logger::log(
+                "WARN",
+                "Model",
+                None,
+                "runtime verification set mutex was poisoned; recovering",
+            );
+            poisoned.into_inner()
+        }
+    };
+    if verified.contains(path) {
+        return Ok(());
+    }
+    let actual = crate::artifact_download::sha256_file(path)
+        .map_err(|error| format!("Could not hash-check {label} at {}: {error}", path.display()))?;
+    if actual.eq_ignore_ascii_case(expected_sha256) {
+        verified.insert(path.to_path_buf());
+        Ok(())
+    } else {
+        Err(format!(
+            "{} ({}) failed SHA-256 integrity (expected {expected_sha256}, got {actual}). Re-download the model in settings.",
+            label,
+            path.display()
+        ))
+    }
+}
+
 /// Download a verified GGML model from a pinned repository revision.
 ///
 /// The transfer is delegated to `artifact_download`, which resumes from a
@@ -505,12 +547,20 @@ pub fn run_local_whisper<R: Runtime>(
         .map_err(|e| format!("Failed to get app local data dir: {}", e))?;
     let model_path = app_local_data.join("models").join(&filename);
 
-    if !model_path.exists() {
+    // Size check first (cheap, catches truncation), then one hash pass per
+    // process: a same-size corrupted file must fail loudly with an actionable
+    // error instead of silently producing garbage transcriptions (C8).
+    let spec = whisper_artifact(model_name)?;
+    let size_ok = std::fs::metadata(&model_path)
+        .map(|metadata| metadata.is_file() && metadata.len() == spec.expected_size)
+        .unwrap_or(false);
+    if !size_ok {
         return Err(format!(
-            "Model file not found at: {:?}. Please download it first.",
+            "Model file missing or incomplete at: {:?}. Please download it first.",
             model_path
         ));
     }
+    runtime_verify_model_file(&filename, &model_path, spec.sha256)?;
 
     // Convert model and wav paths to short 8.3 representations
     let short_model_path = get_short_path(&model_path)?;
@@ -1323,7 +1373,12 @@ fn spawn_ready_server(
 /// the child binds). Such failures are worth retrying on a new port; functional
 /// and spawn errors are not.
 fn is_retryable_sidecar_failure(error: &str) -> bool {
-    error.contains("exited before becoming ready") || error.contains("did not accept WebSocket connections")
+    error.contains("exited before becoming ready")
+        || error.contains("did not accept WebSocket connections")
+        // A functional warm-up failure is just as transient as a bind race
+        // (driver initialization hiccup, first-inference JIT), so it deserves
+        // the same retry budget instead of permanently failing the startup.
+        || error.contains("failed functional inference warm-up")
 }
 
 const MAX_READY_ATTEMPTS: usize = 3;
@@ -1433,6 +1488,15 @@ fn start_parakeet_server_unlocked<R: Runtime>(
                 path.display()
             ));
         }
+    }
+    // Sizes alone can hide same-size corruption: verify each artifact's
+    // SHA-256 once per process before letting the server load it (C8).
+    for spec in PARAKEET_ARTIFACTS {
+        runtime_verify_model_file(
+            spec.filename,
+            &model_dir.join(spec.filename),
+            spec.sha256,
+        )?;
     }
 
     let short_encoder = get_short_path(&encoder_path)?;
@@ -1596,14 +1660,31 @@ impl ParakeetWatchdog {
     ) {
         let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let thread_stop = std::sync::Arc::clone(&stop);
-        let handle = std::thread::Builder::new()
+        // A watchdog is a convenience, not a requirement: if the OS refuses
+        // to spawn the thread (resource exhaustion), start the server anyway
+        // and log instead of panicking the whole app.
+        let handle = match std::thread::Builder::new()
             .name("parakeet-watchdog".to_string())
             .spawn(move || parakeet_watchdog_main(&app_handle, thread_stop))
-            .expect("failed to spawn the Parakeet watchdog thread");
+        {
+            Ok(handle) => Some(handle),
+            Err(error) => {
+                crate::logger::log(
+                    "WARN",
+                    "Sidecar",
+                    None,
+                    &format!(
+                        "Could not spawn the Parakeet watchdog thread ({error}); \
+                         background auto-restart is disabled for this session"
+                    ),
+                );
+                None
+            }
+        };
         (
             Self {
                 stop: std::sync::Arc::clone(&stop),
-                handle: Some(handle),
+                handle,
             },
             stop,
         )
@@ -2417,7 +2498,10 @@ mod tests {
             "cpu sidecar did not accept WebSocket connections on port 51234 within 45 seconds: connection refused"
         ));
         assert!(!is_retryable_sidecar_failure("Failed to spawn Parakeet server 'x' (cpu): oom"));
-        assert!(!is_retryable_sidecar_failure(
+        // A functional warm-up hiccup is transient (first-inference JIT, driver
+        // init), so it retries like a bind race rather than failing startup
+        // permanently after a single attempt.
+        assert!(is_retryable_sidecar_failure(
             "cpu sidecar failed functional inference warm-up: cuda error"
         ));
         assert!(!is_retryable_sidecar_failure(
