@@ -4,6 +4,10 @@ const bars = document.querySelectorAll(".sound-bar");
 const statusEl = document.getElementById("overlay-status");
 const pill = document.querySelector(".overlay-pill");
 let currentState = "recording";
+// Monotonic counter advanced on every state event. The hide guard compares
+// it so a hide request from an old session can never mask a brand-new
+// recording (state strings alone cannot distinguish two sessions).
+let stateCycle = 0;
 let recordStart = null;
 let angle = 0;
 // Pending auto-hide timer from a previous state (e.g. an error). Cleared when
@@ -566,6 +570,7 @@ listen("recording-state", (event) => {
     hideTimerId = null;
   }
   currentState = event.payload;
+  stateCycle += 1;
 
   if (currentState === "recording") {
     recordStart = Date.now();
@@ -609,30 +614,48 @@ listen("recording-state", (event) => {
     // Play error sound and animate hide after a brief delay
     playThemeError();
     const stateAtError = currentState;
+    const cycleAtError = stateCycle;
     hideTimerId = setTimeout(() => {
       hideTimerId = null;
       // Only hide if the overlay still shows this same error; a newer
       // session (recording/processing/notice) owns the overlay otherwise.
-      if (currentState !== stateAtError) return;
+      if (currentState !== stateAtError || stateCycle !== cycleAtError) return;
       pill.classList.remove("visible");
-      hideOverlayAfterPillFade(stateAtError);
+      hideOverlayAfterPillFade(stateAtError, cycleAtError);
     }, 2500);
   }
 });
 
 // Hides the overlay window once the pill fade-out is done. With reduced
 // motion the transition is disabled, so the hide must happen immediately.
-function hideOverlayAfterPillFade(expectedState) {
+// `expectedCycle` guards against a hide request from an old session firing
+// after a brand-new session already took over the overlay.
+function hideOverlayAfterPillFade(expectedState, expectedCycle) {
+  const guardExpired = () =>
+    currentState !== expectedState || stateCycle !== expectedCycle;
+
   const hideNow = () => {
-    if (currentState !== expectedState) return;
-    window.__TAURI__.core.invoke("hide_overlay_window");
+    if (guardExpired()) return;
+    window.__TAURI__.core
+      .invoke("hide_overlay_window")
+      .catch((err) => console.error("hide_overlay_window failed:", err));
   };
+
+  // Failsafe: if the fade transition never completes (or the event is
+  // missed), still hide the window instead of leaving it stranded.
+  const failsafeId = setTimeout(() => {
+    pill.classList.remove("visible");
+    hideNow();
+  }, 1200);
+
   if (reduceMotionQuery.matches) {
+    clearTimeout(failsafeId);
     hideNow();
     return;
   }
   pill.addEventListener("transitionend", function handler() {
     pill.removeEventListener("transitionend", handler);
+    clearTimeout(failsafeId);
     hideNow();
   });
 }
@@ -649,10 +672,11 @@ listen("hide-overlay-requested", (event) => {
   }
 
   const stateAtRequest = currentState;
+  const cycleAtRequest = stateCycle;
   pill.classList.remove("visible");
   // A brand-new recording may have started while the overlay was playing
   // its hide animation — never hide a newer session's pill.
-  hideOverlayAfterPillFade(stateAtRequest);
+  hideOverlayAfterPillFade(stateAtRequest, cycleAtRequest);
 });
 
 
