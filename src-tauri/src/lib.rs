@@ -711,6 +711,12 @@ fn is_silence_hallucination(text: &str) -> bool {
         "yeah yeah yeah yeah",
         "yep",
         "yep yep",
+        // Parakeet also emits near-silence single-letter filler ("Mm", "S").
+        "mm",
+        "mm mm",
+        "мм",
+        "мм мм",
+        "s",
     ];
     exact_markers.contains(&normalized.as_str())
 }
@@ -2294,17 +2300,37 @@ async fn show_overlay_error(app_handle: &tauri::AppHandle, _my_gen: u64, error_m
 }
 
 /// Emits hide-overlay-requested event and runs a 500ms backup safety timer to close the overlay window.
+///
+/// The backup hide is skipped when a new session has already claimed the
+/// overlay: the user can re-press the hotkey (e.g. re-press V while Alt is
+/// still held) while the fade animation is still running, and the window
+/// must not be torn down underneath the new recording.
 fn request_animated_hide(app_handle: &tauri::AppHandle, status: &str) {
     if let Some(overlay) = app_handle.get_webview_window("overlay") {
         let _ = app_handle.emit(
             "hide-overlay-requested",
             serde_json::json!({ "status": status }),
         );
+        let app = app_handle.clone();
         let overlay_clone = overlay.clone();
+        let gen_at_request = app_handle
+            .try_state::<AppState>()
+            .map(|state| state.inner().session_gen.load(Ordering::SeqCst))
+            .unwrap_or(u64::MAX);
         tokio::spawn(async move {
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-            if let Ok(true) = overlay_clone.is_visible() {
-                let _ = overlay_clone.hide();
+            let still_same_session = app
+                .try_state::<AppState>()
+                .map(|state| {
+                    let state = state.inner();
+                    !state.is_recording.load(Ordering::SeqCst)
+                        && state.session_gen.load(Ordering::SeqCst) == gen_at_request
+                })
+                .unwrap_or(false);
+            if still_same_session {
+                if let Ok(true) = overlay_clone.is_visible() {
+                    let _ = overlay_clone.hide();
+                }
             }
         });
     }
@@ -2317,10 +2343,25 @@ fn show_overlay_notice(app_handle: &tauri::AppHandle, notice_key: &str) {
         let _ = overlay.set_always_on_top(true);
         let _ = overlay.show();
         let _ = app_handle.emit("recording-state", format!("notice:{notice_key}"));
+        let app = app_handle.clone();
         let overlay_clone = overlay.clone();
+        let gen_at_request = app_handle
+            .try_state::<AppState>()
+            .map(|state| state.inner().session_gen.load(Ordering::SeqCst))
+            .unwrap_or(u64::MAX);
         tokio::spawn(async move {
             tokio::time::sleep(std::time::Duration::from_millis(2_800)).await;
-            let _ = overlay_clone.hide();
+            let still_same_session = app
+                .try_state::<AppState>()
+                .map(|state| {
+                    let state = state.inner();
+                    !state.is_recording.load(Ordering::SeqCst)
+                        && state.session_gen.load(Ordering::SeqCst) == gen_at_request
+                })
+                .unwrap_or(false);
+            if still_same_session {
+                let _ = overlay_clone.hide();
+            }
         });
     }
 }
@@ -3091,20 +3132,39 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
         };
         let used_streaming_result = streaming_transcript.is_some();
 
+        let mut empty_session = false;
         if !used_streaming_result {
-            let trim_path = temp_path_str.clone();
-            let trim_result =
-                tauri::async_runtime::spawn_blocking(move || vad::trim_wav_file(&trim_path))
+            let gate_path = temp_path_str.clone();
+            let has_speech =
+                tauri::async_runtime::spawn_blocking(move || vad::wav_has_speech(&gate_path))
                     .await
-                    .map_err(|error| format!("VAD worker failed: {error}"))
-                    .and_then(|result| result);
-            if let Err(error) = trim_result {
+                    .map_err(|error| format!("VAD gate worker failed: {error}"))
+                    .and_then(|result| result)
+                    // Fail-open: if the probe itself errors, transcribe anyway.
+                    .unwrap_or(true);
+            if !has_speech {
                 crate::logger::log(
-                    "WARN",
+                    "INFO",
                     "VAD",
                     Some(&session_tag_clone),
-                    &format!("VAD trimming failed or skipped: {error}"),
+                    "No speech detected in recording; skipping transcription (empty session)",
                 );
+                empty_session = true;
+            } else {
+                let trim_path = temp_path_str.clone();
+                let trim_result =
+                    tauri::async_runtime::spawn_blocking(move || vad::trim_wav_file(&trim_path))
+                        .await
+                        .map_err(|error| format!("VAD worker failed: {error}"))
+                        .and_then(|result| result);
+                if let Err(error) = trim_result {
+                    crate::logger::log(
+                        "WARN",
+                        "VAD",
+                        Some(&session_tag_clone),
+                        &format!("VAD trimming failed or skipped: {error}"),
+                    );
+                }
             }
         }
 
@@ -3119,7 +3179,9 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
             },
         );
         let mut used_local_fallback = false;
-        let mut transcription_result = if let Some(text) = streaming_transcript.take() {
+        let mut transcription_result = if empty_session {
+            Ok(String::new())
+        } else if let Some(text) = streaming_transcript.take() {
             Ok(text)
         } else if settings.transcription_mode == "local" {
             run_local_whisper_async(
@@ -4230,6 +4292,10 @@ mod tests {
         assert!(is_silence_hallucination("yeah."));
         assert!(is_silence_hallucination("Yeah Yeah"));
         assert!(is_silence_hallucination("Yep"));
+        assert!(is_silence_hallucination("Mm."));
+        assert!(is_silence_hallucination("Mm, Mm."));
+        assert!(is_silence_hallucination("S"));
+        assert!(is_silence_hallucination("Мм"));
     }
 
     #[test]

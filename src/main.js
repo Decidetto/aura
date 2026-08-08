@@ -43,6 +43,7 @@ const i18nDict = {
     vocab_title: "Пользовательский словарь",
     vocab_desc: "Внесите термины, имена или брендовые названия через запятую, чтобы улучшить их распознавание.",
     vocab_placeholder: "Например: Аура, коммит, репозиторий...",
+    vocab_parakeet_hint: "Словарь применяется к облачному распознаванию и Whisper. NVIDIA Parakeet не поддерживает пользовательские слова — для него добавьте термины в саму диктовку.",
     local_model_title: "Локальное распознавание",
     local_model_desc: "Настройте локальный движок распознавания речи для полной приватности.",
     local_model_label: "Размер модели",
@@ -185,6 +186,7 @@ const i18nDict = {
     vocab_title: "Custom Vocabulary",
     vocab_desc: "Add specific terms, names, or jargon separated by commas to improve recognition.",
     vocab_placeholder: "e.g. Aura, commit, repository...",
+    vocab_parakeet_hint: "The dictionary applies to cloud recognition and Whisper. NVIDIA Parakeet does not support custom words — spell the terms out for it.",
     local_model_title: "Local Recognition",
     local_model_desc: "Configure a local speech-to-text engine for complete privacy.",
     local_model_label: "Model Size",
@@ -1345,18 +1347,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const groupWhisperModels = document.getElementById("group-whisper-models");
   const groupParakeetModels = document.getElementById("group-parakeet-models");
 
-  function updateEngineUI() {
+function updateEngineUI() {
+    const vocabHint = document.getElementById("vocab-parakeet-hint");
     if (radioLocal.checked) {
       localModelCard.style.display = "flex";
       updateLocalEngineUI();
     } else {
       localModelCard.style.display = "none";
+      if (vocabHint) vocabHint.hidden = true;
     }
   }
 
-  function updateLocalEngineUI() {
+function updateLocalEngineUI() {
     if (!selectLocalEngine || !groupWhisperModels || !groupParakeetModels) return;
     const isParakeet = selectLocalEngine.value === "parakeet";
+    const vocabHint = document.getElementById("vocab-parakeet-hint");
+    if (vocabHint) vocabHint.hidden = !isParakeet;
     const gpuSettings = document.getElementById("gpu-acceleration-settings");
     if (gpuSettings) {
       gpuSettings.style.display = isParakeet ? "block" : "none";
