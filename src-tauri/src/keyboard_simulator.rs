@@ -140,13 +140,10 @@ mod windows_impl {
             for _ in 0..units {
                 append_key_pair(&mut inputs, 0x08, 0, 0);
             }
-            match send_input_batch(&mut inputs, "Backspace batch") {
-                Err((inserted, message)) => {
-                    // Each Backspace is a keydown/keyup pair (2 events); only
-                    // whole pairs that were accepted count as committed.
-                    return Err((dispatched + inserted / 2, message));
-                }
-                Ok(()) => {}
+            // Each Backspace is a keydown/keyup pair (2 events); only
+            // whole pairs that were accepted count as committed.
+            if let Err((inserted, message)) = send_input_batch(&mut inputs, "Backspace batch") {
+                return Err((dispatched + inserted / 2, message));
             }
             dispatched += units;
             batches += 1;
@@ -175,13 +172,10 @@ mod windows_impl {
             for &unit in &units[dispatched..end] {
                 append_key_pair(&mut inputs, 0, unit, KEYEVENTF_UNICODE);
             }
-            match send_input_batch(&mut inputs, "Unicode batch") {
-                Err((inserted, message)) => {
-                    // Each character is a keydown/keyup pair (2 events); only
-                    // whole pairs accepted count as committed UTF-16 units.
-                    return Err((dispatched + inserted / 2, message));
-                }
-                Ok(()) => {}
+            // Each character is a keydown/keyup pair (2 events); only
+            // whole pairs accepted count as committed UTF-16 units.
+            if let Err((inserted, message)) = send_input_batch(&mut inputs, "Unicode batch") {
+                return Err((dispatched + inserted / 2, message));
             }
             dispatched = end;
             batches += 1;
