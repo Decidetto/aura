@@ -107,18 +107,7 @@
               <span class="toggle-track"><span class="toggle-thumb"></span></span>
               <span class="toggle-label" data-i18n="update_checks_checkbox">Автоматически проверять обновления при запуске</span>
             </label>
-            <button type="button" class="btn btn-secondary" id="btn-check-updates" data-i18n="update_check_now">Проверить обновления</button>
-          </div>
-
-          <div class="setting-card">
-            <div class="setting-info">
-              <div class="setting-title" data-i18n="diag_speech_text_title">Логирование текста речи</div>
-              <div class="setting-desc" data-i18n="diag_speech_text_desc">Сохранять точный текст распознанной речи в диагностические логи.</div>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" id="setting-log-speech-text">
-              <span class="toggle-slider"></span>
-            </label>
+<button type="button" class="btn btn-secondary" id="btn-check-updates" data-i18n="update_check_now">Проверить обновления</button>
           </div>
         </section>
 
@@ -140,11 +129,25 @@
                 <input type="radio" name="transcription_mode" value="local" id="radio-local" />
                 <span class="engine-card">
                   <span class="engine-name" data-i18n="engine_local">Локальный ИИ</span>
-                  <span class="engine-meta" data-i18n="engine_local_meta">Whisper.cpp (100% оффлайн и приватно)</span>
+                  <span class="engine-meta" data-i18n="engine_local_meta">Whisper / Parakeet (100% оффлайн)</span>
                 </span>
               </label>
             </div>
           </div>
+
+          <div class="card" id="card-cloud-fallback" style="display: none;">
+            <h2 class="card-title" data-i18n="fallback_title">Автопереключение при недоступности облака</h2>
+            <p class="card-desc" data-i18n="fallback_desc">Если облачный ИИ недоступен (VPN, блокировка региона, нет сети), автоматически использовать уже скачанную локальную модель для этой записи.</p>
+            <label class="toggle-switch">
+              <input type="checkbox" id="checkbox-cloud-fallback" checked />
+              <span class="toggle-track">
+                <span class="toggle-thumb"></span>
+              </span>
+              <span class="toggle-label" data-i18n="fallback_checkbox">Включить автопереключение на локальную модель</span>
+            </label>
+          </div>
+
+          <div class="settings-section-label" data-i18n="section_engine">Движок</div>
 
           <div class="card" id="card-local-model" style="display: none;">
             <h2 class="card-title" data-i18n="local_model_title">Локальное распознавание</h2>
@@ -338,10 +341,12 @@
             </div>
 </div>
 
+          <div class="settings-section-label" data-i18n="section_recognition">Распознавание</div>
+
           <div class="card">
             <h2 class="card-title" data-i18n="lang_bias_title">Язык распознавания</h2>
             <p class="card-desc" data-i18n="lang_bias_desc">Выберите принудительный язык ввода или включите автоопределение.</p>
-            <div class="form-group">
+<div class="form-group">
               <label for="select-language" class="field-label" data-i18n="lang_bias_label">Выберите язык</label>
               <select id="select-language" class="custom-select">
                 <option value="auto" data-i18n="lang_opt_auto">Автоопределение (по умолчанию)</option>
@@ -356,8 +361,11 @@
                 <option value="pt">Português (Portuguese)</option>
                 <option value="tr">Türkçe (Turkish)</option>
               </select>
+              <p class="switch-desc" id="lang-parakeet-hint" data-i18n="lang_parakeet_hint" hidden>NVIDIA Parakeet распознаёт только английскую речь — язык управляется автоматически.</p>
             </div>
           </div>
+
+          <div class="settings-section-label" data-i18n="section_input">Ввод</div>
 
           <div class="card">
             <h2 class="card-title" data-i18n="streaming_title">Режим ввода текста</h2>
@@ -369,8 +377,11 @@
               </span>
               <span class="toggle-label" data-i18n="streaming_checkbox">Потоковый ввод в реальном времени (экспериментальный)</span>
             </label>
-            <p class="switch-desc" data-i18n="streaming_subdesc">
+<p class="switch-desc" data-i18n="streaming_subdesc">
               Если выключено: текст вставится целиком только после того, как вы отпустите клавиши.
+            </p>
+            <p class="switch-desc" id="streaming-parakeet-hint" data-i18n="streaming_parakeet_hint" hidden>
+              Потоковый ввод доступен только для NVIDIA Parakeet.
             </p>
           </div>
 
@@ -386,17 +397,7 @@
             </label>
           </div>
 
-          <div class="card">
-            <h2 class="card-title" data-i18n="fallback_title">Автопереключение при недоступности облака</h2>
-            <p class="card-desc" data-i18n="fallback_desc">Если облачный ИИ недоступен (VPN, блокировка региона, нет сети), автоматически использовать уже скачанную локальную модель для этой записи.</p>
-            <label class="toggle-switch">
-              <input type="checkbox" id="checkbox-cloud-fallback" checked />
-              <span class="toggle-track">
-                <span class="toggle-thumb"></span>
-              </span>
-              <span class="toggle-label" data-i18n="fallback_checkbox">Включить автопереключение на локальную модель</span>
-            </label>
-          </div>
+<div class="settings-section-label" data-i18n="section_dictionary">Словарь</div>
 
           <div class="card">
             <h2 class="card-title" data-i18n="vocab_title">Пользовательский словарь</h2>
@@ -461,21 +462,10 @@
               </select>
             </div>
           </div>
-          <div class="card">
-            <h2 class="card-title" data-i18n="copy_context_title">Редактирование выделенного текста</h2>
-            <p class="card-desc" data-i18n="copy_context_desc">Если включено, Aura отправляет Ctrl+C и передает selected text выбранному облачному провайдеру как контекст для команды редактирования. Отключите эту функцию при работе в терминале.</p>
-            <label class="toggle-switch">
-              <input type="checkbox" id="checkbox-selection-edit-enabled" />
-              <span class="toggle-track">
-                <span class="toggle-thumb"></span>
-              </span>
-              <span class="toggle-label" data-i18n="copy_context_checkbox">Разрешить захват и облачное редактирование выделения</span>
-            </label>
-          </div>
-        </section>
+</section>
 
-        <!-- 4. API KEYS PANEL (Renamed from Cloud AI) -->
-        <section class="tab-panel" id="panel-apikeys" role="tabpanel" tabindex="0" aria-labelledby="tab-btn-apikeys" style="display: none;">
+        <!-- 4. CLOUD PANEL -->
+<section class="tab-panel" id="panel-apikeys" role="tabpanel" tabindex="0" aria-labelledby="tab-btn-apikeys" style="display: none;">
           <div class="card">
             <h2 class="card-title" data-i18n="api_title">Авторизация API-ключей</h2>
             <p class="card-desc" data-i18n="api_desc">Укажите ваши API-ключи для авторизации в облачных сервисах Gemini, OpenAI или Groq.</p>
@@ -502,6 +492,20 @@
             <div class="api-link-wrapper">
               <a href="https://aistudio.google.com/" target="_blank" class="help-link" id="link-get-key" data-i18n="api_get_key">Получить ключ API</a>
             </div>
+          </div>
+
+          <div class="settings-section-label" data-i18n="section_cloud_functions">Облачные функции</div>
+
+          <div class="card">
+            <h2 class="card-title" data-i18n="copy_context_title">Редактирование выделенного текста</h2>
+            <p class="card-desc" data-i18n="copy_context_desc">Если включено, Aura отправляет Ctrl+C и передаёт выделенный текст выбранному облачному провайдеру как контекст для команды редактирования. Отключите эту функцию при работе в терминале.</p>
+            <label class="toggle-switch">
+              <input type="checkbox" id="checkbox-selection-edit-enabled" />
+              <span class="toggle-track">
+                <span class="toggle-thumb"></span>
+              </span>
+              <span class="toggle-label" data-i18n="copy_context_checkbox">Разрешить захват и облачное редактирование выделения</span>
+            </label>
           </div>
         </section>
 
@@ -543,6 +547,16 @@
             <p class="about-description" data-i18n="cloud_data_desc">
               Облачному провайдеру передаются аудио и транскрипт, а при включённых функциях — выделенный текст и пользовательский словарь. Локальный режим эти данные не отправляет.
             </p>
+            <div class="setting-card about-setting-card">
+              <div class="setting-info">
+                <div class="setting-title" data-i18n="diag_speech_text_title">Логирование текста речи</div>
+                <div class="setting-desc" data-i18n="diag_speech_text_desc">Сохранять точный текст распознанной речи в диагностические логи.</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="setting-log-speech-text">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
             <button id="btn-copy-diagnostics" class="btn-secondary" data-i18n="btn_copy_diagnostics">Скопировать отчет диагностики</button>
           </div>
         </section>

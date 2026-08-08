@@ -16,7 +16,14 @@ const i18nDict = {
     tab_general: "Основные",
     tab_speech: "Голос",
     tab_hotkeys: "Управление",
-    tab_apikeys: "API-ключи",
+    tab_apikeys: "Облако",
+    section_cloud_functions: "Облачные функции",
+    section_engine: "Движок",
+    section_recognition: "Распознавание",
+    section_input: "Ввод",
+    section_dictionary: "Словарь",
+    lang_parakeet_hint: "NVIDIA Parakeet распознаёт только английскую речь — язык применяется автоматически.",
+    streaming_parakeet_hint: "Потоковый ввод доступен только для NVIDIA Parakeet.",
     tab_history: "История",
     tab_about: "О программе",
     general_autostart_title: "Автозапуск Aura",
@@ -171,7 +178,14 @@ const i18nDict = {
     tab_general: "General",
     tab_speech: "Speech",
     tab_hotkeys: "Hotkeys",
-    tab_apikeys: "API Keys",
+    tab_apikeys: "Cloud",
+    section_cloud_functions: "Cloud features",
+    section_engine: "Recognition engine",
+    section_recognition: "Recognition",
+    section_input: "Input",
+    section_dictionary: "Dictionary",
+    lang_parakeet_hint: "NVIDIA Parakeet recognizes English speech only — language is applied automatically.",
+    streaming_parakeet_hint: "Real-time streaming input is only available with NVIDIA Parakeet.",
     tab_history: "History",
     tab_about: "About",
     general_autostart_title: "Aura Autostart",
@@ -333,7 +347,14 @@ const i18nDict = {
     tab_general: "Allgemein",
     tab_speech: "Diktat",
     tab_hotkeys: "Tastenkombinationen",
-    tab_apikeys: "API-Schlüssel",
+    tab_apikeys: "Cloud",
+    section_cloud_functions: "Cloud-Funktionen",
+    section_engine: "Erkennungsmodul",
+    section_recognition: "Spracherkennung",
+    section_input: "Eingabe",
+    section_dictionary: "Wörterbuch",
+    lang_parakeet_hint: "NVIDIA Parakeet erkennt nur englische Sprache — die Sprache wird automatisch übernommen.",
+    streaming_parakeet_hint: "Echtzeit-Eingabe ist nur mit NVIDIA Parakeet verfügbar.",
     tab_history: "Verlauf",
     tab_about: "Über Aura",
     general_autostart_title: "Aura Autostart",
@@ -474,7 +495,14 @@ const i18nDict = {
     tab_general: "General",
     tab_speech: "Voz",
     tab_hotkeys: "Accesos rápidos",
-    tab_apikeys: "Claves API",
+    tab_apikeys: "Nube",
+    section_cloud_functions: "Funciones en la nube",
+    section_engine: "Motor de reconocimiento",
+    section_recognition: "Reconocimiento",
+    section_input: "Entrada",
+    section_dictionary: "Diccionario",
+    lang_parakeet_hint: "NVIDIA Parakeet solo reconoce inglés: el idioma se aplica automáticamente.",
+    streaming_parakeet_hint: "La entrada en tiempo real solo está disponible con NVIDIA Parakeet.",
     tab_history: "Historial",
     tab_about: "Acerca de",
     general_autostart_title: "Inicio automático",
@@ -622,7 +650,14 @@ const i18nDict = {
     tab_general: "Général",
     tab_speech: "Dictée",
     tab_hotkeys: "Raccourcis",
-    tab_apikeys: "Clés API",
+    tab_apikeys: "Cloud",
+    section_cloud_functions: "Fonctions cloud",
+    section_engine: "Moteur de reconnaissance",
+    section_recognition: "Reconnaissance",
+    section_input: "Saisie",
+    section_dictionary: "Dictionnaire",
+    lang_parakeet_hint: "NVIDIA Parakeet ne reconnaît que l’anglais : la langue s’applique automatiquement.",
+    streaming_parakeet_hint: "La saisie en temps réel n’est disponible qu’avec NVIDIA Parakeet.",
     tab_history: "Historique",
     tab_about: "À propos",
     general_autostart_title: "Lancement automatique",
@@ -770,7 +805,14 @@ const i18nDict = {
     tab_general: "Generale",
     tab_speech: "Dettatura",
     tab_hotkeys: "Scorciatoie",
-    tab_apikeys: "Chiavi API",
+    tab_apikeys: "Cloud",
+    section_cloud_functions: "Funzioni cloud",
+    section_engine: "Motore di riconoscimento",
+    section_recognition: "Riconoscimento",
+    section_input: "Digitazione",
+    section_dictionary: "Dizionario",
+    lang_parakeet_hint: "NVIDIA Parakeet riconosce solo l’inglese: la lingua viene applicata automaticamente.",
+    streaming_parakeet_hint: "L’inserimento in tempo reale è disponibile solo con NVIDIA Parakeet.",
     tab_history: "Cronologia",
     tab_about: "Informazioni",
     general_autostart_title: "Avvio automatico",
@@ -918,7 +960,14 @@ const i18nDict = {
     tab_general: "常规",
     tab_speech: "语音",
     tab_hotkeys: "快捷键",
-    tab_apikeys: "API密钥",
+    tab_apikeys: "云端",
+    section_cloud_functions: "云端功能",
+    section_engine: "识别引擎",
+    section_recognition: "识别",
+    section_input: "输入",
+    section_dictionary: "词典",
+    lang_parakeet_hint: "NVIDIA Parakeet 只能识别英语——语言会自动应用。",
+    streaming_parakeet_hint: "实时输入仅适用于 NVIDIA Parakeet。",
     tab_history: "历史记录",
     tab_about: "关于我们",
     general_autostart_title: "自启动设置",
@@ -1066,7 +1115,14 @@ const i18nDict = {
     tab_general: "Geral",
     tab_speech: "Voz",
     tab_hotkeys: "Teclas de atalho",
-    tab_apikeys: "Chaves API",
+    tab_apikeys: "Cloud",
+    section_cloud_functions: "Recursos em nuvem",
+    section_engine: "Motor de reconhecimento",
+    section_recognition: "Reconhecimento",
+    section_input: "Entrada",
+    section_dictionary: "Dicionário",
+    lang_parakeet_hint: "NVIDIA Parakeet reconhece apenas fala em inglês: o idioma é aplicado automaticamente.",
+    streaming_parakeet_hint: "A entrada em tempo real só está disponível com NVIDIA Parakeet.",
     tab_history: "Histórico",
     tab_about: "Sobre",
     general_autostart_title: "Inicialização",
@@ -1214,7 +1270,14 @@ const i18nDict = {
     tab_general: "Genel",
     tab_speech: "Ses",
     tab_hotkeys: "Kısayollar",
-    tab_apikeys: "API Anahtarları",
+    tab_apikeys: "Bulut",
+    section_cloud_functions: "Bulut özellikleri",
+    section_engine: "Tanıma motoru",
+    section_recognition: "Tanıma",
+    section_input: "Giriş",
+    section_dictionary: "Sözlük",
+    lang_parakeet_hint: "NVIDIA Parakeet yalnızca İngilizce konuşmayı tanır — dil otomatik uygulanır.",
+    streaming_parakeet_hint: "Gerçek zamanlı giriş yalnızca NVIDIA Parakeet ile kullanılabilir.",
     tab_history: "Geçmiş",
     tab_about: "Hakkında",
     general_autostart_title: "Başlangıçta Çalıştır",
@@ -1415,12 +1478,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function updateEngineUI() {
     const vocabHint = document.getElementById("vocab-parakeet-hint");
+    const fallbackCard = document.getElementById("card-cloud-fallback");
     if (radioLocal.checked) {
       localModelCard.style.display = "flex";
       updateLocalEngineUI();
+      if (fallbackCard) fallbackCard.style.display = "none";
     } else {
       localModelCard.style.display = "none";
       if (vocabHint) vocabHint.hidden = true;
+      if (fallbackCard) fallbackCard.style.display = "block";
     }
   }
 
@@ -1432,6 +1498,28 @@ function updateLocalEngineUI() {
     const gpuSettings = document.getElementById("gpu-acceleration-settings");
     if (gpuSettings) {
       gpuSettings.style.display = isParakeet ? "block" : "none";
+    }
+    const streaming = document.getElementById("checkbox-streaming");
+    const streamingHint = document.getElementById("streaming-parakeet-hint");
+    if (streaming) {
+      streaming.disabled = !isParakeet;
+      if (streamingHint) streamingHint.hidden = isParakeet;
+    }
+    const langSelect = document.getElementById("select-language");
+    const langHint = document.getElementById("lang-parakeet-hint");
+    if (langSelect) {
+      const parakeetAllowed = new Set(["auto", "en"]);
+      let visibleCount = 0;
+      Array.from(langSelect.options).forEach((option) => {
+        const visible = isParakeet ? parakeetAllowed.has(option.value) : true;
+        option.hidden = !visible;
+        if (visible) visibleCount += 1;
+      });
+      if (langHint) langHint.hidden = !isParakeet;
+      if (isParakeet && !parakeetAllowed.has(langSelect.value)) {
+        langSelect.value = "auto";
+      }
+      if (visibleCount === 1) langSelect.style.pointerEvents = isParakeet ? "none" : "";
     }
     if (isParakeet) {
       groupWhisperModels.style.display = "none";
