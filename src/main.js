@@ -2775,6 +2775,25 @@ if (e.button === 0 && !e.target.closest(".window-control-btn") && !e.target.clos
     closeSelectPanel();
   }
 
+  function repositionOpenSelectPanel() {
+    if (!selectPanelEl || !selectPanelOwner) return;
+    const rect = selectPanelOwner.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1 || rect.bottom < 0 || rect.top > window.innerHeight) {
+      // The select's page has scrolled out of view: the panel must not
+      // float detached on screen, so it closes instead.
+      closeSelectPanel();
+      return;
+    }
+    const panel = selectPanelEl;
+    panel.style.width = `${Math.min(Math.max(rect.width, 180), window.innerWidth - 16)}px`;
+    const estimate = Math.min(selectPanelOwner.options.length, 13) * 40 + 14;
+    const openAbove = rect.bottom + 6 + estimate > window.innerHeight;
+    panel.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 192))}px`;
+    panel.style.top = openAbove
+      ? `${Math.max(8, rect.top - estimate - 6)}px`
+      : `${rect.bottom + 6}px`;
+  }
+
   function openSelectPanel(select) {
     closeSelectPanel();
     const rect = select.getBoundingClientRect();
@@ -2885,6 +2904,7 @@ if (e.button === 0 && !e.target.closest(".window-control-btn") && !e.target.clos
     if (event.target === selectPanelOwner || selectPanelEl.contains(event.target)) return;
     closeSelectPanel();
   });
+    document.addEventListener("scroll", repositionOpenSelectPanel, true);
   window.addEventListener("resize", () => closeSelectPanel());
 
   // Initialize UI language and Settings
