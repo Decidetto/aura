@@ -229,7 +229,7 @@ pub fn generate_diagnostic_report<R: tauri::Runtime>(
     let raw_logs = get_recent_logs(50);
     let logs = sanitize_logs_for_report(&raw_logs, settings.log_speech_text);
 
-    Ok(format_diagnostic_report(
+Ok(format_diagnostic_report(
         &version,
         os,
         arch,
@@ -250,7 +250,26 @@ pub fn generate_diagnostic_report<R: tauri::Runtime>(
         cuda_exe,
         &whisper_models,
         &logs,
+        &engine_status(
+            app_handle,
+            settings.local_engine.as_str(),
+        ),
     ))
+}
+
+/// Live engine state for the diagnostic report: the actual sidecar process for
+/// Parakeet, or the in-process nature of Whisper.
+fn engine_status<R: tauri::Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+    local_engine: &str,
+) -> String {
+    if local_engine != "parakeet" {
+        return format!("In-process ({local_engine})");
+    }
+    match crate::whisper_runner::parakeet_server_status(app_handle) {
+        Some((provider, port)) => format!("Running (provider: {provider}, port: {port})"),
+        None => "Not started".to_string(),
+    }
 }
 
 pub fn sanitize_logs_for_report(logs: &[String], log_speech_text: bool) -> Vec<String> {
@@ -298,6 +317,7 @@ pub fn format_diagnostic_report(
     cuda_exe: bool,
     whisper_models: &[String],
     logs: &[String],
+    engine_status: &str,
 ) -> String {
     let whisper_models_str = if whisper_models.is_empty() {
         "None".to_string()
@@ -318,7 +338,8 @@ pub fn format_diagnostic_report(
         - **OS**: {}\n\
         - **Architecture**: {}\n\
         - **Transcription Mode**: {}\n\
-        - **Local Engine**: {}\n\
+- **Local Engine**: {}\n\
+        - **Engine Status**: {}\n\
         - **Selected Model**: {}\n\
         - **Acceleration**: {}\n\
         - **Real-time Streaming**: {}\n\
@@ -342,8 +363,9 @@ pub fn format_diagnostic_report(
         version,
         os,
         arch,
-        transcription_mode,
+transcription_mode,
         local_engine,
+        engine_status,
         model_name,
         acceleration,
         streaming_enabled,
@@ -483,9 +505,10 @@ mod tests {
             true,
             true,
             true,
-            true,
+true,
             &whisper_models,
             &logs,
+            "Running (provider: cuda, port: 3033)",
         );
 
         assert!(report.contains("# Aura Diagnostic Report"));
@@ -493,6 +516,7 @@ mod tests {
         assert!(report.contains("## Component Verification"));
         assert!(report.contains("## Unified Log (Last 50 Lines)"));
         assert!(report.contains("- **App Version**: 1.0.9"));
+        assert!(report.contains("- **Engine Status**: Running (provider: cuda, port: 3033)"));
         assert!(report.contains("- **Selected Model**: parakeet-v3"));
         assert!(report.contains("- **Real-time Streaming**: true"));
         assert!(report.contains("Test log line 1"));

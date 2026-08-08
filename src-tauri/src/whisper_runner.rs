@@ -1614,6 +1614,16 @@ fn start_parakeet_server_unlocked<R: Runtime>(
     Ok(())
 }
 
+/// Live health of the local engine for diagnostics: for Parakeet this is the
+/// actual sidecar process state, not what the settings claim.
+pub(crate) fn parakeet_server_status<R: Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+) -> Option<(String, u16)> {
+    let state = app_handle.try_state::<crate::AppState>()?;
+    let server = recover_lock(&state.parakeet_server, "Parakeet server");
+    server.as_ref().map(|running| (running.provider.clone(), running.port))
+}
+
 pub fn stop_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) {
     let Some(state) = app_handle.try_state::<crate::AppState>() else {
         return;
@@ -2120,7 +2130,7 @@ impl Drop for RemoveDirectoryOnDrop {
     }
 }
 
-fn punctuation_files_complete(directory: &Path) -> bool {
+pub(crate) fn punctuation_files_complete(directory: &Path) -> bool {
     ["model.int8.onnx", "tokens.txt"].into_iter().all(|name| {
         directory
             .join(name)
@@ -2273,6 +2283,22 @@ pub async fn download_punctuation_model<R: Runtime>(
         if downloaded > PUNCTUATION_ARCHIVE_SIZE {
             return Err("Punctuation download exceeded its pinned size".to_string());
         }
+        downloaded = downloaded
+            .checked_add(chunk.len() as u64)
+            .ok_or_else(|| "Punctuation download byte count overflow".to_string())?;
+        if downloaded > PUNCTUATION_ARCHIVE_SIZE {
+            return Err("Punctuation download exceeded its pinned size".to_string());
+        }
+        let _ = app_handle.emit(
+            "model-download-progress",
+            DownloadProgress {
+                model: "punctuation".to_string(),
+                downloaded,
+                total: Some(PUNCTUATION_ARCHIVE_SIZE),
+                percentage: (downloaded as f64 / PUNCTUATION_ARCHIVE_SIZE as f64) * 100.0,
+                done: false,
+            },
+        );
         hasher.update(&chunk);
         file.write_all(&chunk)
             .await
@@ -2312,6 +2338,16 @@ pub async fn download_punctuation_model<R: Runtime>(
         "Punctuation",
         None,
         "Punctuation model downloaded successfully.",
+    );
+    let _ = app_handle.emit(
+        "model-download-progress",
+        DownloadProgress {
+            model: "punctuation".to_string(),
+            downloaded: PUNCTUATION_ARCHIVE_SIZE,
+            total: Some(PUNCTUATION_ARCHIVE_SIZE),
+            percentage: 100.0,
+            done: true,
+        },
     );
     Ok(())
 }
