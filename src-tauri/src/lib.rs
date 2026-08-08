@@ -161,9 +161,28 @@ async fn set_settings(
             .store(settings.toggle_enabled, Ordering::SeqCst);
     }
     let sidecar_handle = app_handle.clone();
+    let needs_punctuation_model = settings.voice_punctuation;
     tauri::async_runtime::spawn_blocking(move || {
         whisper_runner::ensure_parakeet_server_state(&sidecar_handle, &settings);
     });
+
+    // Self-heal the offline punctuation model whenever spoken punctuation is
+    // enabled: a failed background download is retried instead of staying
+    // silently missing until the parakeet model is re-downloaded.
+    if needs_punctuation_model {
+        let ensure_handle = app_handle.clone();
+        tauri::async_runtime::spawn(async move {
+            match whisper_runner::download_punctuation_model(&ensure_handle).await {
+                Ok(()) => {}
+                Err(error) => crate::logger::log(
+                    "WARN",
+                    "Punctuation",
+                    None,
+                    &format!("Could not obtain punctuation model: {error}"),
+                ),
+            }
+        });
+    }
     Ok(())
 }
 
@@ -190,7 +209,17 @@ async fn download_model_command(
     let model_name = canonical_model_name(&model_name)?;
     if model_name == "parakeet-v3" {
         whisper_runner::download_parakeet_model(&app_handle).await?;
-        let _ = whisper_runner::download_punctuation_model(&app_handle).await;
+        match whisper_runner::download_punctuation_model(&app_handle).await {
+            Ok(()) => {}
+            Err(error) => crate::logger::log(
+                "WARN",
+                "Punctuation",
+                None,
+                &format!(
+                    "Punctuation model download failed; will retry once spoken punctuation is enabled: {error}"
+                ),
+            ),
+        }
         Ok(())
     } else {
         whisper_runner::download_model(&app_handle, model_name.as_str())
@@ -225,7 +254,7 @@ async fn delete_model_command(
     if model_name == "parakeet-v3" {
         let folder = app_local_data.join("models").join("parakeet-v3");
         let worker_handle = app_handle.clone();
-        return tauri::async_runtime::spawn_blocking(move || {
+        tauri::async_runtime::spawn_blocking(move || {
             whisper_runner::stop_parakeet_server(&worker_handle);
             match std::fs::remove_dir_all(&folder) {
                 Ok(()) => Ok(()),
@@ -234,7 +263,9 @@ async fn delete_model_command(
             }
         })
         .await
-        .map_err(|error| format!("Parakeet deletion worker failed: {error}"))?;
+        .map_err(|error| format!("Parakeet deletion worker failed: {error}"))??;
+        reset_engine_after_model_deletion(&app_handle)?;
+        return Ok(());
     }
 
     let filename = whisper_runner::whisper_model_filename(&model_name)?;
@@ -247,6 +278,28 @@ async fn delete_model_command(
     })
     .await
     .map_err(|error| format!("Whisper model deletion worker failed: {error}"))?
+}
+
+/// When the deleted model was the active parakeet engine, fall back to
+/// whisper/base so the next session does not try to start a server whose
+/// model is gone (and settings validation does not fail on
+/// engine=parakeet without parakeet-v3).
+fn reset_engine_after_model_deletion<R: tauri::Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+) -> Result<(), String> {
+    let mut settings = settings::load_settings(app_handle)?;
+    if settings.local_engine != "parakeet" {
+        return Ok(());
+    }
+    crate::logger::log(
+        "INFO",
+        "Models",
+        None,
+        "Deleted the active parakeet model; switching local engine to whisper/base",
+    );
+    settings.local_engine = "whisper".to_string();
+    settings.model_name = "base".to_string();
+    settings::save_settings(app_handle, &settings)
 }
 
 #[tauri::command]
@@ -3533,6 +3586,20 @@ pub fn run() {
                     settings::Settings::default()
                 }
             };
+            if startup_settings.voice_punctuation {
+                let ensure_handle = app_handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    match whisper_runner::download_punctuation_model(&ensure_handle).await {
+                        Ok(()) => {}
+                        Err(error) => crate::logger::log(
+                            "WARN",
+                            "Punctuation",
+                            None,
+                            &format!("Punctuation model unavailable at startup: {error}"),
+                        ),
+                    }
+                });
+            }
             if let Err(error) = keyboard_hook::update_hotkey(&startup_settings.hotkey) {
                 crate::logger::log(
                     "ERROR",
