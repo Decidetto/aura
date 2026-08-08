@@ -2220,8 +2220,7 @@ pub async fn download_punctuation_model<R: Runtime>(
         match download_punctuation_model_attempt(app_handle).await {
             Ok(()) => return Ok(()),
             Err(error) => {
-                let retryable = error.contains("grew beyond twice its pinned size")
-                    || error.contains("Incomplete punctuation download")
+                let retryable = error.contains("Incomplete punctuation download")
                     || error.contains("stalled for more than 30 seconds");
                 if retryable && attempt == 1 {
                     crate::logger::log(
@@ -2319,7 +2318,10 @@ async fn download_punctuation_model_attempt<R: Runtime>(
         .map_err(|e| format!("Failed to create punctuation archive: {e}"))?;
     let mut hasher = Sha256::new();
     let mut downloaded = 0u64;
-    loop {
+    // Read exactly PUNCTUATION_ARCHIVE_SIZE payload bytes. Some CDNs/proxies
+    // append trailing bytes after the payload; rather than aborting a good
+    // download, take the pinned slice and let SHA-256 be the integrity judge.
+    while downloaded < PUNCTUATION_ARCHIVE_SIZE {
         let chunk = tokio::time::timeout(std::time::Duration::from_secs(30), response.chunk())
             .await
             .map_err(|_| "Punctuation download stalled for more than 30 seconds".to_string())?
@@ -2330,23 +2332,9 @@ async fn download_punctuation_model_attempt<R: Runtime>(
         if is_cancel_requested("punctuation") {
             return Err("Punctuation download cancelled".to_string());
         }
-        downloaded = downloaded
-            .checked_add(chunk.len() as u64)
-            .ok_or_else(|| "Punctuation download byte count overflow".to_string())?;
-        if downloaded > PUNCTUATION_ARCHIVE_SIZE {
-            return Err("Punctuation download exceeded its pinned size".to_string());
-        }
-        downloaded = downloaded
-            .checked_add(chunk.len() as u64)
-            .ok_or_else(|| "Punctuation download byte count overflow".to_string())?;
-        // Sanity cap only: the authoritative integrity check is the SHA-256
-        // digest below. A slightly-off stream must not hard-fail mid-flight,
-        // only a runaway/garbage response should.
-        if downloaded > PUNCTUATION_ARCHIVE_SIZE.saturating_mul(2) {
-            return Err(format!(
-                "Punctuation download stream grew beyond twice its pinned size: received {downloaded} bytes now, expected {PUNCTUATION_ARCHIVE_SIZE}"
-            ));
-        }
+        let take = chunk.len().min((PUNCTUATION_ARCHIVE_SIZE - downloaded) as usize);
+        let payload = &chunk[..take];
+        downloaded = downloaded.saturating_add(take as u64);
         let _ = app_handle.emit(
             "model-download-progress",
             DownloadProgress {
@@ -2357,8 +2345,8 @@ async fn download_punctuation_model_attempt<R: Runtime>(
                 done: false,
             },
         );
-        hasher.update(&chunk);
-        file.write_all(&chunk)
+        hasher.update(payload);
+        file.write_all(payload)
             .await
             .map_err(|e| format!("Failed to write punctuation chunk: {e}"))?;
     }
@@ -2371,14 +2359,9 @@ async fn download_punctuation_model_attempt<R: Runtime>(
     drop(file);
 
     if downloaded != PUNCTUATION_ARCHIVE_SIZE {
-        crate::logger::log(
-            "WARN",
-            "Punctuation",
-            None,
-            &format!(
-                "Punctuation download size differs from pinned ({downloaded} bytes vs {PUNCTUATION_ARCHIVE_SIZE}); SHA-256 decides"
-            ),
-        );
+        return Err(format!(
+            "Incomplete punctuation download: expected {PUNCTUATION_ARCHIVE_SIZE} bytes, received {downloaded}"
+        ));
     }
     let actual_hash = format!("{:x}", hasher.finalize());
     if actual_hash != PUNCTUATION_ARCHIVE_SHA256 {
