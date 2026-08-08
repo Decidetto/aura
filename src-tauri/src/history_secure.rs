@@ -16,6 +16,17 @@ pub struct HistoryEntry {
     pub text: String,
     pub timestamp_ms: u64,
     pub mode: String,
+    /// Local recognition engine ("whisper" or "parakeet") that produced the
+    /// text. None for cloud entries; absent in entries written by old builds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub engine: Option<String>,
+    /// Speech-to-text conversion time in milliseconds (local runs only).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub processing_ms: u64,
+}
+
+fn is_zero(value: &u64) -> bool {
+    *value == 0
 }
 
 fn history_lock() -> &'static Mutex<()> {
@@ -142,19 +153,34 @@ pub fn load_history(app_handle: &tauri::AppHandle) -> Result<Vec<HistoryEntry>, 
     load_history_unlocked(app_handle)
 }
 
-fn insert_entry(entries: &mut Vec<HistoryEntry>, text: &str, mode: &str, timestamp_ms: u64) {
+fn insert_entry(
+    entries: &mut Vec<HistoryEntry>,
+    text: &str,
+    mode: &str,
+    engine: Option<&str>,
+    processing_ms: u64,
+    timestamp_ms: u64,
+) {
     entries.insert(
         0,
         HistoryEntry {
             text: text.to_string(),
             timestamp_ms,
             mode: mode.to_string(),
+            engine: engine.map(|value| value.to_string()),
+            processing_ms,
         },
     );
     entries.truncate(MAX_ENTRIES);
 }
 
-pub fn add_entry(app_handle: &tauri::AppHandle, text: &str, mode: &str) -> Result<(), String> {
+pub fn add_entry(
+    app_handle: &tauri::AppHandle,
+    text: &str,
+    mode: &str,
+    engine: Option<&str>,
+    processing_ms: u64,
+) -> Result<(), String> {
     if text.chars().count() > MAX_ENTRY_CHARS {
         return Err(format!(
             "History entry exceeds {MAX_ENTRY_CHARS} characters"
@@ -163,7 +189,7 @@ pub fn add_entry(app_handle: &tauri::AppHandle, text: &str, mode: &str) -> Resul
     let _guard = lock_history();
     let mut entries = load_history_unlocked(app_handle)?;
     let timestamp_ms = timestamp_millis() as u64;
-    insert_entry(&mut entries, text, mode, timestamp_ms);
+    insert_entry(&mut entries, text, mode, engine, processing_ms, timestamp_ms);
     save_history_unlocked(app_handle, &entries)
 }
 
@@ -184,12 +210,32 @@ mod tests {
                 &mut entries,
                 &format!("entry-{index}"),
                 "local",
+                Some("whisper"),
+                123,
                 index as u64,
             );
         }
         assert_eq!(entries.len(), MAX_ENTRIES);
         assert_eq!(entries[0].text, format!("entry-{}", MAX_ENTRIES + 4));
         assert_eq!(entries.last().unwrap().text, "entry-5");
+        assert_eq!(entries[0].engine.as_deref(), Some("whisper"));
+        assert_eq!(entries[0].processing_ms, 123);
+    }
+
+    #[test]
+    fn insert_entry_without_engine_keeps_fields_empty() {
+        let mut entries = Vec::new();
+        insert_entry(&mut entries, "text", "cloud", None, 0, 7);
+        assert_eq!(entries[0].engine, None);
+        assert_eq!(entries[0].processing_ms, 0);
+    }
+
+    #[test]
+    fn old_entry_without_new_fields_decodes() {
+        let legacy = r#"{"text":"old","timestamp_ms":1,"mode":"local"}"#;
+        let entry: HistoryEntry = serde_json::from_str(legacy).unwrap();
+        assert_eq!(entry.engine, None);
+        assert_eq!(entry.processing_ms, 0);
     }
 
     #[cfg(target_os = "windows")]
@@ -199,6 +245,8 @@ mod tests {
             text: "private dictation".to_string(),
             timestamp_ms: 42,
             mode: "local".to_string(),
+            engine: Some("whisper".to_string()),
+            processing_ms: 500,
         }];
         let encoded = encode_entries(&entries).unwrap();
         assert!(!encoded

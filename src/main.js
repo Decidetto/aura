@@ -89,6 +89,12 @@ const i18nDict = {
     history_clear: "Очистить историю",
     history_desc: "Последние надиктованные фразы хранятся локально.",
     history_empty: "История пуста. Ваши надиктованные тексты будут отображаться здесь.",
+    history_badge_cloud: "Облако",
+    history_badge_local: "Локально",
+    history_engine_whisper: "Whisper",
+    history_engine_parakeet: "NVIDIA Parakeet",
+    history_unit_ms: "мс",
+    history_unit_sec: "с",
     about_app_title: "Голосовой ввод Aura",
     about_version: "v1.0.9",
     about_description: "Инструмент глобального голосового ввода для Windows. Программа переводит речь в текст и вставляет его в любое активное окно с автоматическим форматированием и расстановкой пунктуации.",
@@ -238,6 +244,12 @@ const i18nDict = {
     history_clear: "Clear History",
     history_desc: "Your latest transcribed phrases are cached locally.",
     history_empty: "History is empty. Dictated text fragments will appear here.",
+    history_badge_cloud: "Cloud",
+    history_badge_local: "Local",
+    history_engine_whisper: "Whisper",
+    history_engine_parakeet: "NVIDIA Parakeet",
+    history_unit_ms: "ms",
+    history_unit_sec: "s",
     about_app_title: "Aura Voice Input",
     about_version: "v1.0.9",
     about_description: "Global voice input tool for Windows. The program transcribes speech to text and inserts it into any active window with automatic formatting and punctuation.",
@@ -384,6 +396,12 @@ const i18nDict = {
     history_clear: "Verlauf löschen",
     history_desc: "Die letzten aufgezeichneten Sätze werden lokal gespeichert.",
     history_empty: "Der Verlauf ist leer. Transkribierte Texte werden hier angezeigt.",
+    history_badge_cloud: "Cloud",
+    history_badge_local: "Lokal",
+    history_engine_whisper: "Whisper",
+    history_engine_parakeet: "NVIDIA Parakeet",
+    history_unit_ms: "ms",
+    history_unit_sec: "s",
     about_app_title: "Aura Spracheingabe",
     about_version: "v1.0.9",
     about_description: "Globales Spracheingabe-Tool für Windows. Die Anwendung überträgt Sprache in Text und fügt ihn mit automatischer Formatierung und Zeichensetzung in jedes aktive Fenster ein.",
@@ -519,6 +537,12 @@ const i18nDict = {
     history_clear: "Limpiar historial",
     history_desc: "Las últimas frases dictadas se guardan de forma local.",
     history_empty: "El historial está vacío. Los textos dictados se mostrarán aquí.",
+    history_badge_cloud: "Nube",
+    history_badge_local: "Local",
+    history_engine_whisper: "Whisper",
+    history_engine_parakeet: "Parakeet de NVIDIA",
+    history_unit_ms: "ms",
+    history_unit_sec: "s",
     about_app_title: "Dictado por voz Aura",
     about_version: "v1.0.9",
     about_description: "Herramienta de entrada de voz global para Windows. El programa transcribe el habla en texto y lo inserta en cualquier ventana activa con formato y puntuación automáticos.",
@@ -661,6 +685,12 @@ const i18nDict = {
     history_clear: "Effacer l'historique",
     history_desc: "Les dernières phrases dictées sont enregistrées localement.",
     history_empty: "Historique vide. Vos textes transcrits s'afficheront ici.",
+    history_badge_cloud: "Cloud",
+    history_badge_local: "Local",
+    history_engine_whisper: "Whisper",
+    history_engine_parakeet: "Parakeet NVIDIA",
+    history_unit_ms: "ms",
+    history_unit_sec: "s",
     about_app_title: "Dictée vocale Aura",
     about_version: "v1.0.9",
     about_description: "Outil de saisie vocale globale pour Windows. Le programme transcrit la parole en texte et l'insère dans n'importe quelle fenêtre active avec un formatage et une ponctuation automatiques.",
@@ -803,6 +833,12 @@ const i18nDict = {
     history_clear: "Cancella cronologia",
     history_desc: "Le ultime frasi dettate vengono salvate in locale.",
     history_empty: "La cronologia è vuota. I testi dettati appariranno qui.",
+    history_badge_cloud: "Cloud",
+    history_badge_local: "Locale",
+    history_engine_whisper: "Whisper",
+    history_engine_parakeet: "Parakeet NVIDIA",
+    history_unit_ms: "ms",
+    history_unit_sec: "s",
     about_app_title: "Dettatura vocale Aura",
     about_version: "v1.0.9",
     about_description: "Strumento di inserimento vocale globale per Windows. Il programma trascrive la voce in testo e la inserisce in qualsiasi finestra attiva con formattazione e punteggiatura automatiche.",
@@ -945,6 +981,12 @@ const i18nDict = {
     history_clear: "清空历史",
     history_desc: "您最近转换出的文字将缓存在本地。",
     history_empty: "历史记录为空。您听写的文字会显示在这里。",
+    history_badge_cloud: "云端",
+    history_badge_local: "本地",
+    history_engine_whisper: "Whisper",
+    history_engine_parakeet: "NVIDIA Parakeet",
+    history_unit_ms: "毫秒",
+    history_unit_sec: "秒",
     about_app_title: "Aura 智能语音输入",
     about_version: "v1.0.9",
     about_description: "适用于 Windows 的全局语音输入工具。本程序可以将语音转录为文本，并以自动格式和标点符号插入到任何活动窗口中。",
@@ -1087,6 +1129,12 @@ const i18nDict = {
     history_clear: "Limpar histórico",
     history_desc: "As últimas frases ditadas são armazenadas localmente.",
     history_empty: "O histórico está vazio. Seus textos ditados aparecerão aqui.",
+    history_badge_cloud: "Nuvem",
+    history_badge_local: "Local",
+    history_engine_whisper: "Whisper",
+    history_engine_parakeet: "Parakeet NVIDIA",
+    history_unit_ms: "ms",
+    history_unit_sec: "s",
     about_app_title: "Ditado de voz Aura",
     about_version: "v1.0.9",
     about_description: "Ferramenta de entrada de voz global para Windows. O programa transcreve a fala em texto e a insere em qualquer janela ativa com formatação e pontuação automáticas.",
@@ -1229,6 +1277,12 @@ const i18nDict = {
     history_clear: "Geçmişi Temizle",
     history_desc: "Son sesli yazımlarınız yerel olarak saklanır.",
     history_empty: "Geçmiş boş. Yazdığınız metinler burada görünecektir.",
+    history_badge_cloud: "Bulut",
+    history_badge_local: "Yerel",
+    history_engine_whisper: "Whisper",
+    history_engine_parakeet: "NVIDIA Parakeet",
+    history_unit_ms: "ms",
+    history_unit_sec: "sn",
     about_app_title: "Aura Sesli Giriş",
     about_version: "v1.0.9",
     about_description: "Windows için genel sesli giriş aracı. Program, konuşmayı metne dönüştürür ve otomatik biçimlendirme ve noktalama işaretleriyle herhangi bir aktif pencereye ekler.",
@@ -2533,22 +2587,44 @@ if (e.button === 0 && !e.target.closest(".window-control-btn") && !e.target.clos
         return;
       }
 
-      historyContainer.innerHTML = "";
+historyContainer.innerHTML = "";
       const fragment = document.createDocumentFragment();
+
+      function formatHistoryDuration(ms) {
+        if (!ms) return "";
+        if (ms < 1000) return `${ms} ${dict.history_unit_ms || "ms"}`;
+        const secs = ms >= 10000 ? Math.round(ms / 1000) : Math.round((ms / 1000) * 10) / 10;
+        return `${secs} ${dict.history_unit_sec || "s"}`;
+      }
+
       history.forEach(entry => {
         const date = new Date(entry.timestamp_ms);
         const timeStr = date.toLocaleTimeString(currentLanguage, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         const dateStr = date.toLocaleDateString(currentLanguage, { month: 'short', day: 'numeric' });
         const displayTime = `${dateStr}, ${timeStr}`;
 
-        const itemEl = document.createElement("div");
+const itemEl = document.createElement("div");
         itemEl.className = "history-item";
-        
+
+        let badgeHtml;
+        const engineLabel = dict[`history_engine_${entry.engine}`];
+        if (engineLabel) {
+          const durationHtml = entry.processing_ms
+            ? `<span class="history-item-duration">${formatHistoryDuration(entry.processing_ms)}</span>`
+            : "";
+          badgeHtml =
+            `<span class="history-item-badge badge-local">${escapeHtml(engineLabel)}</span>${durationHtml}`;
+        } else if (entry.mode === "cloud") {
+          badgeHtml = `<span class="history-item-badge badge-cloud">${escapeHtml(dict.history_badge_cloud || "Cloud")}</span>`;
+        } else {
+          badgeHtml = `<span class="history-item-badge badge-local">${escapeHtml(dict.history_badge_local || "Local")}</span>`;
+        }
+
         itemEl.innerHTML = `
           <div class="history-item-body">
             <div class="history-item-meta">
               <span class="history-item-time">${displayTime}</span>
-              <span class="history-item-badge ${entry.mode === 'local' ? 'badge-local' : 'badge-cloud'}">${entry.mode === 'local' ? 'Local' : 'Cloud'}</span>
+              ${badgeHtml}
             </div>
             <div class="history-item-text">${escapeHtml(entry.text)}</div>
           </div>

@@ -1206,6 +1206,12 @@ body {
   color: var(--text-muted);
 }
 
+.history-item-duration {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .history-item-text {
   font-size: 0.88rem;
   color: var(--text-primary);
