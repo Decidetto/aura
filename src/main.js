@@ -2784,29 +2784,28 @@ if (e.button === 0 && !e.target.closest(".window-control-btn") && !e.target.clos
       closeSelectPanel();
       return;
     }
-    const panel = selectPanelEl;
-    panel.style.width = `${Math.min(Math.max(rect.width, 180), window.innerWidth - 16)}px`;
-    const estimate = Math.min(selectPanelOwner.options.length, 13) * 40 + 14;
-    const openAbove = rect.bottom + 6 + estimate > window.innerHeight;
-    panel.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 192))}px`;
-    panel.style.top = openAbove
-      ? `${Math.max(8, rect.top - estimate - 6)}px`
-      : `${rect.bottom + 6}px`;
+    placeSelectPanel(selectPanelOwner, selectPanelEl);
+  }
+
+  function placeSelectPanel(select, panel) {
+    const rect = select.getBoundingClientRect();
+    // Real, post-layout height: an estimated height (options x 40px) made
+    // the panel jump far off for tall lists capped by max-height.
+    const width = Math.min(Math.max(rect.width, 180), window.innerWidth - 16);
+    panel.style.width = `${width}px`;
+    panel.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`;
+    const height = panel.getBoundingClientRect().height;
+    const fitsBelow = rect.bottom + 6 + height <= window.innerHeight;
+    panel.style.top = fitsBelow
+      ? `${rect.bottom + 6}px`
+      : `${Math.max(8, rect.top - height - 6)}px`;
   }
 
   function openSelectPanel(select) {
     closeSelectPanel();
-    const rect = select.getBoundingClientRect();
     const panel = document.createElement("div");
     panel.className = "custom-select-panel";
     panel.setAttribute("role", "listbox");
-    panel.style.width = `${Math.min(Math.max(rect.width, 180), window.innerWidth - 16)}px`;
-    const estimate = Math.min(select.options.length, 13) * 40 + 14;
-    const openAbove = rect.bottom + 6 + estimate > window.innerHeight;
-    panel.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 192))}px`;
-    panel.style.top = openAbove
-      ? `${Math.max(8, rect.top - estimate - 6)}px`
-      : `${rect.bottom + 6}px`;
 
     let selectedIndex = -1;
     Array.from(select.options).forEach((option, index) => {
@@ -2830,6 +2829,7 @@ if (e.button === 0 && !e.target.closest(".window-control-btn") && !e.target.clos
     });
 
     document.body.appendChild(panel);
+    placeSelectPanel(select, panel);
     selectPanelEl = panel;
     selectPanelOwner = select;
     select.setAttribute("aria-expanded", "true");
