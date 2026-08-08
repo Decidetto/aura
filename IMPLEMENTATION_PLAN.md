@@ -413,6 +413,47 @@ fn stale_session_never_restores_clipboard_after_overlap() {
 
 ---
 
+## ЭТАП 7 — Третий аудит (выполнен)
+
+Свежий проход по слабым местам, оставленным после закрытия C1–C14 / F1–F6
+(перечень — в vault‑заметке `2026-08-08-reaudit-agenda-after-audit-closure.md`).
+
+### Найденное и исправленное (1 коммит)
+- `968a360` — последние 2 clippy‑warning в крейте (`single_match` в
+  `keyboard_simulator.rs`, батчи Backspace/Unicode → `if let Err(...)`, поведение
+  не менялось); бюджет загрузок C12 смягчён: `(size/100_000).max(300)` →
+  `(size/50_000).max(600)` — минимальная устойчивая скорость 100 → 50 KB/s,
+  чтобы медленная, но живая сеть не упиралась в дедлайн (тот же урок, что в
+  облачных таймаутах `ai_client.rs`).
+
+### Перепроверено, багом не является
+- Отравленные мьютексы: `unwrap_or_default` только на
+  `selected_language`/`selected_text` (безопасная деградация в пустое значение);
+  потоковый слот при poison логирует WARN и падает на финальный WAV.
+- `deleteModelCard` во время загрузки: кнопки карточки скрыты, пока идёт
+  download (main.js), удалить модель в UI невозможно.
+- `merge_transcripts` (C10): overlap ≤ 16 токенов + guard на повторы; краткая
+  дупликация возможна по дизайну — мануальный чек на диктовке.
+- Tail‑drain 2 с (C13): сам по себе безопасен; «Yeah»‑галлюцинация уже закрыта
+  (`ffad363`).
+- `keyboard_hook.rs`: стейт‑машина Alt+V (release‑порядки, Esc, injected‑фильтр,
+  заменяемые коллбеки) согласована; macOS‑модуль не компилируется на Windows —
+  он целиком под `cfg(target_os = "macos")` и в нём есть дубль
+  `CFRunLoopSourceRef` и необъявленный `CFMachPortRef` — при сборке под macOS
+  потребует починки (для Windows‑релиза не влияет).
+- `overlay.js`: hide‑guard по `stateCycle`, failsafe‑таймер, reduced‑motion,
+  переводы ошибок/notice — в порядке.
+
+### Верификация этапа 7
+`cargo test` 105/105, `cargo clippy --lib --tests` 0 warnings, `npm run lint` +
+`npm run typecheck` + `npm test` (10/10) ✅. Vault: `record_work` + `remember`
+(урок о бюджетах на сетевые операции с фиксированным флором).
+
+Осталось (на пользователе): сборка NSIS‑installer, ручной прогон диктовки
+(cloud / Whisper / Parakeet, порядки отпускания клавиш, мануальный чек «Yeah»‑фикса).
+
+---
+
 ## Порядок запуска (без изменений — как согласовано)
 
 1. **Этап 0** (выполнен) →
