@@ -424,7 +424,7 @@ body {
 }
 
 .settings-section-label {
-  margin: 18px 2px 10px;
+  margin: 22px 2px 4px;
   font-family: var(--font-display);
   font-size: 0.72rem;
   font-weight: 600;
@@ -439,6 +439,12 @@ body {
   height: 1px;
   margin-top: 6px;
   background: linear-gradient(to right, var(--border-color), transparent);
+}
+
+#local-engine-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .about-setting-card {
