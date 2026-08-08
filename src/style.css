@@ -1476,6 +1476,11 @@ body {
   cursor: pointer;
   border: none;
   transition: var(--transition);
+  /* Neutralize leaks from the global .btn-secondary (margin-top: 12px)
+     and .btn-primary (align-self: flex-start) so both action buttons sit
+     on the same line and at the same height. */
+  margin: 0;
+  align-self: stretch;
 }
 
 .modal-actions .btn-secondary {
