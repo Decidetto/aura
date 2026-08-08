@@ -22,7 +22,6 @@ const i18nDict = {
     section_recognition: "Распознавание",
     section_input: "Ввод",
     section_dictionary: "Словарь",
-    lang_parakeet_hint: "NVIDIA Parakeet распознаёт только английскую речь — язык применяется автоматически.",
     streaming_parakeet_hint: "Потоковый ввод доступен только для NVIDIA Parakeet.",
     tab_history: "История",
     tab_about: "О программе",
@@ -50,7 +49,6 @@ const i18nDict = {
     vocab_title: "Пользовательский словарь",
     vocab_desc: "Внесите термины, имена или брендовые названия через запятую, чтобы улучшить их распознавание.",
     vocab_placeholder: "Например: Аура, коммит, репозиторий...",
-    vocab_parakeet_hint: "Словарь применяется к облачному распознаванию и Whisper. NVIDIA Parakeet не поддерживает пользовательские слова — для него добавьте термины в саму диктовку.",
     punct_model_label: "Пунктуация (для английского)",
     punct_model_name: "CT-Transformer (zh-en, int8)",
     punct_model_meta: "~62 МБ — голосовая пунктуация",
@@ -184,7 +182,6 @@ const i18nDict = {
     section_recognition: "Recognition",
     section_input: "Input",
     section_dictionary: "Dictionary",
-    lang_parakeet_hint: "NVIDIA Parakeet recognizes English speech only — language is applied automatically.",
     streaming_parakeet_hint: "Real-time streaming input is only available with NVIDIA Parakeet.",
     tab_history: "History",
     tab_about: "About",
@@ -212,7 +209,6 @@ const i18nDict = {
     vocab_title: "Custom Vocabulary",
     vocab_desc: "Add specific terms, names, or jargon separated by commas to improve recognition.",
     vocab_placeholder: "e.g. Aura, commit, repository...",
-    vocab_parakeet_hint: "The dictionary applies to cloud recognition and Whisper. NVIDIA Parakeet does not support custom words — spell the terms out for it.",
     punct_model_label: "Punctuation (for English)",
     punct_model_name: "CT-Transformer (zh-en, int8)",
     punct_model_meta: "~62 MB — spoken punctuation",
@@ -353,7 +349,6 @@ const i18nDict = {
     section_recognition: "Spracherkennung",
     section_input: "Eingabe",
     section_dictionary: "Wörterbuch",
-    lang_parakeet_hint: "NVIDIA Parakeet erkennt nur englische Sprache — die Sprache wird automatisch übernommen.",
     streaming_parakeet_hint: "Echtzeit-Eingabe ist nur mit NVIDIA Parakeet verfügbar.",
     tab_history: "Verlauf",
     tab_about: "Über Aura",
@@ -501,7 +496,6 @@ const i18nDict = {
     section_recognition: "Reconocimiento",
     section_input: "Entrada",
     section_dictionary: "Diccionario",
-    lang_parakeet_hint: "NVIDIA Parakeet solo reconoce inglés: el idioma se aplica automáticamente.",
     streaming_parakeet_hint: "La entrada en tiempo real solo está disponible con NVIDIA Parakeet.",
     tab_history: "Historial",
     tab_about: "Acerca de",
@@ -656,7 +650,6 @@ const i18nDict = {
     section_recognition: "Reconnaissance",
     section_input: "Saisie",
     section_dictionary: "Dictionnaire",
-    lang_parakeet_hint: "NVIDIA Parakeet ne reconnaît que l’anglais : la langue s’applique automatiquement.",
     streaming_parakeet_hint: "La saisie en temps réel n’est disponible qu’avec NVIDIA Parakeet.",
     tab_history: "Historique",
     tab_about: "À propos",
@@ -811,7 +804,6 @@ const i18nDict = {
     section_recognition: "Riconoscimento",
     section_input: "Digitazione",
     section_dictionary: "Dizionario",
-    lang_parakeet_hint: "NVIDIA Parakeet riconosce solo l’inglese: la lingua viene applicata automaticamente.",
     streaming_parakeet_hint: "L’inserimento in tempo reale è disponibile solo con NVIDIA Parakeet.",
     tab_history: "Cronologia",
     tab_about: "Informazioni",
@@ -966,7 +958,6 @@ const i18nDict = {
     section_recognition: "识别",
     section_input: "输入",
     section_dictionary: "词典",
-    lang_parakeet_hint: "NVIDIA Parakeet 只能识别英语——语言会自动应用。",
     streaming_parakeet_hint: "实时输入仅适用于 NVIDIA Parakeet。",
     tab_history: "历史记录",
     tab_about: "关于我们",
@@ -1121,7 +1112,6 @@ const i18nDict = {
     section_recognition: "Reconhecimento",
     section_input: "Entrada",
     section_dictionary: "Dicionário",
-    lang_parakeet_hint: "NVIDIA Parakeet reconhece apenas fala em inglês: o idioma é aplicado automaticamente.",
     streaming_parakeet_hint: "A entrada em tempo real só está disponível com NVIDIA Parakeet.",
     tab_history: "Histórico",
     tab_about: "Sobre",
@@ -1276,7 +1266,6 @@ const i18nDict = {
     section_recognition: "Tanıma",
     section_input: "Giriş",
     section_dictionary: "Sözlük",
-    lang_parakeet_hint: "NVIDIA Parakeet yalnızca İngilizce konuşmayı tanır — dil otomatik uygulanır.",
     streaming_parakeet_hint: "Gerçek zamanlı giriş yalnızca NVIDIA Parakeet ile kullanılabilir.",
     tab_history: "Geçmiş",
     tab_about: "Hakkında",
@@ -1469,32 +1458,36 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Engine change (Cloud vs Local) toggling Whisper card visibility
-  const radioCloud = document.getElementById("radio-cloud");
+const radioCloud = document.getElementById("radio-cloud");
   const radioLocal = document.getElementById("radio-local");
-  const localModelCard = document.getElementById("card-local-model");
   const selectLocalEngine = document.getElementById("select-local-engine");
   const groupWhisperModels = document.getElementById("group-whisper-models");
   const groupParakeetModels = document.getElementById("group-parakeet-models");
 
 function updateEngineUI() {
-    const vocabHint = document.getElementById("vocab-parakeet-hint");
+    const vocabCard = document.getElementById("card-vocabulary");
     const fallbackCard = document.getElementById("card-cloud-fallback");
+    const streamingCard = document.getElementById("card-streaming");
+    const localEngineSection = document.getElementById("local-engine-section");
     if (radioLocal.checked) {
-      localModelCard.style.display = "flex";
+      if (localEngineSection) localEngineSection.style.display = "flex";
       updateLocalEngineUI();
       if (fallbackCard) fallbackCard.style.display = "none";
+      if (streamingCard) streamingCard.style.display = "flex";
+      if (vocabCard) vocabCard.style.display = "flex";
     } else {
-      localModelCard.style.display = "none";
-      if (vocabHint) vocabHint.hidden = true;
-      if (fallbackCard) fallbackCard.style.display = "block";
+      if (localEngineSection) localEngineSection.style.display = "none";
+      if (vocabCard) vocabCard.style.display = "flex";
+      if (fallbackCard) fallbackCard.style.display = "flex";
+      if (streamingCard) streamingCard.style.display = "none";
     }
   }
 
 function updateLocalEngineUI() {
     if (!selectLocalEngine || !groupWhisperModels || !groupParakeetModels) return;
     const isParakeet = selectLocalEngine.value === "parakeet";
-    const vocabHint = document.getElementById("vocab-parakeet-hint");
-    if (vocabHint) vocabHint.hidden = !isParakeet;
+    const vocabCard = document.getElementById("card-vocabulary");
+    if (vocabCard) vocabCard.style.display = isParakeet ? "none" : "flex";
     const gpuSettings = document.getElementById("gpu-acceleration-settings");
     if (gpuSettings) {
       gpuSettings.style.display = isParakeet ? "block" : "none";
@@ -1504,22 +1497,6 @@ function updateLocalEngineUI() {
     if (streaming) {
       streaming.disabled = !isParakeet;
       if (streamingHint) streamingHint.hidden = isParakeet;
-    }
-    const langSelect = document.getElementById("select-language");
-    const langHint = document.getElementById("lang-parakeet-hint");
-    if (langSelect) {
-      const parakeetAllowed = new Set(["auto", "en"]);
-      let visibleCount = 0;
-      Array.from(langSelect.options).forEach((option) => {
-        const visible = isParakeet ? parakeetAllowed.has(option.value) : true;
-        option.hidden = !visible;
-        if (visible) visibleCount += 1;
-      });
-      if (langHint) langHint.hidden = !isParakeet;
-      if (isParakeet && !parakeetAllowed.has(langSelect.value)) {
-        langSelect.value = "auto";
-      }
-      if (visibleCount === 1) langSelect.style.pointerEvents = isParakeet ? "none" : "";
     }
     if (isParakeet) {
       groupWhisperModels.style.display = "none";
