@@ -2206,7 +2206,44 @@ fn install_punctuation_archive(
     Ok(())
 }
 
+/// Facade with one automatic retry: resize/CDN hiccups (rare spikes in streamed
+/// byte counts) are retried once before surrendering, because a byte-level
+/// hiccup must not leave the feature permanently broken.
 pub async fn download_punctuation_model<R: Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+) -> Result<(), String> {
+    let mut last_error = String::from("unknown download error");
+    for attempt in 1..=2u32 {
+        if is_cancel_requested("punctuation") {
+            return Err("Punctuation download cancelled".to_string());
+        }
+        match download_punctuation_model_attempt(app_handle).await {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                let retryable = error.contains("stream changed size")
+                    || error.contains("Incomplete punctuation download")
+                    || error.contains("stalled for more than 30 seconds");
+                if retryable && attempt == 1 {
+                    crate::logger::log(
+                        "WARN",
+                        "Punctuation",
+                        None,
+                        &format!(
+                            "Punctuation download attempt {attempt} failed ({error}); retrying"
+                        ),
+                    );
+                    last_error = error;
+                    tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+                    continue;
+                }
+                return Err(error);
+            }
+        }
+    }
+    Err(format!("Punctuation download failed after retries: {last_error}"))
+}
+
+async fn download_punctuation_model_attempt<R: Runtime>(
     app_handle: &tauri::AppHandle<R>,
 ) -> Result<(), String> {
     let app_local_data = app_handle
@@ -2218,7 +2255,16 @@ pub async fn download_punctuation_model<R: Runtime>(
     if punctuation_files_complete(&punc_dir) {
         return Ok(());
     }
-    let _lease = begin_model_download("punctuation")?;
+    let _lease = match begin_model_download("punctuation") {
+        Ok(lease) => lease,
+        Err(error) => {
+            // A concurrent download is already in flight (e.g. a self-heal
+            // task from startup alongside a user-initiated one).
+            return Err(format!(
+                "Punctuation model download is already in progress: {error}"
+            ));
+        }
+    };
     clear_cancel("punctuation");
     tokio::fs::create_dir_all(&models_dir)
         .await
@@ -2287,7 +2333,9 @@ pub async fn download_punctuation_model<R: Runtime>(
             .checked_add(chunk.len() as u64)
             .ok_or_else(|| "Punctuation download byte count overflow".to_string())?;
         if downloaded > PUNCTUATION_ARCHIVE_SIZE {
-            return Err("Punctuation download exceeded its pinned size".to_string());
+            return Err(format!(
+                "Punctuation download stream changed size: received {downloaded} bytes so far, expected {PUNCTUATION_ARCHIVE_SIZE}"
+            ));
         }
         let _ = app_handle.emit(
             "model-download-progress",
