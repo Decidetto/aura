@@ -1787,7 +1787,7 @@ const providerDict = i18nDict[currentLanguage] || i18nDict.ru;
     try {
       const downloaded = await invoke("get_downloaded_models");
       const parakeetOption = selectLocalEngine?.querySelector('option[value="parakeet"]');
-      if (parakeetOption) parakeetOption.disabled = false;
+      if (parakeetOption) parakeetOption.disabled = !downloaded.includes("parakeet-v3");
       const dict = i18nDict[currentLanguage] || i18nDict.ru;
 modelCards.forEach(card => {
         const model = card.dataset.model;
@@ -2007,7 +2007,12 @@ showStatus(getTranslation("model_download_error_pattern", { err }), true);
       showStatus(getTranslation("model_deleting_pattern", { model }));
       await invoke("delete_model_command", { modelName: model });
       
-      showStatus(getTranslation("model_deleted_success"));
+showStatus(getTranslation("model_deleted_success"));
+      if (model === "parakeet-v3" && selectLocalEngine?.value === "parakeet") {
+        selectLocalEngine.value = "whisper";
+        updateLocalEngineUI();
+        markSettingsModified();
+      }
       await refreshDownloadedModels();
     } catch (err) {
       console.error(err);
