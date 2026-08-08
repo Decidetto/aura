@@ -324,10 +324,30 @@ mod windows_impl {
             let is_target_key = vk_code == key_vk;
 
             if modifier_vk != 0 && is_modifier {
-                if is_up && SHORTCUT_ACTIVE.swap(false, Ordering::SeqCst) {
-                    notify_hotkey(false);
-                    if modifier_vk == 18 {
-                        send_disarmed_alt_up(&kbd_struct);
+                // Releasing the *modifier* while the target key is still
+                // physically held must not finalize the session: the release
+                // order "Alt up, V still down" is a natural way to end a
+                // press, and treating it as the session end would cut the
+                // dictation short and let V-repeat leak through as stray
+                // keystrokes. Defer the release until the target key's own
+                // key-up clears the shortcut state; disarming the Alt menu
+                // still needs to happen now while Alt is truly released.
+                if is_up {
+                    let target_still_held = {
+                        let state = GetAsyncKeyState(key_vk as i32);
+                        (state as u16 & 0x8000) != 0
+                    };
+                    if target_still_held {
+                        if modifier_vk == 18 {
+                            send_disarmed_alt_up(&kbd_struct);
+                        }
+                        return 1; // Suppress; finalize happens on target key-up
+                    }
+                    if SHORTCUT_ACTIVE.swap(false, Ordering::SeqCst) {
+                        notify_hotkey(false);
+                        if modifier_vk == 18 {
+                            send_disarmed_alt_up(&kbd_struct);
+                        }
                         return 1;
                     }
                 }

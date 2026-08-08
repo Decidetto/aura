@@ -2377,16 +2377,13 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
     };
     let state = state.inner();
 
-    // A new generation invalidates every task left over from previous
-    // sessions. It must advance *before* `is_recording` flips to true: an old
-    // async finalize that polls the flags must never observe a recording that
-    // is already claimed but whose generation has not yet advanced (that
-    // window would let a stale task inject itself into the fresh session).
-    let gen = state.session_gen.fetch_add(1, Ordering::SeqCst) + 1;
-    let session_tag = crate::logger::format_session_tag(gen);
-    state.live_target_desynced.store(false, Ordering::Release);
-    state.live_target_monitoring.store(false, Ordering::Release);
-
+    // The generation invalidates tasks left over from previous sessions. The
+    // claim on `is_recording` must succeed *before* the generation advances:
+    // a rejected duplicate start (auto-repeat, double-fire) must not bump the
+    // generation, or every staleness check would misfire on the live session
+    // and its typing, finalize and clipboard restore would be silently skipped.
+    // The two stores below are adjacent and synchronous, so no other task can
+    // observe the claimed-but-not-yet-bumped window.
     if state
         .is_recording
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -2400,6 +2397,10 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
         );
         return;
     }
+    let gen = state.session_gen.fetch_add(1, Ordering::SeqCst) + 1;
+    let session_tag = crate::logger::format_session_tag(gen);
+    state.live_target_desynced.store(false, Ordering::Release);
+    state.live_target_monitoring.store(false, Ordering::Release);
     match state.parakeet_streaming.lock() {
         Ok(mut slot) => {
             if let Some(previous) = slot.take() {
@@ -3543,7 +3544,7 @@ pub fn run() {
                             state.latched.store(false, Ordering::SeqCst);
                             state.ignore_next_release.store(true, Ordering::SeqCst);
                             finalize_recording(app_handle.clone()).await;
-                        } else if !recording {
+                        } else if !recording && !state.ignore_next_release.load(Ordering::SeqCst) {
                             start_recording_session(app_handle.clone()).await;
                         }
                     } else {
