@@ -481,6 +481,19 @@ fn merge_transcripts(left: &str, right: &str) -> (String, usize) {
 
     let left_tokens: Vec<&str> = left.split_whitespace().collect();
     let right_tokens: Vec<&str> = right.split_whitespace().collect();
+
+    // A segment entirely contained in the committed text is a repetition
+    // (e.g. the user said the same word twice, or the decoder echoed an
+    // earlier phrase): keep the longer string instead of duplicating the
+    // contained words ("world" + "hello world" must not become
+    // "world hello world").
+    if contains_token_sequence(&left_tokens, &right_tokens) {
+        return (left.to_string(), right_tokens.len());
+    }
+    if contains_token_sequence(&right_tokens, &left_tokens) {
+        return (right.to_string(), left_tokens.len());
+    }
+
     let max_overlap = left_tokens.len().min(right_tokens.len()).min(16);
     let overlap = (1..=max_overlap).rev().find(|&count| {
         left_tokens[left_tokens.len() - count..]
@@ -500,6 +513,21 @@ fn merge_transcripts(left: &str, right: &str) -> (String, usize) {
         ),
         None => (format!("{left} {right}"), 0),
     }
+}
+
+fn contains_token_sequence(haystack: &[&str], needle: &[&str]) -> bool {
+    if needle.is_empty() {
+        return true;
+    }
+    if needle.len() > haystack.len() {
+        return false;
+    }
+    haystack.windows(needle.len()).any(|window| {
+        window
+            .iter()
+            .zip(needle)
+            .all(|(a, b)| normalize_token(a).eq(&normalize_token(b)) && !normalize_token(a).is_empty())
+    })
 }
 
 fn normalize_token(token: &str) -> String {

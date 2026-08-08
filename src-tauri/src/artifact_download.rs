@@ -75,7 +75,7 @@ fn parse_content_range(value: &str) -> Result<ParsedContentRange, String> {
     Ok(ParsedContentRange { start, end, total })
 }
 
-fn sha256_file(path: &Path) -> Result<String, String> {
+pub(crate) fn sha256_file(path: &Path) -> Result<String, String> {
     let mut file = std::fs::File::open(path).map_err(|error| {
         format!(
             "Failed to open artifact '{}' for verification: {error}",
@@ -400,7 +400,22 @@ where
         })?;
         downloaded = offset;
 
+        // The per-chunk stall timeout only catches a fully dead link; a server
+        // dribbling one byte every few seconds would otherwise keep the
+        // download (and its progress UI) alive forever. A size-proportional
+        // wall-clock budget turns such a link into a bounded failure (C12).
+        let budget_secs = (spec.expected_size / 100_000).max(300);
+        let overall_deadline = std::time::Instant::now() + std::time::Duration::from_secs(budget_secs);
+
         loop {
+            if std::time::Instant::now() >= overall_deadline {
+                let _ = file.flush().await;
+                return Err(format!(
+                    "Download of '{}' exceeded its overall time budget ({budget_secs} seconds); \
+                     the link is too slow or stalled; partial data was kept",
+                    spec.label
+                ));
+            }
             if is_cancelled() {
                 drop(file);
                 cleanup_cancelled_partial(&partial, spec.label).await?;

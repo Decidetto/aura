@@ -2,7 +2,7 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -21,6 +21,12 @@ const WAV_WRITE_BUFFER_BYTES: usize = 256 * 1024;
 
 pub struct AudioRecorder {
     state: Mutex<Option<ActiveRecording>>,
+    /// True while a `start_recording` call has spawned its worker but not yet
+    /// claimed `state`, and briefly after a startup timeout while the
+    /// abandoned worker may still be opening the device. A second start in
+    /// that window would open a concurrent stream on the same device; refuse
+    /// it instead (C13).
+    starting: AtomicBool,
 }
 
 struct ActiveRecording {
@@ -391,6 +397,7 @@ impl AudioRecorder {
     pub fn new() -> Self {
         Self {
             state: Mutex::new(None),
+            starting: AtomicBool::new(false),
         }
     }
 
@@ -400,6 +407,29 @@ impl AudioRecorder {
     /// handle never crosses a thread boundary. The callback uses a bounded queue
     /// and never waits for resampling, disk I/O, Tauri events, or a mutex.
     pub fn start_recording<F>(
+        &self,
+        output_path: &str,
+        enable_sample_stream: bool,
+        retain_samples_for_preview: bool,
+        on_volume: F,
+    ) -> Result<(), String>
+    where
+        F: Fn(f32) + Send + 'static,
+    {
+        if self.starting.swap(true, Ordering::SeqCst) {
+            return Err("Audio recorder start is already in progress".to_string());
+        }
+        let result = self.start_recording_impl(
+            output_path,
+            enable_sample_stream,
+            retain_samples_for_preview,
+            on_volume,
+        );
+        self.starting.store(false, Ordering::SeqCst);
+        result
+    }
+
+    fn start_recording_impl<F>(
         &self,
         output_path: &str,
         enable_sample_stream: bool,
@@ -631,17 +661,36 @@ fn recorder_worker(
         }
     };
 
-    while let Ok(chunk) = sample_rx.recv() {
-        if let Err(error) = append_audio_chunk(
-            chunk,
-            &shared,
-            sample_stream.as_ref(),
-            &mut resampler,
-            &mut wav_writer,
-            on_volume.as_ref(),
-        ) {
-            remember_runtime_error(&shared, &error);
-            return Err(error);
+    // Drain up to 2 seconds of tail chunks. An unbounded `recv()` here would
+    // hang forever if the audio device fails to release the callback on stop
+    // (driver hang), leaving the session stuck on "processing" (C13).
+    let drain_deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    loop {
+        if std::time::Instant::now() >= drain_deadline {
+            crate::logger::log(
+                "WARN",
+                "Audio",
+                None,
+                "Audio tail drain timed out; dropping remaining buffered chunks",
+            );
+            break;
+        }
+        match sample_rx.recv_timeout(std::time::Duration::from_millis(250)) {
+            Ok(chunk) => {
+                if let Err(error) = append_audio_chunk(
+                    chunk,
+                    &shared,
+                    sample_stream.as_ref(),
+                    &mut resampler,
+                    &mut wav_writer,
+                    on_volume.as_ref(),
+                ) {
+                    remember_runtime_error(&shared, &error);
+                    return Err(error);
+                }
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Err(mpsc::RecvTimeoutError::Disconnected) => break,
         }
     }
 

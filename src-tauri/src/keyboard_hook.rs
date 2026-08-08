@@ -1,11 +1,13 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-#[cfg(target_os = "macos")]
-use std::sync::Mutex;
-use std::sync::OnceLock;
-
-static CALLBACK: OnceLock<Box<dyn Fn(bool) + Send + Sync>> = OnceLock::new();
-static CANCEL_CALLBACK: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
-static USER_INPUT_CALLBACK: OnceLock<Box<dyn Fn() + Send + Sync>> = OnceLock::new();
+use std::sync::{Arc, Mutex};
+/// Re-assignable callback registries (C14): a failed hook installation must
+/// not permanently occupy its slot or recovery becomes impossible. The
+/// callback is taken out for the duration of each invocation and put back.
+type HotkeyCallback = Box<dyn Fn(bool) + Send + Sync>;
+type CancelCallback = Box<dyn Fn() + Send + Sync>;
+static CALLBACK: Mutex<Option<HotkeyCallback>> = Mutex::new(None);
+static CANCEL_CALLBACK: Mutex<Option<CancelCallback>> = Mutex::new(None);
+static USER_INPUT_CALLBACK: Mutex<Option<CancelCallback>> = Mutex::new(None);
 static RECORDING_ACTIVE: AtomicBool = AtomicBool::new(false);
 static SHORTCUT_ACTIVE: AtomicBool = AtomicBool::new(false);
 static KEY_SUPPRESSED: AtomicBool = AtomicBool::new(false);
@@ -20,9 +22,13 @@ pub fn set_cancel_callback<F>(callback: F) -> Result<(), &'static str>
 where
     F: Fn() + Send + Sync + 'static,
 {
-    CANCEL_CALLBACK
-        .set(Box::new(callback))
-        .map_err(|_| "Cancel callback is already initialized")
+    match CANCEL_CALLBACK.lock() {
+        Ok(mut guard) => {
+            *guard = Some(Box::new(callback));
+            Ok(())
+        }
+        Err(_) => Err("Cancel callback registry is poisoned"),
+    }
 }
 
 /// Registers a callback for non-injected physical keyboard input that was not
@@ -32,20 +38,77 @@ pub fn set_user_input_callback<F>(callback: F) -> Result<(), &'static str>
 where
     F: Fn() + Send + Sync + 'static,
 {
-    USER_INPUT_CALLBACK
-        .set(Box::new(callback))
-        .map_err(|_| "User-input callback is already initialized")
+    match USER_INPUT_CALLBACK.lock() {
+        Ok(mut guard) => {
+            *guard = Some(Box::new(callback));
+            Ok(())
+        }
+        Err(_) => Err("User-input callback registry is poisoned"),
+    }
 }
 
 fn notify_user_input() {
-    if let Some(callback) = USER_INPUT_CALLBACK.get() {
-        if std::panic::catch_unwind(std::panic::AssertUnwindSafe(callback)).is_err() {
-            crate::logger::log(
-                "ERROR",
-                "Hotkey",
-                None,
-                "User-input callback panicked; the panic was contained at the OS hook boundary",
-            );
+    invoke_fn_callback(&USER_INPUT_CALLBACK, || {
+        crate::logger::log(
+            "ERROR",
+            "Hotkey",
+            None,
+            "User-input callback panicked; the panic was contained at the OS hook boundary",
+        )
+    })
+}
+
+/// Takes a registered callback out for the duration of its invocation and
+/// puts it back afterwards, so registration stays replaceable and the call
+/// itself cannot deadlock on its own registry.
+fn invoke_fn_callback(registry: &Mutex<Option<CancelCallback>>, on_panic: impl FnOnce()) {
+    let callback = match registry.lock() {
+        Ok(mut guard) => guard.take(),
+        Err(_) => {
+            on_panic();
+            return;
+        }
+    };
+    let Some(callback) = callback else { return };
+    // Arc lets the callback be invoked by value into catch_unwind while the
+    // original stays here to be put back into the registry afterwards.
+    let callback = Arc::new(callback);
+    let invoke_arc = Arc::clone(&callback);
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || invoke_arc()));
+    if outcome.is_err() {
+        on_panic();
+    }
+    if let Ok(mut guard) = registry.lock() {
+        if let Ok(callback) = Arc::try_unwrap(callback) {
+            *guard = Some(callback);
+        }
+    }
+}
+
+fn invoke_bool_callback(
+    registry: &Mutex<Option<HotkeyCallback>>,
+    is_down: bool,
+    on_panic: impl FnOnce(),
+) {
+    let callback = match registry.lock() {
+        Ok(mut guard) => guard.take(),
+        Err(_) => {
+            on_panic();
+            return;
+        }
+    };
+    let Some(callback) = callback else { return };
+    let callback = Arc::new(callback);
+    let invoke_arc = Arc::clone(&callback);
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+        invoke_arc(is_down)
+    }));
+    if outcome.is_err() {
+        on_panic();
+    }
+    if let Ok(mut guard) = registry.lock() {
+        if let Ok(callback) = Arc::try_unwrap(callback) {
+            *guard = Some(callback);
         }
     }
 }
@@ -67,8 +130,10 @@ mod windows_impl {
         WM_SYSKEYDOWN, WM_SYSKEYUP,
     };
 
-    static HOTKEY_MODIFIER_VK: AtomicU32 = AtomicU32::new(18); // VK_MENU (Alt)
-    static HOTKEY_KEY_VK: AtomicU32 = AtomicU32::new(0x56); // VK_V (V)
+    /// The configured hotkey packed into one word: (modifier_vk << 16) | key_vk.
+    /// A single store/load means the hook thread can never observe a torn
+    /// pair while settings are being saved (C14).
+    static HOTKEY_PAIR: AtomicU32 = AtomicU32::new((18 << 16) | 0x56); // Alt+V
 
     const VK_ESCAPE: u32 = 0x1B;
 
@@ -205,46 +270,43 @@ mod windows_impl {
         let (modifier, key) =
             parse_hotkey(hotkey_str).ok_or_else(|| format!("Unsupported hotkey: {hotkey_str}"))?;
 
-        HOTKEY_MODIFIER_VK.store(modifier, Ordering::SeqCst);
-        HOTKEY_KEY_VK.store(key, Ordering::SeqCst);
+        HOTKEY_PAIR.store((modifier << 16) | key, Ordering::SeqCst);
         SHORTCUT_ACTIVE.store(false, Ordering::SeqCst);
         KEY_SUPPRESSED.store(false, Ordering::SeqCst);
         Ok(())
     }
 
     fn notify_hotkey(is_down: bool) {
-        if let Some(callback) = CALLBACK.get() {
-            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| callback(is_down))).is_err()
-            {
-                crate::logger::log(
-                    "ERROR",
-                    "Hotkey",
-                    None,
-                    "Hotkey callback panicked; the panic was contained at the WinAPI boundary",
-                );
-            }
-        }
+        invoke_bool_callback(&CALLBACK, is_down, || {
+            crate::logger::log(
+                "ERROR",
+                "Hotkey",
+                None,
+                "Hotkey callback panicked; the panic was contained at the WinAPI boundary",
+            )
+        });
     }
 
     fn notify_cancel() {
-        if let Some(callback) = CANCEL_CALLBACK.get() {
-            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(callback)).is_err() {
-                crate::logger::log(
-                    "ERROR",
-                    "Hotkey",
-                    None,
-                    "Cancel callback panicked; the panic was contained at the WinAPI boundary",
-                );
-            }
-        }
+        invoke_fn_callback(&CANCEL_CALLBACK, || {
+            crate::logger::log(
+                "ERROR",
+                "Hotkey",
+                None,
+                "Cancel callback panicked; the panic was contained at the WinAPI boundary",
+            )
+        });
     }
 
     pub fn start_hook<F>(callback: F) -> Result<(), String>
     where
         F: Fn(bool) + Send + Sync + 'static,
     {
-        if CALLBACK.set(Box::new(callback)).is_err() {
-            return Err("Hook callback is already initialized".to_string());
+        {
+            let mut guard = CALLBACK
+                .lock()
+                .map_err(|_| "Hook callback registry is poisoned".to_string())?;
+            *guard = Some(Box::new(callback));
         }
 
         let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
@@ -317,8 +379,9 @@ mod windows_impl {
                 return 1; // Suppress Esc
             }
 
-            let modifier_vk = HOTKEY_MODIFIER_VK.load(Ordering::SeqCst);
-            let key_vk = HOTKEY_KEY_VK.load(Ordering::SeqCst);
+            let packed_hotkey = HOTKEY_PAIR.load(Ordering::SeqCst);
+            let modifier_vk = packed_hotkey >> 16;
+            let key_vk = packed_hotkey & 0xFFFF;
 
             let is_modifier = is_modifier_key(vk_code, modifier_vk);
             let is_target_key = vk_code == key_vk;
@@ -615,8 +678,11 @@ mod macos_impl {
     where
         F: Fn(bool) + Send + Sync + 'static,
     {
-        if CALLBACK.set(Box::new(callback)).is_err() {
-            return Err("Hook callback is already initialized".to_string());
+        {
+            let mut guard = CALLBACK
+                .lock()
+                .map_err(|_| "Hook callback registry is poisoned".to_string())?;
+            *guard = Some(Box::new(callback));
         }
 
         let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
@@ -686,30 +752,25 @@ mod macos_impl {
     }
 
     fn notify_hotkey(is_down: bool) {
-        if let Some(callback) = CALLBACK.get() {
-            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| callback(is_down))).is_err()
-            {
-                crate::logger::log(
-                    "ERROR",
-                    "Hotkey",
-                    None,
-                    "Hotkey callback panicked; the panic was contained at the macOS FFI boundary",
-                );
-            }
-        }
+        invoke_bool_callback(&CALLBACK, is_down, || {
+            crate::logger::log(
+                "ERROR",
+                "Hotkey",
+                None,
+                "Hotkey callback panicked; the panic was contained at the macOS FFI boundary",
+            )
+        });
     }
 
     fn notify_cancel() {
-        if let Some(callback) = CANCEL_CALLBACK.get() {
-            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(callback)).is_err() {
-                crate::logger::log(
-                    "ERROR",
-                    "Hotkey",
-                    None,
-                    "Cancel callback panicked; the panic was contained at the macOS FFI boundary",
-                );
-            }
-        }
+        invoke_fn_callback(&CANCEL_CALLBACK, || {
+            crate::logger::log(
+                "ERROR",
+                "Hotkey",
+                None,
+                "Cancel callback panicked; the panic was contained at the macOS FFI boundary",
+            )
+        });
     }
 
     unsafe extern "C" fn macos_event_tap_callback(
