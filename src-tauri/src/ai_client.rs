@@ -59,18 +59,34 @@ fn windows_system_proxy() -> Option<String> {
 }
 
 /// Shared HTTP client: system proxy support + sane timeouts so a dead
-/// connection fails with an error instead of hanging forever.
+/// connection fails with an error instead of hanging forever. The total
+/// budget is 15 minutes: it must cover uploading a long recording to the
+/// cloud AND the server's transcription time, both of which grow with the
+/// audio length (300 s was too tight for 10-minute dictations on slower
+/// uplinks and killed the request mid-flight).
 pub fn build_http_client() -> reqwest::Client {
     let mut builder = reqwest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(20))
-        .timeout(std::time::Duration::from_secs(300));
+        .timeout(std::time::Duration::from_secs(900));
     if let Some(proxy_url) = windows_system_proxy() {
         eprintln!("Aura Dev Log: Using Windows system proxy: {}", proxy_url);
         if let Ok(proxy) = reqwest::Proxy::all(&proxy_url) {
             builder = builder.proxy(proxy);
         }
     }
-    builder.build().unwrap_or_else(|_| reqwest::Client::new())
+    match builder.build() {
+        Ok(client) => client,
+        Err(error) => {
+            // A malformed proxy URL must not silently bypass the configured
+            // timeouts with a bare default client.
+            eprintln!("Aura Dev Log: HTTP client build failed ({error}); falling back to default");
+            reqwest::Client::builder()
+                .connect_timeout(std::time::Duration::from_secs(20))
+                .timeout(std::time::Duration::from_secs(900))
+                .build()
+                .unwrap_or_else(|_| reqwest::Client::new())
+        }
+    }
 }
 
 /// HTTP client strictly for downloading large files (like AI models).

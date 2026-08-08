@@ -1451,7 +1451,9 @@ fn start_parakeet_server_unlocked<R: Runtime>(
         format!("--tokens={}", short_tokens.to_string_lossy()),
         "--feat-dim=128".to_string(),
         format!("--num-work-threads={threads}"),
-        "--max-utterance-length=660".to_string(),
+        // 660 s (11 min) made the server reject any dictation longer than 11
+        // minutes with "message too big"; 1200 s covers ~20-minute sessions.
+        "--max-utterance-length=1200".to_string(),
         format!("--log-file={}", log_file_path.to_string_lossy()),
     ];
 

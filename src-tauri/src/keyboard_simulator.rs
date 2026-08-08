@@ -253,6 +253,15 @@ mod windows_impl {
     fn restore_modifiers(released: &[u16]) {
         unsafe {
             for &vk in released {
+                // Only re-press a modifier that the OS still reports as
+                // released: if the user already physically pressed it again
+                // during the typing window, synthesizing a key-down with no
+                // matching key-up would stick the modifier for everyone
+                // (menu bars, shortcuts, selection).
+                let state = GetAsyncKeyState(vk as i32);
+                if (state as u16 & 0x8000) != 0 {
+                    continue;
+                }
                 let mut input = std::mem::zeroed::<INPUT>();
                 input.r#type = INPUT_KEYBOARD;
                 input.Anonymous.ki = KEYBDINPUT {
