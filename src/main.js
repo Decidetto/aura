@@ -1666,6 +1666,10 @@ function toggleSelectPanel(select) {
   const willOpen = !panel.classList.contains("open");
   closeSelectPanels();
   if (willOpen) {
+    // Values can change programmatically (loadSettings, engine switching)
+    // after the panel was built, so the accent mark must be re-synced
+    // against the current value every time the panel opens.
+    syncPanelSelection(select);
     panel.classList.add("open");
     select.setAttribute("aria-expanded", "true");
   }
