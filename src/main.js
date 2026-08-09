@@ -167,6 +167,7 @@ const i18nDict = {
     btn_copy_diagnostics: "Скопировать отчет диагностики",
     toast_diagnostics_copied: "Отчет диагностики скопирован в буфер обмена!",
     diag_speech_text_title: "Логирование текста речи (режим разработчика)",
+    diag_title: "Диагностика",
     diag_speech_text_desc: "Сохранять точный текст распознанной речи в диагностические логи. По умолчанию выключено для приватности.",
     diag_speech_text_checkbox: "Записывать текст речи в логи"
   },
@@ -326,6 +327,7 @@ const i18nDict = {
     btn_copy_diagnostics: "Copy Diagnostic Report",
     toast_diagnostics_copied: "Diagnostic report copied to clipboard!",
     diag_speech_text_title: "Log Speech Text (Developer Mode)",
+    diag_title: "Diagnostics",
     diag_speech_text_desc: "Include exact transcribed speech text in diagnostic logs. Disabled by default for privacy.",
     diag_speech_text_checkbox: "Include speech text in logs"
   },
@@ -485,6 +487,7 @@ const i18nDict = {
     btn_copy_diagnostics: "Diagnosebericht kopieren",
     toast_diagnostics_copied: "Diagnosebericht in Zwischenablage kopiert!",
     diag_speech_text_title: "Sprachtext protokollieren (Entwicklermodus)",
+    diag_title: "Diagnose",
     diag_speech_text_desc: "Exakten transkribierten Sprachtext in Diagnoseprotokollen speichern. Aus Datenschutzgründen standardmäßig deaktiviert.",
     diag_speech_text_checkbox: "Sprachtext in Protokolle aufnehmen"
   },
@@ -644,6 +647,7 @@ const i18nDict = {
     btn_copy_diagnostics: "Copiar informe de diagnóstico",
     toast_diagnostics_copied: "¡Informe de diagnóstico copiado al portapapeles!",
     diag_speech_text_title: "Registrar texto de voz (Modo desarrollador)",
+    diag_title: "Diagnóstico",
     diag_speech_text_desc: "Incluir texto de voz transcrito exacto en los registros de diagnóstico. Desactivado por defecto por privacidad.",
     diag_speech_text_checkbox: "Incluir texto de voz en los registros"
   },
@@ -803,6 +807,7 @@ const i18nDict = {
     btn_copy_diagnostics: "Copier le rapport de diagnostic",
     toast_diagnostics_copied: "Rapport de diagnostic copié dans le presse-papiers !",
     diag_speech_text_title: "Consigner le texte vocal (Mode développeur)",
+    diag_title: "Diagnostic",
     diag_speech_text_desc: "Inclure le texte vocal transcrit exact dans les journaux de diagnostic. Désactivé par défaut par confidentialité.",
     diag_speech_text_checkbox: "Inclure le texte vocal dans les journaux"
   },
@@ -962,6 +967,7 @@ const i18nDict = {
     btn_copy_diagnostics: "Copia rapporto diagnostico",
     toast_diagnostics_copied: "Rapporto diagnostico copiato negli appunti!",
     diag_speech_text_title: "Registra testo vocale (Modalità sviluppatore)",
+    diag_title: "Diagnostica",
     diag_speech_text_desc: "Include il testo vocale trascritto esatto nei log di diagnostica. Disattivato di default per la privacy.",
     diag_speech_text_checkbox: "Includi testo vocale nei log"
   },
@@ -1121,6 +1127,7 @@ const i18nDict = {
     btn_copy_diagnostics: "复制诊断报告",
     toast_diagnostics_copied: "诊断报告已复制到剪贴板！",
     diag_speech_text_title: "记录语音文本（开发者模式）",
+    diag_title: "诊断",
     diag_speech_text_desc: "在诊断日志中包含精确的语音转写文本。出于隐私原因默认禁用。",
     diag_speech_text_checkbox: "在日志中包含语音文本"
   },
@@ -1280,6 +1287,7 @@ const i18nDict = {
     btn_copy_diagnostics: "Copiar relatório de diagnóstico",
     toast_diagnostics_copied: "Relatório de diagnóstico copiado para a área de transferência!",
     diag_speech_text_title: "Registrar texto de voz (Modo desenvolvedor)",
+    diag_title: "Diagnóstico",
     diag_speech_text_desc: "Incluir texto de voz transcrito exato nos logs de diagnóstico. Desativado por padrão por privacidade.",
     diag_speech_text_checkbox: "Incluir texto de voz nos logs"
   },
@@ -1439,6 +1447,7 @@ const i18nDict = {
     btn_copy_diagnostics: "Teşhis Raporunu Kopyala",
     toast_diagnostics_copied: "Teşhis raporu panoya kopyalandı!",
     diag_speech_text_title: "Konuşma Metnini Günlüğe Kaydet (Geliştirici Modu)",
+    diag_title: "Teşhis",
     diag_speech_text_desc: "Teşhis günlüklerine tam transkribe edilmiş konuşma metnini dahil et. Gizlilik nedeniyle varsayılan olarak devre dışıdır.",
     diag_speech_text_checkbox: "Konuşma metnini günlüklere dahil et"
   }
@@ -1508,7 +1517,6 @@ function updateEngineUI() {
       if (localEngineSection) localEngineSection.style.display = "flex";
       updateLocalEngineUI();
       if (fallbackCard) fallbackCard.style.display = "none";
-      if (langCard) langCard.style.display = "flex";
     } else {
       if (localEngineSection) localEngineSection.style.display = "none";
       if (vocabCard) vocabCard.style.display = "flex";
