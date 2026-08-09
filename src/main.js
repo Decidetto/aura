@@ -1746,7 +1746,10 @@ function movePanelFocus(select, direction) {
 function handleSelectMousedown(event) {
   if (event.button !== 0) return;
   event.preventDefault();
-  toggleSelectPanel(event.currentTarget);
+  const select = event.currentTarget
+    .closest(".select-wrap")
+    ?.querySelector("select.custom-select[data-preview]");
+  if (select) toggleSelectPanel(select);
 }
 
 function handleSelectKeydown(event) {
@@ -1783,7 +1786,13 @@ function handleSelectKeydown(event) {
 
 function initSelectPanels() {
   document.querySelectorAll("select.custom-select[data-preview]").forEach((select) => {
-    select.addEventListener("mousedown", handleSelectMousedown);
+    const wrap = select.closest(".select-wrap");
+    if (!wrap) return;
+    const catcher = document.createElement("div");
+    catcher.className = "select-catcher";
+    catcher.setAttribute("aria-hidden", "true");
+    wrap.insertBefore(catcher, select);
+    catcher.addEventListener("mousedown", handleSelectMousedown);
     select.addEventListener("keydown", handleSelectKeydown);
   });
   document.addEventListener("mousedown", (event) => {

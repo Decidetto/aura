@@ -459,6 +459,15 @@ body {
   position: relative;
 }
 
+/* Transparent click-catcher over the native select: the system dropdown never
+   receives a click, so only the custom panel can open. */
+.select-catcher {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  cursor: pointer;
+}
+
 .select-panel {
   position: absolute;
   top: calc(100% + 6px);
