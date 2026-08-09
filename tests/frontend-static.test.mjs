@@ -76,10 +76,8 @@ test("frontend uses redacted key metadata and write-only provider-key IPC", () =
   assert.match(main, /invoke\("set_provider_key"/);
   assert.doesNotMatch(settingsLiteral, /api_key(?:_gemini|_openai|_groq)?\s*:/);
   assert.match(html, /id="checkbox-selection-edit-enabled"/);
-  const dictionaries = parseI18nDictionaries();
-  assert.match(html, /data-i18n="cloud_data_desc"/);
-  assert.match(dictionaries.en.cloud_data_desc, /audio[^.]*transcript[^.]*selected text[^.]*dictionary/i);
-  assert.match(html, /value="parakeet"[^>]*disabled/);
+  assert.doesNotMatch(html, /cloud_data_desc/);
+  assert.doesNotMatch(html, /value="parakeet"[^>]*disabled/);
 });
 
 
@@ -108,7 +106,7 @@ test("settings translations cover every supported locale without fallback gaps",
 
   const newlyLocalizedSettings = [
     "update_checks_title", "update_checks_desc", "update_checks_checkbox", "update_check_now",
-    "cloud_data_desc", "local_model_desc", "fallback_title",
+    "local_model_desc", "fallback_title",
     "copy_context_title", "copy_context_desc", "copy_context_checkbox",
     "gpu_accel_label", "gpu_accel_cpu_title", "gpu_accel_cpu_desc",
     "gpu_accel_cuda_title", "gpu_accel_cuda_desc", "gpu_accel_dml_title", "gpu_accel_dml_desc",
@@ -128,7 +126,7 @@ test("settings translations cover every supported locale without fallback gaps",
   const generalPanel = html.match(/id="panel-general"[\s\S]*?id="panel-speech"/)?.[0] ?? "";
   const aboutPanel = html.match(/id="panel-about"[\s\S]*?<\/section>/)?.[0] ?? "";
   assert.doesNotMatch(generalPanel, /cloud_data_desc|Какие данные использует облачный режим/);
-  assert.match(aboutPanel, /data-i18n="cloud_data_desc"/);
+  assert.doesNotMatch(aboutPanel, /cloud_data_desc/);
   assert.doesNotMatch(read("src/main.js") + html, /�/);
   assert.match(read("src/main.js"), /getTranslation\("update_current"\)/);
   assert.match(read("src/main.js"), /getTranslation\("update_installing"\)/);
