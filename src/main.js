@@ -1512,6 +1512,7 @@ function updateEngineUI() {
     const fallbackCard = document.getElementById("card-cloud-fallback");
     const streamingCard = document.getElementById("card-streaming");
     const langCard = document.getElementById("card-language");
+    const recognitionLabel = document.getElementById("section-label-recognition");
     const localEngineSection = document.getElementById("local-engine-section");
     if (radioLocal.checked) {
       if (localEngineSection) localEngineSection.style.display = "flex";
@@ -1523,6 +1524,7 @@ function updateEngineUI() {
       if (vocabLabel) vocabLabel.style.display = "block";
       if (fallbackCard) fallbackCard.style.display = "flex";
       if (langCard) langCard.style.display = "flex";
+      if (recognitionLabel) recognitionLabel.style.display = "block";
       if (streamingCard) streamingCard.style.display = "none";
     }
   }
@@ -1536,6 +1538,8 @@ function updateLocalEngineUI() {
     if (vocabLabel) vocabLabel.style.display = isParakeet ? "none" : "block";
     const langCard = document.getElementById("card-language");
     if (langCard) langCard.style.display = isParakeet ? "none" : "flex";
+    const recognitionLabel = document.getElementById("section-label-recognition");
+    if (recognitionLabel) recognitionLabel.style.display = isParakeet ? "none" : "block";
     const streamingCard = document.getElementById("card-streaming");
     if (streamingCard) streamingCard.style.display = isParakeet ? "flex" : "none";
     const gpuSettings = document.getElementById("gpu-acceleration-settings");

@@ -447,19 +447,6 @@ body {
   gap: 14px;
 }
 
-.about-setting-card {
-  width: 100%;
-  max-width: 460px;
-  margin: 18px auto 6px;
-  text-align: left;
-}
-
-.about-card .btn-secondary {
-  width: 100%;
-  margin-top: 14px;
-  max-width: 460px;
-}
-
 .field-label {
   font-family: var(--font-display);
   font-weight: 600;
