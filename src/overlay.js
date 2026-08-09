@@ -387,6 +387,18 @@ const processingTranslations = {
 };
 
 const noticeTranslations = {
+  "Cloud unavailable — used local model instead": {
+    ru: "Облако недоступно — использована локальная модель",
+    en: "Cloud unavailable — used local model instead",
+    de: "Cloud nicht verfügbar — lokales Modell verwendet",
+    fr: "Cloud indisponible — modèle local utilisé",
+    it: "Cloud non disponibile — usato il modello locale",
+    es: "Cloud no disponible: se usó el modelo local",
+    pt: "Cloud indisponível — modelo local usado",
+    zh: "云端不可用 — 已改用本地模型",
+    ja: "クラウドが利用できないため、ローカルモデルを使用しました",
+    tr: "Cloud kullanılamıyor — yerel model kullanıldı"
+  },
   "final-copied-after-edit": {
     ru: "Финальный текст скопирован",
     en: "Final text copied",
@@ -402,6 +414,18 @@ const noticeTranslations = {
 };
 
 const errorTranslations = {
+  "Access forbidden (403): VPN/proxy IP is blocked. Turn off the VPN for Groq/OpenAI or switch server": {
+    ru: "Доступ запрещён (403): IP VPN/прокси заблокирован. Отключите VPN для Groq/OpenAI или смените сервер",
+    en: "Access forbidden (403): VPN/proxy IP is blocked. Turn off the VPN for Groq/OpenAI or switch server",
+    de: "Zugriff verboten (403): VPN/Proxy-IP ist blockiert. Deaktivieren Sie das VPN für Groq/OpenAI oder wechseln Sie den Server",
+    fr: "Accès refusé (403) : l'IP VPN/proxy est bloquée. Désactivez le VPN pour Groq/OpenAI ou changez de serveur",
+    it: "Accesso vietato (403): IP VPN/proxy bloccato. Disattiva la VPN per Groq/OpenAI o cambia server",
+    es: "Acceso denegado (403): la IP de VPN/proxy está bloqueada. Desactive la VPN para Groq/OpenAI o cambie de servidor",
+    pt: "Acesso proibido (403): IP de VPN/proxy bloqueada. Desative a VPN para Groq/OpenAI ou mude de servidor",
+    zh: "访问被拒绝 (403)：VPN/代理 IP 已被封禁。请为 Groq/OpenAI 关闭 VPN 或更换服务器",
+    ja: "アクセス禁止 (403): VPN/プロキシのIPがブロックされています。Groq/OpenAIでVPNを無効にするか、サーバーを変更してください",
+    tr: "Erişim engellendi (403): VPN/proxy IP'si bloklanmış. Groq/OpenAI için VPN'i kapatın veya sunucuyu değiştirin"
+  },
   "Microphone start error": {
     ru: "Ошибка запуска микрофона",
     en: "Microphone start error",
@@ -531,7 +555,7 @@ const errorTranslations = {
     es: "Saldo de la clave API agotado",
     pt: "Saldo da chave API esgotado",
     zh: "API 密钥余额不足",
-    ja: "APIキー of 残高が不足しています",
+    ja: "APIキーの残高が不足しています",
     tr: "API anahtar bakiyesi tükendi"
   }
 };

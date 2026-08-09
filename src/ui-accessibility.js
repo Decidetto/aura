@@ -40,12 +40,3 @@ export function bindTabKeyboardNavigation(tabs, activate) {
     });
   });
 }
-
-/**
- * Keeps screen-reader pronunciation aligned with the selected UI language.
- * @param {string} language
- */
-export function setDocumentLanguage(language) {
-  const supported = new Set(["ru", "en", "de", "es", "fr", "it", "zh", "pt", "tr"]);
-  document.documentElement.lang = supported.has(language) ? language : "ru";
-}
