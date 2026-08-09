@@ -80,8 +80,6 @@ test("frontend uses redacted key metadata and write-only provider-key IPC", () =
   assert.match(html, /data-i18n="cloud_data_desc"/);
   assert.match(dictionaries.en.cloud_data_desc, /audio[^.]*transcript[^.]*selected text[^.]*dictionary/i);
   assert.match(html, /value="parakeet"[^>]*disabled/);
-  assert.match(html, /data-i18n="model_integrity_desc"/);
-  assert.match(dictionaries.en.model_integrity_desc, /source[^.]*size[^.]*SHA-256/i);
 });
 
 
@@ -110,7 +108,7 @@ test("settings translations cover every supported locale without fallback gaps",
 
   const newlyLocalizedSettings = [
     "update_checks_title", "update_checks_desc", "update_checks_checkbox", "update_check_now",
-    "model_integrity_desc", "cloud_data_desc", "local_model_desc", "fallback_title",
+    "cloud_data_desc", "local_model_desc", "fallback_title",
     "copy_context_title", "copy_context_desc", "copy_context_checkbox",
     "gpu_accel_label", "gpu_accel_cpu_title", "gpu_accel_cpu_desc",
     "gpu_accel_cuda_title", "gpu_accel_cuda_desc", "gpu_accel_dml_title", "gpu_accel_dml_desc",
