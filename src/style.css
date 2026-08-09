@@ -424,7 +424,6 @@ body {
   margin-top: 8px;
   padding: 8px 12px;
   border: 1px solid var(--border-color);
-  border-left: 2px solid var(--accent-color);
   border-radius: var(--radius-sm);
   background-color: rgba(var(--accent-color-rgb), 0.05);
 }
