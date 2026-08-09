@@ -1541,13 +1541,8 @@ const SELECT_PREVIEW_DEFS = {
   "select-local-engine": {
     byValue: { whisper: "engine_whisper", parakeet: "engine_parakeet" }
   },
-  "select-ui-lang": {
-    defaultKey: "ui_lang"
-  },
   "select-language": {
-    byValue: { auto: "lang_auto", layout: "lang_layout" },
-    fallbackKey: "lang_forced",
-    fallbackParam: () => ({ lang: selectedOptionLabel(document.getElementById("select-language")) })
+    byValue: { auto: "lang_auto", layout: "lang_layout" }
   },
   "select-provider": {
     byValue: { gemini: "provider_gemini", openai: "provider_openai", groq: "provider_groq" }
@@ -1557,27 +1552,14 @@ const SELECT_PREVIEW_DEFS = {
   }
 };
 
-function selectedOptionLabel(select) {
-  if (!select) return "";
-  return select.selectedOptions.length ? select.selectedOptions[0].textContent.trim() : "";
-}
-
 function updateSelectPreview(select) {
   const def = SELECT_PREVIEW_DEFS[select.id];
   const textEl = document.getElementById(select.dataset.preview);
-  if (!def || !textEl) return;
-  const dict = SELECT_PREVIEW_TEXTS[currentLanguage] || SELECT_PREVIEW_TEXTS.ru;
-  let key;
-  if (def.byValue && def.byValue[select.value] !== undefined) key = def.byValue[select.value];
-  else if (def.defaultKey) key = def.defaultKey;
-  else if (def.fallbackKey) key = def.fallbackKey;
+  if (!def || !def.byValue || !textEl) return;
+  const key = def.byValue[select.value];
   if (!key) return;
-  let text = dict[key] ?? SELECT_PREVIEW_TEXTS.ru[key] ?? "";
-  const params = def.fallbackParam ? def.fallbackParam() : {};
-  for (const [name, value] of Object.entries(params)) {
-    text = text.split(`{${name}}`).join(value);
-  }
-  textEl.textContent = text;
+  const dict = SELECT_PREVIEW_TEXTS[currentLanguage] || SELECT_PREVIEW_TEXTS.ru;
+  textEl.textContent = dict[key] ?? SELECT_PREVIEW_TEXTS.ru[key] ?? "";
 }
 
 function updateAllSelectPreviews() {
@@ -1988,15 +1970,6 @@ const btnSaveSettings = document.getElementById("btn-save-settings");
   const btnResetHotkey = document.getElementById("btn-reset-hotkey");
   let isRecordingHotkey = false;
   let hasRecordedThisSession = false;
-
-  const allowedSpecialKeys = {
-    "Space": "Space",
-    " ": "Space",
-    "CapsLock": "Caps Lock",
-    "Tab": "Tab",
-    "F1": "F1", "F2": "F2", "F3": "F3", "F4": "F4", "F5": "F5", "F6": "F6",
-    "F7": "F7", "F8": "F8", "F9": "F9", "F10": "F10", "F11": "F11", "F12": "F12"
-  };
 
   if (selectHotkey) {
     selectHotkey.addEventListener("focus", () => {
@@ -2430,7 +2403,7 @@ modelCards.forEach(card => {
 
       const settings = {
         transcription_mode: radioLocal.checked ? "local" : "cloud",
-api_provider: selectProvider.value,
+        api_provider: selectProvider.value,
 
         model_name: selectedModelName,
         hotkey: selectHotkey ? selectHotkey.value : "Alt+V",
@@ -3033,7 +3006,7 @@ if (e.button === 0 && !e.target.closest(".window-control-btn") && !e.target.clos
         return;
       }
 
-historyContainer.innerHTML = "";
+      historyContainer.innerHTML = "";
       const fragment = document.createDocumentFragment();
 
       function formatHistoryDuration(ms) {
@@ -3049,7 +3022,7 @@ historyContainer.innerHTML = "";
         const dateStr = date.toLocaleDateString(currentLanguage, { month: 'short', day: 'numeric' });
         const displayTime = `${dateStr}, ${timeStr}`;
 
-const itemEl = document.createElement("div");
+        const itemEl = document.createElement("div");
         itemEl.className = "history-item";
 
         let badgeHtml;
