@@ -5,27 +5,38 @@
  */
 export function bindTabKeyboardNavigation(tabs, activate) {
   const items = Array.from(tabs);
+  const isVisible = (tab) => tab.offsetParent !== null;
+
+  const wrap = (index, step) => (index + step + items.length) % items.length;
+  const nextVisible = (fromIndex, step) => {
+    for (let count = 0; count < items.length; count += 1) {
+      const index = wrap(fromIndex, count * step);
+      if (isVisible(items[index])) return items[index];
+    }
+    return null;
+  };
 
   items.forEach((tab, index) => {
     tab.addEventListener("keydown", (event) => {
-      let nextIndex = index;
+      if (!isVisible(tab)) return;
+      let target = null;
 
       if (event.key === "ArrowDown" || event.key === "ArrowRight") {
-        nextIndex = (index + 1) % items.length;
+        target = nextVisible(index, 1);
       } else if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
-        nextIndex = (index - 1 + items.length) % items.length;
+        target = nextVisible(index, -1);
       } else if (event.key === "Home") {
-        nextIndex = 0;
+        target = nextVisible(0, 1);
       } else if (event.key === "End") {
-        nextIndex = items.length - 1;
+        target = nextVisible(items.length - 1, -1);
       } else {
         return;
       }
 
+      if (!target) return;
       event.preventDefault();
-      const nextTab = items[nextIndex];
-      nextTab.focus();
-      activate(nextTab);
+      target.focus();
+      activate(target);
     });
   });
 }
