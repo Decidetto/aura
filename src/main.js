@@ -16,8 +16,6 @@ const i18nDict = {
     tab_general: "Основные",
     tab_speech: "Голос",
     tab_hotkeys: "Управление",
-    tab_apikeys: "Облако",
-    section_cloud_functions: "Облачные функции",
     section_engine: "Движок",
     section_recognition: "Распознавание",
     section_input: "Ввод",
@@ -82,6 +80,7 @@ const i18nDict = {
     api_title: "Авторизация API-ключей",
     api_desc: "Укажите ваши API-ключи для авторизации в облачных сервисах Gemini, OpenAI или Groq.",
     api_provider: "Провайдер API",
+    section_cloud_ai: "Облачные ИИ",
     api_key: "API-ключ",
     api_key_placeholder: "Введите ваш API-ключ...",
     hotkey_prompt: "Нажмите клавиши...",
@@ -173,8 +172,6 @@ const i18nDict = {
     tab_general: "General",
     tab_speech: "Speech",
     tab_hotkeys: "Hotkeys",
-    tab_apikeys: "Cloud",
-    section_cloud_functions: "Cloud features",
     section_engine: "Recognition engine",
     section_recognition: "Recognition",
     section_input: "Input",
@@ -239,6 +236,7 @@ const i18nDict = {
     api_title: "API Keys Authorization",
     api_desc: "Provide API keys for Gemini, OpenAI, or Groq cloud services.",
     api_provider: "API Provider",
+    section_cloud_ai: "Cloud AI",
     api_key: "API Key",
     api_key_placeholder: "Enter your API key...",
     hotkey_prompt: "Press keys...",
@@ -337,8 +335,6 @@ const i18nDict = {
     tab_general: "Allgemein",
     tab_speech: "Diktat",
     tab_hotkeys: "Tastenkombinationen",
-    tab_apikeys: "Cloud",
-    section_cloud_functions: "Cloud-Funktionen",
     section_engine: "Erkennungsmodul",
     section_recognition: "Spracherkennung",
     section_input: "Eingabe",
@@ -400,6 +396,7 @@ const i18nDict = {
     api_title: "API-Schlüssel Autorisierung",
     api_desc: "Geben Sie Ihre API-Schlüssel für Gemini, OpenAI oder Groq Cloud-Dienste ein.",
     api_provider: "API-Provider",
+    section_cloud_ai: "Cloud-KI",
     api_key: "API-Schlüssel",
     api_key_placeholder: "Geben Sie Ihren API-Schlüssel ein...",
     hotkey_prompt: "Tasten drücken...",
@@ -487,8 +484,6 @@ const i18nDict = {
     tab_general: "General",
     tab_speech: "Voz",
     tab_hotkeys: "Accesos rápidos",
-    tab_apikeys: "Nube",
-    section_cloud_functions: "Funciones en la nube",
     section_engine: "Motor de reconocimiento",
     section_recognition: "Reconocimiento",
     section_input: "Entrada",
@@ -550,6 +545,7 @@ const i18nDict = {
     api_title: "Autorización de claves API",
     api_desc: "Introduzca sus claves API para los servicios en la nube de Gemini, OpenAI o Groq.",
     api_provider: "Proveedor de API",
+    section_cloud_ai: "IA en la nube",
     api_key: "Clave API",
     api_key_placeholder: "Introduzca su clave API...",
     hotkey_prompt: "Pulse las teclas...",
@@ -644,8 +640,6 @@ const i18nDict = {
     tab_general: "Général",
     tab_speech: "Dictée",
     tab_hotkeys: "Raccourcis",
-    tab_apikeys: "Cloud",
-    section_cloud_functions: "Fonctions cloud",
     section_engine: "Moteur de reconnaissance",
     section_recognition: "Reconnaissance",
     section_input: "Saisie",
@@ -707,6 +701,7 @@ const i18nDict = {
     api_title: "Clés d'API",
     api_desc: "Saisissez vos clés d'API pour les services Gemini, OpenAI ou Groq.",
     api_provider: "Fournisseur d'API",
+    section_cloud_ai: "IA cloud",
     api_key: "Clé d'API",
     api_key_placeholder: "Saisissez votre clé d'API...",
     hotkey_prompt: "Appuyez sur les touches...",
@@ -801,8 +796,6 @@ const i18nDict = {
     tab_general: "Generale",
     tab_speech: "Dettatura",
     tab_hotkeys: "Scorciatoie",
-    tab_apikeys: "Cloud",
-    section_cloud_functions: "Funzioni cloud",
     section_engine: "Motore di riconoscimento",
     section_recognition: "Riconoscimento",
     section_input: "Digitazione",
@@ -864,6 +857,7 @@ const i18nDict = {
     api_title: "Autorizzazione chiavi API",
     api_desc: "Inserisci le tue chiavi API per Gemini, OpenAI o Groq.",
     api_provider: "Provider API",
+    section_cloud_ai: "IA nel cloud",
     api_key: "Chiave API",
     api_key_placeholder: "Inserisci la tua chiave API...",
     hotkey_prompt: "Premi i tasti...",
@@ -958,8 +952,6 @@ const i18nDict = {
     tab_general: "常规",
     tab_speech: "语音",
     tab_hotkeys: "快捷键",
-    tab_apikeys: "云端",
-    section_cloud_functions: "云端功能",
     section_engine: "识别引擎",
     section_recognition: "识别",
     section_input: "输入",
@@ -1021,6 +1013,7 @@ const i18nDict = {
     api_title: "API 密钥授权",
     api_desc: "输入您在 Gemini、OpenAI 或 Groq 云端服务的 API 密钥。",
     api_provider: "API 供应商",
+    section_cloud_ai: "云端 AI",
     api_key: "API 密钥",
     api_key_placeholder: "在此输入您的 API 密钥...",
     hotkey_prompt: "按键...",
@@ -1115,8 +1108,6 @@ const i18nDict = {
     tab_general: "Geral",
     tab_speech: "Voz",
     tab_hotkeys: "Teclas de atalho",
-    tab_apikeys: "Cloud",
-    section_cloud_functions: "Recursos em nuvem",
     section_engine: "Motor de reconhecimento",
     section_recognition: "Reconhecimento",
     section_input: "Entrada",
@@ -1178,6 +1169,7 @@ const i18nDict = {
     api_title: "Autorização de chaves API",
     api_desc: "Insira suas chaves API para os serviços Gemini, OpenAI ou Groq.",
     api_provider: "Provedor de API",
+    section_cloud_ai: "IA na nuvem",
     api_key: "Chave API",
     api_key_placeholder: "Insira sua chave API...",
     hotkey_prompt: "Pressione as teclas...",
@@ -1272,8 +1264,6 @@ const i18nDict = {
     tab_general: "Genel",
     tab_speech: "Ses",
     tab_hotkeys: "Kısayollar",
-    tab_apikeys: "Bulut",
-    section_cloud_functions: "Bulut özellikleri",
     section_engine: "Tanıma motoru",
     section_recognition: "Tanıma",
     section_input: "Giriş",
@@ -1335,6 +1325,7 @@ const i18nDict = {
     api_title: "API Anahtarları Yetkilendirme",
     api_desc: "Gemini, OpenAI veya Groq bulut hizmetleri için API anahtarlarınızı girin.",
     api_provider: "API Sağlayıcısı",
+    section_cloud_ai: "Bulut yapay zekâsı",
     api_key: "API Anahtarı",
     api_key_placeholder: "API anahtarınızı buraya girin...",
     hotkey_prompt: "Tuşlara basın...",
@@ -1859,21 +1850,14 @@ function updateEngineUI() {
       if (recognitionLabel) recognitionLabel.style.display = "block";
       if (streamingCard) streamingCard.style.display = "none";
     }
-    // The "Облако" tab bundles API keys and cloud-only functions, so it is
-    // hidden in local mode. If it is the active tab, move to the speech tab.
-    const cloudTab = document.getElementById("tab-btn-apikeys");
-    if (cloudTab) {
-      const hideCloudTab = radioLocal.checked;
-      cloudTab.style.display = hideCloudTab ? "none" : "";
-      cloudTab.setAttribute("aria-hidden", String(hideCloudTab));
-      if (hideCloudTab) {
-        const cloudPanel = document.getElementById("panel-apikeys");
-        if (cloudPanel && cloudPanel.style.display !== "none") {
-          const speechTab = document.getElementById("tab-btn-speech");
-          if (speechTab) activateTab(speechTab);
-        }
-      }
-    }
+    // Cloud-only content (API keys + cloud functions) moved into the speech
+    // tab; it is shown only in cloud mode.
+    const cloudAiSection = document.getElementById("section-label-cloud-ai");
+    const apiKeysCard = document.getElementById("card-api-keys");
+    const cloudFunctionsCard = document.getElementById("card-cloud-functions");
+    if (cloudAiSection) cloudAiSection.style.display = radioLocal.checked ? "none" : "block";
+    if (apiKeysCard) apiKeysCard.style.display = radioLocal.checked ? "none" : "flex";
+    if (cloudFunctionsCard) cloudFunctionsCard.style.display = radioLocal.checked ? "none" : "flex";
   }
 
 function updateLocalEngineUI() {
@@ -2442,7 +2426,7 @@ modelCards.forEach(card => {
 
       const settings = {
         transcription_mode: radioLocal.checked ? "local" : "cloud",
-        api_provider: selectProvider.value,
+api_provider: selectProvider.value,
 
         model_name: selectedModelName,
         hotkey: selectHotkey ? selectHotkey.value : "Alt+V",
