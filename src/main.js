@@ -1445,6 +1445,189 @@ const i18nDict = {
 };
 
 let currentLanguage = "ru";
+const SELECT_PREVIEW_TEXTS = {
+  ru: {
+    engine_whisper: "Локальный движок на базе OpenAI Whisper. Полностью офлайн, модель выбирается ниже.",
+    engine_parakeet: "NVIDIA Parakeet — быстрый движок. Запускает собственный сервер на этом компьютере.",
+    lang_auto: "Aura определит язык по речи автоматически. Подходит для большинства случаев.",
+    lang_layout: "Язык выберется по активной раскладке клавиатуры в текущем окне.",
+    lang_forced: "Распознавание будет вестись на языке «{lang}» независимо от произношения.",
+    provider_gemini: "Gemini — высокая точность транскрипции и естественное редактирование текста.",
+    provider_openai: "OpenAI Whisper для расшифровки и GPT для очистки и редактирования.",
+    provider_groq: "Groq — быстрый Whisper на их серверах и Llama 3 для текста.",
+    ui_lang: "Язык интерфейса: настройки и уведомления приложения.",
+    theme_zen: "Поющие чаши — спокойный и мягкий звон.",
+    theme_rhodes: "Тёплый тон джазового электропианино.",
+    theme_scifi: "Синтезаторные сигналы с космическим настроением.",
+    theme_classic: "Классический колокольчик."
+  },
+  en: {
+    engine_whisper: "Local engine based on OpenAI Whisper. Fully offline; the model is selected below.",
+    engine_parakeet: "NVIDIA Parakeet — a faster engine. Runs its own server on this machine.",
+    lang_auto: "Aura detects the language from speech automatically. Good for most cases.",
+    lang_layout: "The language follows the active keyboard layout of the current window.",
+    lang_forced: "Recognition will be locked to «{lang}», no matter how you pronounce it.",
+    provider_gemini: "Gemini — high transcription accuracy and natural text editing.",
+    provider_openai: "OpenAI Whisper for transcription and GPT for cleaning and editing.",
+    provider_groq: "Groq — fast Whisper on their servers and Llama 3 for text.",
+    ui_lang: "UI language: app settings and notifications.",
+    theme_zen: "Tibetan bowls — a calm, soft ring.",
+    theme_rhodes: "Warm jazz electric-piano tone.",
+    theme_scifi: "Synthesizer signals with a space mood.",
+    theme_classic: "A classic doorbell chime."
+  },
+  de: {
+    engine_whisper: "Lokale Engine auf Basis von OpenAI Whisper. Völlig offline; das Modell wird unten gewählt.",
+    engine_parakeet: "NVIDIA Parakeet — schnellere Engine. Startet einen eigenen Server auf diesem Rechner.",
+    lang_auto: "Aura erkennt die Sprache automatisch an der Stimme. Für die meisten Fälle geeignet.",
+    lang_layout: "Die Sprache richtet sich nach dem aktiven Tastaturlayout des Fensters.",
+    lang_forced: "Erkennung läuft fest auf «{lang}», unabhängig von der Aussprache.",
+    provider_gemini: "Gemini — hohe Erkennungsgenauigkeit und natürliche Textbearbeitung.",
+    provider_openai: "OpenAI Whisper für die Transkription und GPT für Bereinigung und Bearbeitung.",
+    provider_groq: "Groq — schnelles Whisper auf ihren Servern und Llama 3 für Text.",
+    ui_lang: "Oberflächensprache: Einstellungen und Benachrichtigungen.",
+    theme_zen: "Klangschalen — ruhiger, sanfter Klang.",
+    theme_rhodes: "Warmer Jazz-E-Piano-Sound.",
+    theme_scifi: "Synthesizer-Signale mit Weltraumatmosphäre.",
+    theme_classic: "Klassische Türklingel."
+  },
+  es: {
+    engine_whisper: "Motor local basado en OpenAI Whisper. 100% sin conexión; el modelo se elige abajo.",
+    engine_parakeet: "NVIDIA Parakeet — motor más rápido. Ejecuta su propio servidor en este equipo.",
+    lang_auto: "Aura detecta el idioma desde la voz. Válido para la mayoría de los casos.",
+    lang_layout: "El idioma seguirá la distribución de teclado activa de la ventana.",
+    lang_forced: "El reconocimiento se fijará en «{lang}», sin importar la pronunciación.",
+    provider_gemini: "Gemini — alta precisión de transcripción y edición natural del texto.",
+    provider_openai: "OpenAI Whisper para transcribir y GPT para limpiar y editar.",
+    provider_groq: "Groq — Whisper rápido en sus servidores y Llama 3 para texto.",
+    ui_lang: "Idioma de la interfaz: configuración y notificaciones.",
+    theme_zen: "Cuencos tibetanos: un sonido tranquilo y suave.",
+    theme_rhodes: "Sonido cálido de piano eléctrico de Jazz.",
+    theme_scifi: "Señales de sintetizador con ambiente espacial.",
+    theme_classic: "Un timbre clásico de puerta."
+  },
+  fr: {
+    engine_whisper: "Moteur local basé sur OpenAI Whisper. Entièrement hors ligne, le modèle se choisit ci-dessous.",
+    engine_parakeet: "NVIDIA Parakeet — un moteur plus rapide. Lui-même un serveur sur cette machine.",
+    lang_auto: "Aura détecte la langue de la parole. Convient à la plupart des situations.",
+    lang_layout: "La langue suit la disposition de clavier active de la fenêtre.",
+    lang_forced: "La reconnaissance restera fixée sur «{lang}», quelle que soit la prononciation.",
+    provider_gemini: "Gemini — transcription précise et édition naturelle du texte.",
+    provider_openai: "OpenAI Whisper pour la transcription et GPT pour le nettoyage et l’édition.",
+    provider_groq: "Groq — Whisper rapide sur leurs serveurs et Llama 3 pour le texte.",
+    ui_lang: "Langue de l’interface : paramètres et notifications.",
+    theme_zen: "Bol chantant — un son calme et doux.",
+    theme_rhodes: "Timbre chaud de piano électrique de jazz.",
+    theme_scifi: "Signaux de synthétiseur à l’ambiance spatiale.",
+    theme_classic: "Un carillon classique de porte."
+  },
+  it: {
+    engine_whisper: "Motore locale basato su OpenAI Whisper. Totalmente offline, il modello si sceglie qui sotto.",
+    engine_parakeet: "NVIDIA Parakeet — motore più veloce. Avvia un proprio server su questo computer.",
+    lang_auto: "Aura rileva la lingua dalla parole. Adatto alla maggior parte dei casi.",
+    lang_layout: "La lingua segue la disposizione tastiera attiva della finestra.",
+    lang_forced: "Il riconoscimento sarà fissato su «{lang}», qualsiasi sia la pronuncia.",
+    provider_gemini: "Gemini — alta precisione di trascrizione ed editing naturale del testo.",
+    provider_openai: "OpenAI Whisper per la trascrizione e GPT per pulizia ed editing.",
+    provider_groq: "Groq — Whisper veloce sui loro server e Llama 3 per il testo.",
+    ui_lang: "Lingua interfaccia: impostazioni e notifiche.",
+    theme_zen: "Ciottoli tibetani: un suono calmo e morbido.",
+    theme_rhodes: "Tono caldo del piano elettrico jazz.",
+    theme_scifi: "Segnali di synth con atmosfera spaziale.",
+    theme_classic: "Un classico campanello da portone."
+  },
+  zh: {
+    engine_whisper: "基于 OpenAI Whisper 的本地引擎。完全离线，模型在下方选择。",
+    engine_parakeet: "NVIDIA Parakeet — 更快的引擎。在本机运行自己的服务器。",
+    lang_auto: "Aura 会根据语音自动识别语言，适用于大多数情况。",
+    lang_layout: "语言将跟随当前窗口的键盘布局。",
+    lang_forced: "识别将固定在「{lang}」，与发音无关。",
+    provider_gemini: "Gemini — 高精度转录和自然文本编辑。",
+    provider_openai: "OpenAI Whisper 负责转录，GPT 负责清理和编辑。",
+    provider_groq: "Groq — 其服务器上的快速 Whisper 以及用于文本的 Llama 3。",
+    ui_lang: "界面语言：应用设置和通知。",
+    theme_zen: "颂钵 — 平静柔和的声音。",
+    theme_rhodes: "温暖的爵士电钢琴音色。",
+    theme_scifi: "带有太空氛围的合成器信号。",
+    theme_classic: "经典门铃铃声。"
+  },
+  pt: {
+    engine_whisper: "Motor local baseado em OpenAI Whisper. 100% offline, o modelo escolhido abaixo.",
+    engine_parakeet: "NVIDIA Parakeet — motor mais rápido. Roda o próprio servidor neste computador.",
+    lang_auto: "Aura detecta o idioma pela voz. Bom para a maioria dos casos.",
+    lang_layout: "O idioma segue a disposição de teclado ativa da janela.",
+    lang_forced: "O reconhecimento será fixado em «{lang}», não importa como você fala.",
+    provider_gemini: "Gemini — alta precisão de transcrição e edição natural.",
+    provider_openai: "OpenAI Whisper para transcrição e GPT para limpeza e edição.",
+    provider_groq: "Groq — Whisper rápido nos servidores ece Llama 3 para texto.",
+    ui_lang: "Idioma da interface: definições e notificações.",
+    theme_zen: "Tigelas tibetanas — som calmo e suave.",
+    theme_rhodes: "Timbre quente de piano elétrico de jazz.",
+    theme_scifi: "Sinais de sintetizador com atmosfera espacial.",
+    theme_classic: "Um sino de porta clássico."
+  },
+  tr: {
+    engine_whisper: "OpenAI Whisper tabanlı yerel motor. Tamamen çevrimdışı, model aşağıdan seçilir.",
+    engine_parakeet: "NVIDIA Parakeet — daha hızlı motor. Bu bilgisayarda kendi sunucusunu çalıştırır.",
+    lang_auto: "Aura dili konuşmadan otomatik algılar. Çoğu durum için uygundur.",
+    lang_forced: "Tanıma, nasıl konuştuğunuzdan bağımsız olarak «{lang}» diline sabitlenir.",
+    provider_gemini: "Gemini — yüksek doğruluklu transkripsiyon ve doğal metin düzenleme.",
+    provider_openai: "Transkripsiyon için OpenAI Whisper, temizlik ve düzenleme için GPT.",
+    provider_groq: "Groq — sunucularında hızlı Whisper ve metin için Llama 3.",
+    ui_lang: "Arayüz dili: uygulama ayarları ve bildirimler.",
+    theme_zen: "Tibet çanları — sakin ve yumuşak bir ses.",
+    theme_rhodes: "Sıcak caz elektrikli piyano tınısı.",
+    theme_scifi: "Uzay havası taşıyan synth sinyalleri.",
+    theme_classic: "Klasik kapı zili sesi."
+  }
+};
+
+const SELECT_PREVIEW_DEFS = {
+  "select-local-engine": {
+    byValue: { whisper: "engine_whisper", parakeet: "engine_parakeet" }
+  },
+  "select-ui-lang": {
+    defaultKey: "ui_lang"
+  },
+  "select-language": {
+    byValue: { auto: "lang_auto", layout: "lang_layout" },
+    fallbackKey: "lang_forced",
+    fallbackParam: () => ({ lang: selectedOptionLabel(document.getElementById("select-language")) })
+  },
+  "select-provider": {
+    byValue: { gemini: "provider_gemini", openai: "provider_openai", groq: "provider_groq" }
+  },
+  "select-sound-theme": {
+    byValue: { zen: "theme_zen", rhodes: "theme_rhodes", scifi: "theme_scifi", classic: "theme_classic" }
+  }
+};
+
+function selectedOptionLabel(select) {
+  if (!select) return "";
+  return select.selectedOptions.length ? select.selectedOptions[0].textContent.trim() : "";
+}
+
+function updateSelectPreview(select) {
+  const def = SELECT_PREVIEW_DEFS[select.id];
+  const textEl = document.getElementById(select.dataset.preview);
+  if (!def || !textEl) return;
+  const dict = SELECT_PREVIEW_TEXTS[currentLanguage] || SELECT_PREVIEW_TEXTS.ru;
+  let key;
+  if (def.byValue && def.byValue[select.value] !== undefined) key = def.byValue[select.value];
+  else if (def.defaultKey) key = def.defaultKey;
+  else if (def.fallbackKey) key = def.fallbackKey;
+  if (!key) return;
+  let text = dict[key] ?? SELECT_PREVIEW_TEXTS.ru[key] ?? "";
+  const params = def.fallbackParam ? def.fallbackParam() : {};
+  for (const [name, value] of Object.entries(params)) {
+    text = text.split(`{${name}}`).join(value);
+  }
+  textEl.textContent = text;
+}
+
+function updateAllSelectPreviews() {
+  document.querySelectorAll("select.custom-select[data-preview]").forEach(updateSelectPreview);
+}
 
 function getTranslation(key, params = {}) {
   const dict = i18nDict[currentLanguage] || i18nDict.ru;
@@ -1583,6 +1766,12 @@ async function refreshEngineHealth() {
       refreshEngineHealth();
     });
   }
+
+  document.addEventListener("change", (event) => {
+    if (event.target.matches("select.custom-select[data-preview]")) {
+      updateSelectPreview(event.target);
+    }
+  });
 
   radioCloud.addEventListener("change", updateEngineUI);
   radioLocal.addEventListener("change", updateEngineUI);
@@ -2674,6 +2863,8 @@ if (e.button === 0 && !e.target.closest(".window-control-btn") && !e.target.clos
     if (historyTab && historyTab.classList.contains("active")) {
       loadHistoryList();
     }
+
+    updateAllSelectPreviews();
   }
 
   // --- History List & Clear Interactions ---
