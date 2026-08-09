@@ -137,7 +137,6 @@ const i18nDict = {
     update_checks_desc: "Aura обращается к GitHub только при ручной проверке или если вы включили автоматическую проверку.",
     update_checks_checkbox: "Автоматически проверять обновления при запуске",
     update_check_now: "Проверить обновления",
-    cloud_data_desc: "Облачному провайдеру передаются аудио и транскрипт, а при включённых функциях — выделенный текст и пользовательский словарь. Локальный режим эти данные не отправляет.",
     update_current: "Установлена актуальная версия Aura.",
     update_available_pattern: "Доступна Aura v{version}.",
     update_check_error_pattern: "Не удалось проверить обновления: {error}",
@@ -296,7 +295,6 @@ const i18nDict = {
     update_checks_desc: "Aura contacts GitHub only when you check manually or enable automatic checks.",
     update_checks_checkbox: "Check for updates automatically at startup",
     update_check_now: "Check for updates",
-    cloud_data_desc: "The selected cloud provider receives audio and the transcript and, when the related features are enabled, selected text and the custom dictionary. Local mode does not send this data.",
     update_current: "Aura is up to date.",
     update_available_pattern: "Aura v{version} is available.",
     update_check_error_pattern: "Could not check for updates: {error}",
@@ -459,7 +457,6 @@ const i18nDict = {
     update_checks_desc: "Aura kontaktiert GitHub nur bei einer manuellen Prüfung oder wenn Sie automatische Prüfungen aktivieren.",
     update_checks_checkbox: "Beim Start automatisch nach Updates suchen",
     update_check_now: "Nach Updates suchen",
-    cloud_data_desc: "Der ausgewählte Cloud-Anbieter erhält Audio und Transkript sowie, wenn die entsprechenden Funktionen aktiviert sind, ausgewählten Text und das Benutzerwörterbuch. Im lokalen Modus werden diese Daten nicht gesendet.",
     update_current: "Aura ist auf dem neuesten Stand.",
     update_available_pattern: "Aura v{version} ist verfügbar.",
     update_check_error_pattern: "Updates konnten nicht geprüft werden: {error}",
@@ -611,7 +608,6 @@ const i18nDict = {
     update_checks_desc: "Aura se conecta a GitHub solo al comprobar manualmente o al activar las comprobaciones automáticas.",
     update_checks_checkbox: "Buscar actualizaciones automáticamente al iniciar",
     update_check_now: "Buscar actualizaciones",
-    cloud_data_desc: "El proveedor en la nube seleccionado recibe el audio y la transcripción y, cuando se activan las funciones correspondientes, el texto seleccionado y el diccionario personalizado. El modo local no envía estos datos.",
     update_current: "Aura está actualizada.",
     update_available_pattern: "Aura v{version} está disponible.",
     update_check_error_pattern: "No se pudieron buscar actualizaciones: {error}",
@@ -770,7 +766,6 @@ const i18nDict = {
     update_checks_desc: "Aura contacte GitHub uniquement lors d’une vérification manuelle ou si vous activez les vérifications automatiques.",
     update_checks_checkbox: "Rechercher automatiquement les mises à jour au démarrage",
     update_check_now: "Rechercher les mises à jour",
-    cloud_data_desc: "Le fournisseur cloud sélectionné reçoit l’audio et la transcription ainsi que, lorsque les fonctions concernées sont activées, le texte sélectionné et le dictionnaire personnalisé. Le mode local n’envoie pas ces données.",
     update_current: "Aura est à jour.",
     update_available_pattern: "Aura v{version} est disponible.",
     update_check_error_pattern: "Impossible de rechercher les mises à jour : {error}",
@@ -929,7 +924,6 @@ const i18nDict = {
     update_checks_desc: "Aura contatta GitHub solo durante un controllo manuale o se abiliti i controlli automatici.",
     update_checks_checkbox: "Controlla automaticamente gli aggiornamenti all’avvio",
     update_check_now: "Controlla aggiornamenti",
-    cloud_data_desc: "Il provider cloud selezionato riceve l’audio e la trascrizione e, quando le relative funzioni sono abilitate, il testo selezionato e il dizionario personalizzato. La modalità locale non invia questi dati.",
     update_current: "Aura è aggiornata.",
     update_available_pattern: "È disponibile Aura v{version}.",
     update_check_error_pattern: "Impossibile verificare gli aggiornamenti: {error}",
@@ -1088,7 +1082,6 @@ const i18nDict = {
     update_checks_desc: "Aura 仅在您手动检查或启用自动检查时连接 GitHub。",
     update_checks_checkbox: "启动时自动检查更新",
     update_check_now: "检查更新",
-    cloud_data_desc: "所选云服务提供商会接收音频和转写文本；启用相关功能时，还会接收选中文本和自定义词典。本地模式不会发送这些数据。",
     update_current: "Aura 已是最新版本。",
     update_available_pattern: "Aura v{version} 可用。",
     update_check_error_pattern: "无法检查更新：{error}",
@@ -1247,7 +1240,6 @@ const i18nDict = {
     update_checks_desc: "A Aura só acessa o GitHub quando você verifica manualmente ou ativa as verificações automáticas.",
     update_checks_checkbox: "Verificar atualizações automaticamente ao iniciar",
     update_check_now: "Verificar atualizações",
-    cloud_data_desc: "O provedor de nuvem selecionado recebe o áudio e a transcrição e, quando os recursos correspondentes estão ativados, o texto selecionado e o dicionário personalizado. O modo local não envia esses dados.",
     update_current: "A Aura está atualizada.",
     update_available_pattern: "A versão {version} da Aura está disponível.",
     update_check_error_pattern: "Não foi possível verificar atualizações: {error}",
@@ -1406,7 +1398,6 @@ const i18nDict = {
     update_checks_desc: "Aura, GitHub’a yalnızca elle denetlediğinizde veya otomatik denetimleri etkinleştirdiğinizde bağlanır.",
     update_checks_checkbox: "Başlangıçta güncellemeleri otomatik olarak denetle",
     update_check_now: "Güncellemeleri denetle",
-    cloud_data_desc: "Seçilen bulut sağlayıcısına ses ve transkript; ilgili özellikler etkinse seçili metin ve özel sözlük gönderilir. Yerel mod bu verileri göndermez.",
     update_current: "Aura güncel.",
     update_available_pattern: "Aura v{version} kullanılabilir.",
     update_check_error_pattern: "Güncellemeler denetlenemedi: {error}",
@@ -1776,6 +1767,26 @@ function initSelectPanels() {
     wrap.insertBefore(catcher, select);
     catcher.addEventListener("mousedown", handleSelectMousedown);
     select.addEventListener("keydown", handleSelectKeydown);
+
+    // Clicking the associated <label for="…"> activates the native select
+    // directly (the OS dropdown would open over the custom panel), so the
+    // label must open the panel itself instead.
+    const label = document.querySelector(`label[for="${select.id}"]`);
+    if (label) {
+      label.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+      });
+      label.addEventListener("click", (event) => {
+        event.preventDefault();
+        toggleSelectPanel(select);
+      });
+      label.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
+          event.preventDefault();
+          toggleSelectPanel(select);
+        }
+      });
+    }
   });
   document.addEventListener("mousedown", (event) => {
     if (!event.target.closest(".select-wrap")) {
@@ -2218,10 +2229,6 @@ function selectModelCard(model) {
     if (model === "punctuation") {
       return;
     }
-    if (model === "parakeet-v3") {
-      const parakeetOpt = selectLocalEngine?.querySelector('option[value="parakeet"]');
-      if (parakeetOpt?.disabled) return;
-    }
     if (selectedModelName !== model) {
       selectedModelName = model;
       markSettingsModified();
@@ -2348,16 +2355,6 @@ activeLocalAcceleration = settings.local_acceleration || "cpu";
   async function refreshDownloadedModels() {
     try {
       const downloaded = await invoke("get_downloaded_models");
-      const parakeetOption = selectLocalEngine?.querySelector('option[value="parakeet"]');
-      if (parakeetOption) {
-        const parakeetInstalled = downloaded.includes("parakeet-v3");
-        parakeetOption.disabled = !parakeetInstalled;
-        if (!parakeetInstalled && selectLocalEngine.value === "parakeet") {
-          selectLocalEngine.value = "whisper";
-          updateLocalEngineUI();
-          markSettingsModified();
-        }
-      }
       const dict = i18nDict[currentLanguage] || i18nDict.ru;
 modelCards.forEach(card => {
         const model = card.dataset.model;
@@ -3234,207 +3231,6 @@ const itemEl = document.createElement("div");
   if (updateBadge) {
     updateBadge.addEventListener("click", installAvailableUpdate);
   }
-  // ---- Custom dropdown panels ----
-  // WebView2 renders <select> options as an unstyleable OS popup, so every
-  // .custom-select opens a styled panel instead. Native semantics are kept
-  // (value + "change" event), so existing handlers work unchanged.
-  let selectPanelEl = null;
-  let selectPanelOwner = null;
-  let selectPanelItem = -1;
-
-  function closeSelectPanel() {
-    if (!selectPanelEl) return;
-    if (selectPanelOwner) {
-      selectPanelOwner.setAttribute("aria-expanded", "false");
-    }
-    selectPanelEl.remove();
-    selectPanelEl = null;
-    selectPanelOwner = null;
-    selectPanelItem = -1;
-  }
-
-  function refreshSelectHighlight(item) {
-    selectPanelEl.querySelectorAll(".cs-option.active").forEach((option) => {
-      option.classList.remove("active");
-    });
-    if (item) {
-      item.classList.add("active");
-      item.scrollIntoView({ block: "nearest" });
-    }
-  }
-
-  function stepSelectHighlight(select, direction) {
-    const itemEls = Array.from(selectPanelEl.querySelectorAll(".cs-option"));
-    if (!itemEls.length) return;
-    let index = selectPanelItem;
-    if (index < 0 || index >= itemEls.length) {
-      index = select.selectedIndex >= 0 ? select.selectedIndex : 0;
-    }
-    let next = index;
-    for (let stepCount = 0; stepCount < itemEls.length; stepCount += 1) {
-      next = (next + direction + itemEls.length) % itemEls.length;
-      if (!itemEls[next].classList.contains("disabled")) {
-        selectPanelItem = next;
-        refreshSelectHighlight(itemEls[next]);
-        return;
-      }
-    }
-  }
-
-  function jumpSelectHighlight(select, position) {
-    const itemEls = Array.from(selectPanelEl.querySelectorAll(".cs-option"));
-    const isFirst = position === "start";
-    const bounds = isFirst ? itemEls : itemEls.slice().reverse();
-    for (const item of bounds) {
-      if (!item.classList.contains("disabled")) {
-        selectPanelItem = itemEls.indexOf(item);
-        refreshSelectHighlight(item);
-        return;
-      }
-    }
-  }
-
-  function commitSelectOption(select, item) {
-    if (!item || item.classList.contains("disabled")) return;
-    if (select.value !== item.dataset.value) {
-      select.value = item.dataset.value;
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-    closeSelectPanel();
-  }
-
-  function repositionOpenSelectPanel() {
-    if (!selectPanelEl || !selectPanelOwner) return;
-    const rect = selectPanelOwner.getBoundingClientRect();
-    if (rect.width < 1 || rect.height < 1 || rect.bottom < 0 || rect.top > window.innerHeight) {
-      // The select's page has scrolled out of view: the panel must not
-      // float detached on screen, so it closes instead.
-      closeSelectPanel();
-      return;
-    }
-    placeSelectPanel(selectPanelOwner, selectPanelEl);
-  }
-
-  function placeSelectPanel(select, panel) {
-    const rect = select.getBoundingClientRect();
-    // Real, post-layout height: an estimated height (options x 40px) made
-    // the panel jump far off for tall lists capped by max-height.
-    const width = Math.min(Math.max(rect.width, 180), window.innerWidth - 16);
-    panel.style.width = `${width}px`;
-    panel.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`;
-    const height = panel.getBoundingClientRect().height;
-    const fitsBelow = rect.bottom + 6 + height <= window.innerHeight;
-    panel.style.top = fitsBelow
-      ? `${rect.bottom + 6}px`
-      : `${Math.max(8, rect.top - height - 6)}px`;
-  }
-
-  function openSelectPanel(select) {
-    closeSelectPanel();
-    const panel = document.createElement("div");
-    panel.className = "custom-select-panel";
-    panel.setAttribute("role", "listbox");
-
-    let selectedIndex = -1;
-    Array.from(select.options).forEach((option, index) => {
-      const item = document.createElement("div");
-      item.className = "cs-option";
-      if (option.disabled) item.classList.add("disabled");
-      if (option.selected) {
-        item.classList.add("selected");
-        selectedIndex = index;
-      }
-      item.dataset.value = option.value;
-      item.textContent = option.textContent;
-      item.setAttribute("role", "option");
-      item.setAttribute("aria-selected", String(option.selected));
-      item.addEventListener("mouseenter", () => {
-        selectPanelItem = index;
-        refreshSelectHighlight(item);
-      });
-      item.addEventListener("click", () => commitSelectOption(select, item));
-      panel.appendChild(item);
-    });
-
-    document.body.appendChild(panel);
-    placeSelectPanel(select, panel);
-    selectPanelEl = panel;
-    selectPanelOwner = select;
-    select.setAttribute("aria-expanded", "true");
-    if (selectedIndex >= 0 && !panel.children[selectedIndex].classList.contains("disabled")) {
-      selectPanelItem = selectedIndex;
-      refreshSelectHighlight(panel.children[selectedIndex]);
-    }
-  }
-
-  function onSelectKeydown(event) {
-    const select = event.currentTarget;
-    if (selectPanelOwner !== select) {
-      if (["ArrowDown", "ArrowUp", "Enter", " ", "Spacebar"].includes(event.key)) {
-        event.preventDefault();
-        openSelectPanel(select);
-      }
-      return;
-    }
-    switch (event.key) {
-      case "ArrowDown":
-        event.preventDefault();
-        stepSelectHighlight(select, 1);
-        break;
-      case "ArrowUp":
-        event.preventDefault();
-        stepSelectHighlight(select, -1);
-        break;
-      case "Home":
-        event.preventDefault();
-        jumpSelectHighlight(select, "first");
-        break;
-      case "End":
-        event.preventDefault();
-        jumpSelectHighlight(select, "last");
-        break;
-      case "Enter":
-      case " ":
-      case "Spacebar": {
-        event.preventDefault();
-        const active = selectPanelEl.querySelector(".cs-option.active") ||
-          selectPanelEl.querySelector(".cs-option.selected");
-        commitSelectOption(select, active);
-        break;
-      }
-      case "Escape":
-        event.preventDefault();
-        closeSelectPanel();
-        break;
-      default:
-        break;
-    }
-  }
-
-  document.querySelectorAll("select.custom-select").forEach((select) => {
-    select.setAttribute("aria-haspopup", "listbox");
-    select.setAttribute("aria-expanded", "false");
-    select.addEventListener("mousedown", (event) => {
-      event.preventDefault();
-    });
-    select.addEventListener("click", () => {
-      if (selectPanelOwner === select) {
-        closeSelectPanel();
-        return;
-      }
-      select.focus();
-      openSelectPanel(select);
-    });
-    select.addEventListener("keydown", onSelectKeydown);
-  });
-  document.addEventListener("pointerdown", (event) => {
-    if (!selectPanelEl) return;
-    if (event.target === selectPanelOwner || selectPanelEl.contains(event.target)) return;
-    closeSelectPanel();
-  });
-    document.addEventListener("scroll", repositionOpenSelectPanel, true);
-  window.addEventListener("resize", () => closeSelectPanel());
-
   // Initialize UI language and Settings
   (async () => {
     let settings = null;
