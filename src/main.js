@@ -51,7 +51,6 @@ const i18nDict = {
     punct_model_label: "Пунктуация (для английского)",
     punct_model_name: "CT-Transformer (zh-en, int8)",
     punct_model_meta: "~62 МБ — голосовая пунктуация",
-    engine_health_whisper: "Whisper: встроенный движок, запускается по требованию",
     engine_health_parakeet_running: "Parakeet: сервер запущен ({provider}, порт {port})",
     engine_health_parakeet_stopped: "Parakeet: сервер не запущен",
     local_model_title: "Локальное распознавание",
@@ -209,7 +208,6 @@ const i18nDict = {
     punct_model_label: "Punctuation (for English)",
     punct_model_name: "CT-Transformer (zh-en, int8)",
     punct_model_meta: "~62 MB — spoken punctuation",
-    engine_health_whisper: "Whisper: in-process engine, spawned on demand",
     engine_health_parakeet_running: "Parakeet: server running ({provider}, port {port})",
     engine_health_parakeet_stopped: "Parakeet: server not running",
     local_model_title: "Local Recognition",
@@ -374,7 +372,6 @@ const i18nDict = {
     punct_model_label: "Interpunktion (für Englisch)",
     punct_model_name: "CT-Transformer (zh-en, int8)",
     punct_model_meta: "~62 MB — Sprachinterpunktion",
-    engine_health_whisper: "Whisper: integrierte Engine, wird bei Bedarf gestartet",
     engine_health_parakeet_running: "Parakeet: Server läuft ({provider}, Port {port})",
     engine_health_parakeet_stopped: "Parakeet: Server läuft nicht",
     local_model_title: "Lokales Whisper-Modell",
@@ -525,7 +522,6 @@ const i18nDict = {
     punct_model_label: "Puntuación (para inglés)",
     punct_model_name: "CT-Transformer (zh-en, int8)",
     punct_model_meta: "~62 MB — puntuación por voz",
-    engine_health_whisper: "Whisper: motor integrado, se inicia bajo demanda",
     engine_health_parakeet_running: "Parakeet: servidor en ejecución ({provider}, puerto {port})",
     engine_health_parakeet_stopped: "Parakeet: servidor no en ejecución",
     local_model_title: "Modelo Whisper local",
@@ -683,7 +679,6 @@ const i18nDict = {
     punct_model_label: "Ponctuation (pour l'anglais)",
     punct_model_name: "CT-Transformer (zh-en, int8)",
     punct_model_meta: "~62 Mo — ponctuation vocale",
-    engine_health_whisper: "Whisper : moteur intégré, lancé à la demande",
     engine_health_parakeet_running: "Parakeet : serveur en cours d'exécution ({provider}, port {port})",
     engine_health_parakeet_stopped: "Parakeet : serveur non démarré",
     local_model_title: "Modèle Whisper local",
@@ -841,7 +836,6 @@ const i18nDict = {
     punct_model_label: "Punteggiatura (per l'inglese)",
     punct_model_name: "CT-Transformer (zh-en, int8)",
     punct_model_meta: "~62 MB — punteggiatura vocale",
-    engine_health_whisper: "Whisper: motore integrato, avviato su richiesta",
     engine_health_parakeet_running: "Parakeet: server in esecuzione ({provider}, porta {port})",
     engine_health_parakeet_stopped: "Parakeet: server non in esecuzione",
     local_model_title: "Modello Whisper locale",
@@ -999,7 +993,6 @@ const i18nDict = {
     punct_model_label: "标点（用于英语）",
     punct_model_name: "CT-Transformer (zh-en, int8)",
     punct_model_meta: "约 62 MB — 语音标点",
-    engine_health_whisper: "Whisper：内置引擎，按需启动",
     engine_health_parakeet_running: "Parakeet：服务器运行中（{provider}，端口 {port}）",
     engine_health_parakeet_stopped: "Parakeet：服务器未运行",
     local_model_title: "本地 Whisper 模型",
@@ -1157,7 +1150,6 @@ const i18nDict = {
     punct_model_label: "Pontuação (para inglês)",
     punct_model_name: "CT-Transformer (zh-en, int8)",
     punct_model_meta: "~62 MB — pontuação por voz",
-    engine_health_whisper: "Whisper: mecanismo integrado, iniciado sob demanda",
     engine_health_parakeet_running: "Parakeet: servidor em execução ({provider}, porta {port})",
     engine_health_parakeet_stopped: "Parakeet: servidor não em execução",
     local_model_title: "Modelo Whisper local",
@@ -1315,7 +1307,6 @@ const i18nDict = {
     punct_model_label: "Noktalama (İngilizce için)",
     punct_model_name: "CT-Transformer (zh-en, int8)",
     punct_model_meta: "~62 MB — sesli noktalama",
-    engine_health_whisper: "Whisper: yerleşik motor, ihtiyaç halinde başlatılır",
     engine_health_parakeet_running: "Parakeet: sunucu çalışıyor ({provider}, port {port})",
     engine_health_parakeet_stopped: "Parakeet: sunucu çalışmıyor",
     local_model_title: "Yerel Whisper Modülü",
@@ -1905,20 +1896,23 @@ async function refreshEngineHealth() {
     if (!chip) return;
     try {
       const health = await invoke("get_engine_health");
+      chip.classList.remove("health-ok", "health-warn");
       if (health.engine === "whisper" || health.engine === "parakeet-local-fallback") {
-        chip.textContent = getTranslation("engine_health_whisper") || "Whisper: in-process";
-        chip.classList.add("health-ok");
-        chip.classList.remove("health-warn");
-      } else if (health.running) {
+        // The in-process Whisper engine has no server state to report, so the
+        // chip stays collapsed under the select instead of leaving a dead gap.
+        chip.textContent = "";
+        chip.style.display = "none";
+        return;
+      }
+      chip.style.display = "";
+      if (health.running) {
         chip.textContent = getTranslation("engine_health_parakeet_running", {
           provider: health.provider || "cpu",
           port: health.port ?? "?",
         });
         chip.classList.add("health-ok");
-        chip.classList.remove("health-warn");
       } else {
         chip.textContent = getTranslation("engine_health_parakeet_stopped");
-        chip.classList.remove("health-ok");
         chip.classList.add("health-warn");
       }
     } catch (e) {
