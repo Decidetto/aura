@@ -416,6 +416,62 @@ body {
   color: var(--warning, #c97b2d);
 }
 
+/* Select preview row: caption below every custom select */
+.select-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-left: 2px solid var(--accent-color);
+  border-radius: var(--radius-sm);
+  background-color: rgba(var(--accent-color-rgb), 0.05);
+}
+
+.select-preview-icon {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  color: var(--accent-color);
+}
+
+.select-preview-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.select-preview-text {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.select-preview .engine-health-chip {
+  margin-top: 0;
+  margin-left: auto;
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .select-preview {
+    animation: select-preview-in 0.18s ease-out;
+  }
+}
+
+@keyframes select-preview-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Forms */
 .form-group {
   display: flex;
