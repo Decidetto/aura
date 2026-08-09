@@ -1,4 +1,4 @@
-import { bindTabKeyboardNavigation } from "./ui-accessibility.js";
+﻿import { bindTabKeyboardNavigation } from "./ui-accessibility.js";
 
 // Retrieve Tauri APIs from window.__TAURI__
 const { invoke } = window.__TAURI__.core;
@@ -22,7 +22,6 @@ const i18nDict = {
     section_recognition: "Распознавание",
     section_input: "Ввод",
     section_dictionary: "Словарь",
-    streaming_parakeet_hint: "Потоковый ввод доступен только для NVIDIA Parakeet.",
     tab_history: "История",
     tab_about: "О программе",
     general_autostart_title: "Автозапуск Aura",
@@ -182,7 +181,6 @@ const i18nDict = {
     section_recognition: "Recognition",
     section_input: "Input",
     section_dictionary: "Dictionary",
-    streaming_parakeet_hint: "Real-time streaming input is only available with NVIDIA Parakeet.",
     tab_history: "History",
     tab_about: "About",
     general_autostart_title: "Aura Autostart",
@@ -349,7 +347,6 @@ const i18nDict = {
     section_recognition: "Spracherkennung",
     section_input: "Eingabe",
     section_dictionary: "Wörterbuch",
-    streaming_parakeet_hint: "Echtzeit-Eingabe ist nur mit NVIDIA Parakeet verfügbar.",
     tab_history: "Verlauf",
     tab_about: "Über Aura",
     general_autostart_title: "Aura Autostart",
@@ -376,6 +373,12 @@ const i18nDict = {
     vocab_title: "Eigenes Wörterbuch",
     vocab_desc: "Tragen Sie Begriffe, Namen oder Fachbegriffe durch Komma getrennt ein, um die Erkennung zu verbessern.",
     vocab_placeholder: "z.B. Aura, Commit, Repository...",
+    punct_model_label: "Interpunktion (für Englisch)",
+    punct_model_name: "CT-Transformer (zh-en, int8)",
+    punct_model_meta: "~62 MB — Sprachinterpunktion",
+    engine_health_whisper: "Whisper: integrierte Engine, wird bei Bedarf gestartet",
+    engine_health_parakeet_running: "Parakeet: Server läuft ({provider}, Port {port})",
+    engine_health_parakeet_stopped: "Parakeet: Server läuft nicht",
     local_model_title: "Lokales Whisper-Modell",
     local_model_desc: "Konfigurieren Sie eine lokale Spracherkennungs-Engine für vollständige Privatsphäre.",
     local_model_label: "Modellgröße",
@@ -496,7 +499,6 @@ const i18nDict = {
     section_recognition: "Reconocimiento",
     section_input: "Entrada",
     section_dictionary: "Diccionario",
-    streaming_parakeet_hint: "La entrada en tiempo real solo está disponible con NVIDIA Parakeet.",
     tab_history: "Historial",
     tab_about: "Acerca de",
     general_autostart_title: "Inicio automático",
@@ -523,6 +525,12 @@ const i18nDict = {
     vocab_title: "Vocabulario personalizado",
     vocab_desc: "Añada términos específicos, nombres o siglas separados por comas para mejorar el dictado.",
     vocab_placeholder: "ej. Aura, commit, repositorio...",
+    punct_model_label: "Puntuación (para inglés)",
+    punct_model_name: "CT-Transformer (zh-en, int8)",
+    punct_model_meta: "~62 MB — puntuación por voz",
+    engine_health_whisper: "Whisper: motor integrado, se inicia bajo demanda",
+    engine_health_parakeet_running: "Parakeet: servidor en ejecución ({provider}, puerto {port})",
+    engine_health_parakeet_stopped: "Parakeet: servidor no en ejecución",
     local_model_title: "Modelo Whisper local",
     local_model_desc: "Configure un motor local de reconocimiento de voz para mantener la privacidad.",
     local_model_label: "Tamaño del modelo",
@@ -650,7 +658,6 @@ const i18nDict = {
     section_recognition: "Reconnaissance",
     section_input: "Saisie",
     section_dictionary: "Dictionnaire",
-    streaming_parakeet_hint: "La saisie en temps réel n’est disponible qu’avec NVIDIA Parakeet.",
     tab_history: "Historique",
     tab_about: "À propos",
     general_autostart_title: "Lancement automatique",
@@ -677,6 +684,12 @@ const i18nDict = {
     vocab_title: "Vocabulaire personnalisé",
     vocab_desc: "Ajoutez des termes spécifiques, noms propres ou sigles séparés par des virgules pour améliorer la dictée.",
     vocab_placeholder: "ex. Aura, commit, dépôt...",
+    punct_model_label: "Ponctuation (pour l'anglais)",
+    punct_model_name: "CT-Transformer (zh-en, int8)",
+    punct_model_meta: "~62 Mo — ponctuation vocale",
+    engine_health_whisper: "Whisper : moteur intégré, lancé à la demande",
+    engine_health_parakeet_running: "Parakeet : serveur en cours d'exécution ({provider}, port {port})",
+    engine_health_parakeet_stopped: "Parakeet : serveur non démarré",
     local_model_title: "Modèle Whisper local",
     local_model_desc: "Configurez un moteur local de reconnaissance vocale pour préserver entièrement votre confidentialité.",
     local_model_label: "Taille du modèle",
@@ -804,7 +817,6 @@ const i18nDict = {
     section_recognition: "Riconoscimento",
     section_input: "Digitazione",
     section_dictionary: "Dizionario",
-    streaming_parakeet_hint: "L’inserimento in tempo reale è disponibile solo con NVIDIA Parakeet.",
     tab_history: "Cronologia",
     tab_about: "Informazioni",
     general_autostart_title: "Avvio automatico",
@@ -831,6 +843,12 @@ const i18nDict = {
     vocab_title: "Vocabolario personalizzato",
     vocab_desc: "Aggiungi parole specifiche, nomi o acronimi separati da virgole per migliorare la precisione.",
     vocab_placeholder: "es. Aura, commit, repository...",
+    punct_model_label: "Punteggiatura (per l'inglese)",
+    punct_model_name: "CT-Transformer (zh-en, int8)",
+    punct_model_meta: "~62 MB — punteggiatura vocale",
+    engine_health_whisper: "Whisper: motore integrato, avviato su richiesta",
+    engine_health_parakeet_running: "Parakeet: server in esecuzione ({provider}, porta {port})",
+    engine_health_parakeet_stopped: "Parakeet: server non in esecuzione",
     local_model_title: "Modello Whisper locale",
     local_model_desc: "Configura un motore locale di riconoscimento vocale per la massima privacy.",
     local_model_label: "Dimensione modello",
@@ -958,7 +976,6 @@ const i18nDict = {
     section_recognition: "识别",
     section_input: "输入",
     section_dictionary: "词典",
-    streaming_parakeet_hint: "实时输入仅适用于 NVIDIA Parakeet。",
     tab_history: "历史记录",
     tab_about: "关于我们",
     general_autostart_title: "自启动设置",
@@ -985,6 +1002,12 @@ const i18nDict = {
     vocab_title: "自定义词典",
     vocab_desc: "以逗号分隔输入专用术语、人名或品牌，以便提高识别精度。",
     vocab_placeholder: "例如：Aura, commit, 仓库...",
+    punct_model_label: "标点（用于英语）",
+    punct_model_name: "CT-Transformer (zh-en, int8)",
+    punct_model_meta: "约 62 MB — 语音标点",
+    engine_health_whisper: "Whisper：内置引擎，按需启动",
+    engine_health_parakeet_running: "Parakeet：服务器运行中（{provider}，端口 {port}）",
+    engine_health_parakeet_stopped: "Parakeet：服务器未运行",
     local_model_title: "本地 Whisper 模型",
     local_model_desc: "配置本地语音识别引擎，确保数据完全私密。",
     local_model_label: "模型大小",
@@ -1112,7 +1135,6 @@ const i18nDict = {
     section_recognition: "Reconhecimento",
     section_input: "Entrada",
     section_dictionary: "Dicionário",
-    streaming_parakeet_hint: "A entrada em tempo real só está disponível com NVIDIA Parakeet.",
     tab_history: "Histórico",
     tab_about: "Sobre",
     general_autostart_title: "Inicialização",
@@ -1139,6 +1161,12 @@ const i18nDict = {
     vocab_title: "Dicionário personalizado",
     vocab_desc: "Adicione termos específicos, nomes ou siglas separados por vírgula para melhorar o reconhecimento.",
     vocab_placeholder: "ex. Aura, commit, repositório...",
+    punct_model_label: "Pontuação (para inglês)",
+    punct_model_name: "CT-Transformer (zh-en, int8)",
+    punct_model_meta: "~62 MB — pontuação por voz",
+    engine_health_whisper: "Whisper: mecanismo integrado, iniciado sob demanda",
+    engine_health_parakeet_running: "Parakeet: servidor em execução ({provider}, porta {port})",
+    engine_health_parakeet_stopped: "Parakeet: servidor não em execução",
     local_model_title: "Modelo Whisper local",
     local_model_desc: "Configure um mecanismo local de reconhecimento de voz para manter total privacidade.",
     local_model_label: "Tamanho do modelo",
@@ -1266,7 +1294,6 @@ const i18nDict = {
     section_recognition: "Tanıma",
     section_input: "Giriş",
     section_dictionary: "Sözlük",
-    streaming_parakeet_hint: "Gerçek zamanlı giriş yalnızca NVIDIA Parakeet ile kullanılabilir.",
     tab_history: "Geçmiş",
     tab_about: "Hakkında",
     general_autostart_title: "Başlangıçta Çalıştır",
@@ -1293,6 +1320,12 @@ const i18nDict = {
     vocab_title: "Özel Sözlük",
     vocab_desc: "Algılama kalitesini artırmak için özel terimleri, isimleri virgülle ayırarak girin.",
     vocab_placeholder: "örn. Aura, commit, depo...",
+    punct_model_label: "Noktalama (İngilizce için)",
+    punct_model_name: "CT-Transformer (zh-en, int8)",
+    punct_model_meta: "~62 MB — sesli noktalama",
+    engine_health_whisper: "Whisper: yerleşik motor, ihtiyaç halinde başlatılır",
+    engine_health_parakeet_running: "Parakeet: sunucu çalışıyor ({provider}, port {port})",
+    engine_health_parakeet_stopped: "Parakeet: sunucu çalışmıyor",
     local_model_title: "Yerel Whisper Modülü",
     local_model_desc: "Tam gizlilik için yerel bir konuşma tanıma motoru yapılandırın.",
     local_model_label: "Model Boyutu",
@@ -1466,19 +1499,22 @@ const radioCloud = document.getElementById("radio-cloud");
 
 function updateEngineUI() {
     const vocabCard = document.getElementById("card-vocabulary");
+    const vocabLabel = document.getElementById("section-label-dictionary");
     const fallbackCard = document.getElementById("card-cloud-fallback");
     const streamingCard = document.getElementById("card-streaming");
+    const langCard = document.getElementById("card-language");
     const localEngineSection = document.getElementById("local-engine-section");
     if (radioLocal.checked) {
       if (localEngineSection) localEngineSection.style.display = "flex";
       updateLocalEngineUI();
       if (fallbackCard) fallbackCard.style.display = "none";
-      if (streamingCard) streamingCard.style.display = "flex";
-      if (vocabCard) vocabCard.style.display = "flex";
+      if (langCard) langCard.style.display = "flex";
     } else {
       if (localEngineSection) localEngineSection.style.display = "none";
       if (vocabCard) vocabCard.style.display = "flex";
+      if (vocabLabel) vocabLabel.style.display = "block";
       if (fallbackCard) fallbackCard.style.display = "flex";
+      if (langCard) langCard.style.display = "flex";
       if (streamingCard) streamingCard.style.display = "none";
     }
   }
@@ -1487,16 +1523,16 @@ function updateLocalEngineUI() {
     if (!selectLocalEngine || !groupWhisperModels || !groupParakeetModels) return;
     const isParakeet = selectLocalEngine.value === "parakeet";
     const vocabCard = document.getElementById("card-vocabulary");
+    const vocabLabel = document.getElementById("section-label-dictionary");
     if (vocabCard) vocabCard.style.display = isParakeet ? "none" : "flex";
+    if (vocabLabel) vocabLabel.style.display = isParakeet ? "none" : "block";
+    const langCard = document.getElementById("card-language");
+    if (langCard) langCard.style.display = isParakeet ? "none" : "flex";
+    const streamingCard = document.getElementById("card-streaming");
+    if (streamingCard) streamingCard.style.display = isParakeet ? "flex" : "none";
     const gpuSettings = document.getElementById("gpu-acceleration-settings");
     if (gpuSettings) {
       gpuSettings.style.display = isParakeet ? "block" : "none";
-    }
-    const streaming = document.getElementById("checkbox-streaming");
-    const streamingHint = document.getElementById("streaming-parakeet-hint");
-    if (streaming) {
-      streaming.disabled = !isParakeet;
-      if (streamingHint) streamingHint.hidden = isParakeet;
     }
     if (isParakeet) {
       groupWhisperModels.style.display = "none";
