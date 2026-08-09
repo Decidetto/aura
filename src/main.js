@@ -1859,6 +1859,21 @@ function updateEngineUI() {
       if (recognitionLabel) recognitionLabel.style.display = "block";
       if (streamingCard) streamingCard.style.display = "none";
     }
+    // The "Облако" tab bundles API keys and cloud-only functions, so it is
+    // hidden in local mode. If it is the active tab, move to the speech tab.
+    const cloudTab = document.getElementById("tab-btn-apikeys");
+    if (cloudTab) {
+      const hideCloudTab = radioLocal.checked;
+      cloudTab.style.display = hideCloudTab ? "none" : "";
+      cloudTab.setAttribute("aria-hidden", String(hideCloudTab));
+      if (hideCloudTab) {
+        const cloudPanel = document.getElementById("panel-apikeys");
+        if (cloudPanel && cloudPanel.style.display !== "none") {
+          const speechTab = document.getElementById("tab-btn-speech");
+          if (speechTab) activateTab(speechTab);
+        }
+      }
+    }
   }
 
 function updateLocalEngineUI() {
