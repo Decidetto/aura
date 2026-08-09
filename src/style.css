@@ -194,6 +194,8 @@ body {
   flex: 1;
   padding: 24px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .tab-panel {
@@ -201,6 +203,13 @@ body {
   flex-direction: column;
   gap: 20px;
   animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* The history panel stretches to the available window height; other
+   panels keep their natural height and scroll the outer container. */
+#panel-history {
+  flex: 1;
+  min-height: 0;
 }
 
 @keyframes fadeIn {
@@ -1194,7 +1203,9 @@ body {
 
 /* History Panel styling */
 .card-history {
-  max-height: 380px;
+  max-height: none;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
