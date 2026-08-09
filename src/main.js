@@ -1629,6 +1629,171 @@ function updateAllSelectPreviews() {
   document.querySelectorAll("select.custom-select[data-preview]").forEach(updateSelectPreview);
 }
 
+function selectPanelCaption(select, value) {
+  const def = SELECT_PREVIEW_DEFS[select.id];
+  if (!def || !def.byValue || def.byValue[value] === undefined) return "";
+  const dict = SELECT_PREVIEW_TEXTS[currentLanguage] || SELECT_PREVIEW_TEXTS.ru;
+  const key = def.byValue[value];
+  return dict[key] ?? SELECT_PREVIEW_TEXTS.ru[key] ?? "";
+}
+
+function syncPanelSelection(select) {
+  const wrap = select.closest(".select-wrap");
+  const panel = wrap && wrap.querySelector(".select-panel");
+  if (!panel) return;
+  const value = select.value;
+  panel.querySelectorAll(".select-panel-item").forEach((item) => {
+    item.classList.toggle("is-selected", item.dataset.value === value);
+  });
+}
+
+function buildSelectPanel(select) {
+  const wrap = select.closest(".select-wrap");
+  const panel = wrap && wrap.querySelector(".select-panel");
+  if (!panel) return;
+  panel.textContent = "";
+  for (const option of select.options) {
+    if (option.disabled) continue;
+    const item = document.createElement("div");
+    item.className = "select-panel-item";
+    item.dataset.value = option.value;
+    item.setAttribute("role", "option");
+
+    const main = document.createElement("div");
+    main.className = "select-panel-item-main";
+
+    const name = document.createElement("span");
+    name.className = "select-panel-item-name";
+    name.textContent = option.textContent.trim();
+    main.appendChild(name);
+
+    const caption = selectPanelCaption(select, option.value);
+    if (caption) {
+      const desc = document.createElement("span");
+      desc.className = "select-panel-item-desc";
+      desc.textContent = caption;
+      main.appendChild(desc);
+    }
+
+    const check = document.createElement("span");
+    check.className = "select-panel-item-check";
+    check.setAttribute("aria-hidden", "true");
+    check.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+    item.appendChild(main);
+    item.appendChild(check);
+    item.addEventListener("click", () => {
+      pickSelectValue(select, option.value);
+    });
+    panel.appendChild(item);
+  }
+  syncPanelSelection(select);
+}
+
+function rebuildSelectPanels() {
+  document.querySelectorAll("select.custom-select[data-preview]").forEach(buildSelectPanel);
+}
+
+function closeSelectPanels() {
+  document.querySelectorAll(".select-panel.open").forEach((panel) => {
+    panel.classList.remove("open");
+  });
+  document.querySelectorAll("select.custom-select[aria-expanded]").forEach((el) => {
+    el.setAttribute("aria-expanded", "false");
+  });
+}
+
+function toggleSelectPanel(select) {
+  const wrap = select.closest(".select-wrap");
+  const panel = wrap && wrap.querySelector(".select-panel");
+  if (!panel) return;
+  const willOpen = !panel.classList.contains("open");
+  closeSelectPanels();
+  if (willOpen) {
+    panel.classList.add("open");
+    select.setAttribute("aria-expanded", "true");
+  }
+}
+
+function pickSelectValue(select, value) {
+  if (select.value === value) {
+    closeSelectPanels();
+    return;
+  }
+  select.value = value;
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+  syncPanelSelection(select);
+  closeSelectPanels();
+}
+
+function movePanelFocus(select, direction) {
+  const panel = select.closest(".select-wrap").querySelector(".select-panel");
+  if (!panel) return;
+  const items = Array.from(panel.querySelectorAll(".select-panel-item"));
+  const currentIndex = items.findIndex((item) => item.classList.contains("is-focused"));
+  let next = currentIndex === -1 ? 0 : currentIndex + direction;
+  next = (next + items.length) % items.length;
+  items.forEach((item) => {
+    item.classList.toggle("is-focused", item === items[next]);
+    if (item === items[next] && typeof item.scrollIntoView === "function") {
+      item.scrollIntoView({ block: "nearest" });
+    }
+  });
+  return items[next];
+}
+
+function handleSelectMousedown(event) {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  toggleSelectPanel(event.currentTarget);
+}
+
+function handleSelectKeydown(event) {
+  const select = event.currentTarget;
+  const panel = select.closest(".select-wrap")?.querySelector(".select-panel");
+  const isOpen = panel && panel.classList.contains("open");
+  const KEY_OPEN = ["Enter", " ", "ArrowDown", "ArrowUp"];
+  if (!isOpen) {
+    if (KEY_OPEN.includes(event.key)) {
+      event.preventDefault();
+      toggleSelectPanel(select);
+      movePanelFocus(select, 1);
+    }
+    return;
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeSelectPanels();
+    select.focus();
+    return;
+  }
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    movePanelFocus(select, event.key === "ArrowDown" ? 1 : -1);
+    return;
+  }
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    const focused = panel.querySelector(".select-panel-item.is-focused");
+    if (focused) pickSelectValue(select, focused.dataset.value);
+    else closeSelectPanels();
+  }
+}
+
+function initSelectPanels() {
+  document.querySelectorAll("select.custom-select[data-preview]").forEach((select) => {
+    select.addEventListener("mousedown", handleSelectMousedown);
+    select.addEventListener("keydown", handleSelectKeydown);
+  });
+  document.addEventListener("mousedown", (event) => {
+    if (!event.target.closest(".select-wrap")) {
+      closeSelectPanels();
+    }
+  });
+  rebuildSelectPanels();
+}
+
 function getTranslation(key, params = {}) {
   const dict = i18nDict[currentLanguage] || i18nDict.ru;
   let template = dict[key] || i18nDict.ru[key] || key;
@@ -2865,6 +3030,7 @@ if (e.button === 0 && !e.target.closest(".window-control-btn") && !e.target.clos
     }
 
     updateAllSelectPreviews();
+    rebuildSelectPanels();
   }
 
   // --- History List & Clear Interactions ---
@@ -3316,6 +3482,8 @@ const itemEl = document.createElement("div");
     
     // Apply initial language choice outside the if block so translations initialize even if #select-ui-lang is missing
     applyLanguage(savedUiLang);
+
+    initSelectPanels();
 
     // Initialize Settings
     await loadSettings(settings);
