@@ -522,7 +522,7 @@
           </div>
           <div class="privacy-text-area">
             <h3 class="privacy-title">Бескомпромиссная приватность</h3>
-            <p class="privacy-desc">Локальный режим работает полностью автономно и не передаёт записи в сеть. В облачном режиме аудио, полученный транскрипт, выделенный текст (только при включённом редактировании выделения) и пользовательский словарь передаются напрямую выбранному провайдеру по TLS. В Aura нет телеметрии. API-ключи и история транскрипций хранятся локально и защищены Windows DPAPI. Необязательная проверка обновлений выполняется только вручную или после явного включения автоматической проверки. Текущий установщик не подписан Authenticode; перед запуском проверьте SHA-256: 0F48923BD58A0A8D002A758D13F67EB46188905093AFFE90B2B9C23289EE9325.</p>
+            <p class="privacy-desc">Локальный режим работает полностью автономно и не передаёт аудиозаписи в сеть. В облачном режиме аудио, полученный транскрипт, выделенный текст (только при включённом редактировании выделения) и словарь передаются напрямую выбранному провайдеру по TLS без телеметрии. API-ключи и история транскрипций надёжно защищены с помощью Windows DPAPI. Необязательная проверка обновлений выполняется только вручную или при её явном включении.</p>
           </div>
         </div>
       </div>
@@ -673,7 +673,7 @@
         <div class="modal-meta-grid">
           <div class="modal-meta-item">
             <span class="modal-meta-label">Платформа</span>
-            <span class="modal-meta-value">Windows x64</span>
+            <span class="modal-meta-value">Windows 10 / 11 (x64)</span>
           </div>
           <div class="modal-meta-item">
             <span class="modal-meta-label">Размер файла</span>
@@ -684,8 +684,11 @@
             <span class="modal-meta-value">1.0.8 (Последняя)</span>
           </div>
           <div class="modal-meta-item">
-            <span class="modal-meta-label">Требования</span>
-            <span class="modal-meta-value">Windows 10 / 11</span>
+            <span class="modal-meta-label">Подпись</span>
+            <span class="modal-meta-value">Открытый код (не подписан Authenticode)</span>
+          </div>
+          <div class="modal-meta-checksum">
+            <span>SHA-256: <code>0F48923BD58A0A8D002A758D13F67EB46188905093AFFE90B2B9C23289EE9325</code></span>
           </div>
         </div>
       </div>
