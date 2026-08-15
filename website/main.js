@@ -121,6 +121,7 @@ function setupMockSettings() {
   const radioCloud = document.getElementById('mock-radio-cloud');
   const radioLocal = document.getElementById('mock-radio-local');
   const localModelCard = document.getElementById('mock-card-local-model');
+  const cloudApiCard = document.getElementById('mock-card-api-keys');
   const modelCards = document.querySelectorAll('.mock-model-card');
   
   const apiProviderSelect = document.getElementById('mock-api-provider');
@@ -129,14 +130,20 @@ function setupMockSettings() {
   const clearHistoryBtn = document.getElementById('mock-btn-clear-history');
   const historyList = document.getElementById('mock-history-list');
   const historyEmpty = document.getElementById('mock-history-empty');
+  const historySearch = document.getElementById('mock-history-search');
+  const filterBtns = document.querySelectorAll('.mock-filter-btn');
   
-  // Tab switching for all 6 tabs
+  // Tab switching for all 5 tabs
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
       const targetPanelId = `mock-panel-${tab.getAttribute('data-mock-tab')}`;
       
-      tabs.forEach(t => t.classList.remove('mock-tab-active'));
+      tabs.forEach(t => {
+        t.classList.remove('mock-tab-active');
+        t.setAttribute('aria-selected', 'false');
+      });
       tab.classList.add('mock-tab-active');
+      tab.setAttribute('aria-selected', 'true');
       
       panels.forEach(panel => {
         if (panel.getAttribute('id') === targetPanelId) {
@@ -155,13 +162,15 @@ function setupMockSettings() {
     });
   }
 
-  // Toggling Local Whisper models list card based on Engine radio button
-  if (radioCloud && radioLocal && localModelCard) {
+  // Toggling Local vs Cloud settings cards inside Speech tab
+  if (radioCloud && radioLocal) {
     const handleEngineChange = () => {
       if (radioLocal.checked) {
-        localModelCard.style.display = 'block';
+        if (localModelCard) localModelCard.style.display = 'block';
+        if (cloudApiCard) cloudApiCard.style.display = 'none';
       } else {
-        localModelCard.style.display = 'none';
+        if (localModelCard) localModelCard.style.display = 'none';
+        if (cloudApiCard) cloudApiCard.style.display = 'block';
       }
     };
     
@@ -169,7 +178,7 @@ function setupMockSettings() {
     radioLocal.addEventListener('change', handleEngineChange);
   }
 
-  // Local Whisper models selection toggler
+  // Local model cards selection toggler
   modelCards.forEach(card => {
     card.addEventListener('click', () => {
       modelCards.forEach(c => c.classList.remove('mock-model-active'));
@@ -188,7 +197,56 @@ function setupMockSettings() {
         apiKeyInput.placeholder = isRu ? 'Введите ваш API-ключ OpenAI...' : 'Enter your OpenAI API key...';
       } else if (provider === 'groq') {
         apiKeyInput.placeholder = isRu ? 'Введите ваш API-ключ Groq...' : 'Enter your Groq API key...';
+      } else if (provider === 'huggingface') {
+        apiKeyInput.placeholder = isRu ? 'Введите ваш токен Hugging Face...' : 'Enter your Hugging Face token...';
+      } else if (provider === 'custom') {
+        apiKeyInput.placeholder = isRu ? 'https://your-server.com/v1' : 'https://your-server.com/v1';
       }
+    });
+  }
+
+  // History filtering by type (All, Local, Cloud)
+  let activeFilter = 'all';
+  let searchQuery = '';
+
+  function updateHistoryView() {
+    if (!historyList) return;
+    const items = historyList.querySelectorAll('.mock-history-item');
+    let visibleCount = 0;
+
+    items.forEach(item => {
+      const source = item.getAttribute('data-source');
+      const text = (item.querySelector('.mock-history-text')?.textContent || '').toLowerCase();
+      
+      const matchesFilter = (activeFilter === 'all' || source === activeFilter);
+      const matchesSearch = (!searchQuery || text.includes(searchQuery));
+
+      if (matchesFilter && matchesSearch) {
+        item.style.display = 'block';
+        visibleCount++;
+      } else {
+        item.style.display = 'none';
+      }
+    });
+
+    if (historyEmpty) {
+      historyEmpty.style.display = visibleCount === 0 ? 'block' : 'none';
+    }
+  }
+
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      filterBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeFilter = btn.getAttribute('data-filter') || 'all';
+      updateHistoryView();
+    });
+  });
+
+  if (historySearch) {
+    historySearch.addEventListener('input', (e) => {
+      searchQuery = e.target.value.trim().toLowerCase();
+      updateHistoryView();
     });
   }
 
@@ -215,11 +273,11 @@ function startTypingSimulator() {
 
   const isRu = document.documentElement.lang === 'ru';
   const rawPhrase = isRu 
-    ? "Так... эээ... напиши питон скрипт для парсинга логов. Погоди, нет, лучше функцию на расте, она быстрее." 
-    : "So... uh... write a python script to parse logs. Wait, no, make it a rust function since it's faster.";
+    ? "Напиши функцию для быстрой сортировки логов на Rust" 
+    : "Write a function for fast log sorting in Rust";
   const cleanPhrase = isRu 
-    ? "Так, напиши Python-скрипт для парсинга логов. Погоди, нет, лучше функцию на Rust, она быстрее." 
-    : "So write a Python script to parse logs. Wait, no, make it a Rust function since it's faster.";
+    ? "Напиши функцию для быстрой сортировки логов на Rust." 
+    : "Write a function for fast log sorting in Rust.";
   
   let breathingInterval = null;
   let timerInterval = null;
@@ -228,9 +286,8 @@ function startTypingSimulator() {
     if (breathingInterval) clearInterval(breathingInterval);
     if (timerInterval) clearInterval(timerInterval);
     
-    // Reset heights to default
     soundBars.forEach(bar => {
-      bar.removeAttribute("style"); // Remove any inline styles from JS animation loop
+      bar.removeAttribute("style");
       bar.setAttribute("height", "6");
       bar.setAttribute("y", "11.6001");
     });
@@ -248,10 +305,8 @@ function startTypingSimulator() {
     await sleep(1500);
     
     // Step 1: Open Dictation Pill Overlay (Start recording state)
-    // Staggered waves are driven smoothly by CSS animations
     overlayPill.classList.add('active');
     
-    // Increment timer text: 0:00, 0:01, 0:02
     let seconds = 0;
     timerInterval = setInterval(() => {
       seconds++;
@@ -260,22 +315,19 @@ function startTypingSimulator() {
     
     await sleep(800);
     
-    // Step 2: Type spoken phrase letter-by-letter
+    // Step 2: Speak / dictate phrase
     for (let i = 0; i < rawPhrase.length; i++) {
       editorText.textContent += rawPhrase[i];
-      await sleep(35 + Math.random() * 70);
+      await sleep(35 + Math.random() * 50);
     }
     
-    // Stop recording state animations
     clearInterval(timerInterval);
+    await sleep(350);
     
-    await sleep(400);
-    
-    // Step 3: Trigger AI formatting status ("Обработка…")
+    // Step 3: Transcription processing state
     overlayPill.classList.add('processing');
-    overlayStatus.textContent = isRu ? "Обработка…" : "Processing...";
+    overlayStatus.textContent = isRu ? "Вставка…" : "Transcribing...";
     
-    // Start actual app's 60fps sinusoidal breathing wave animation
     let angle = 0;
     breathingInterval = setInterval(() => {
       soundBars.forEach((bar, index) => {
@@ -286,22 +338,18 @@ function startTypingSimulator() {
         bar.setAttribute("y", y.toString());
       });
       angle += 0.05;
-    }, 16); // ~60fps
+    }, 16);
     
-    await sleep(1800);
+    await sleep(1000);
     
-    // Step 4: AI Formatting flash transition
-    editorText.style.color = 'var(--accent-color)';
-    await sleep(180);
-    
-    // Step 5: Insert clean text, return color, stop animations, hide overlay
+    // Step 4: Punctuation and insertion completed
     editorText.textContent = cleanPhrase;
     editorText.style.color = 'var(--text-primary)';
     
     stopAllAnimations();
     overlayPill.classList.remove('active', 'processing');
     
-    // Delay before looping again
+    // Pause before repeating
     await sleep(4000);
     runSimulationLoop();
   }

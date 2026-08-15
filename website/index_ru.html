@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <!-- SEO Meta Tags -->
-  <title>Aura: умный голосовой ввод для Windows | Бесплатно и без ограничений</title>
-  <meta name="description" content="Aura: бесплатная программа с открытым исходным кодом для голосового ввода на Windows. Работает через облачные ИИ (Gemini, OpenAI, Groq) или полностью локально и приватно через Whisper." />
-  <meta name="keywords" content="голосовой ввод, диктовка, Windows, Whisper, ИИ, распознавание речи, транскрипция, бесплатно, открытый код, Gemini, Groq, OpenAI" />
+  <title>Aura — быстрый голосовой ввод для Windows | Бесплатно и без ограничений</title>
+  <meta name="description" content="Aura: бесплатная программа с открытым исходным кодом для голосового ввода на Windows. Работает автономно и приватно через локальные модели (Whisper, NVIDIA Parakeet) или через облачные сервисы (Gemini, OpenAI, Groq)." />
+  <meta name="keywords" content="голосовой ввод, диктовка, Windows, Whisper, Parakeet, CUDA, распознавание речи, транскрипция, бесплатно, открытый код, Gemini, Groq, OpenAI" />
   
   <!-- Open Graph -->
-  <meta property="og:title" content="Aura: умный голосовой ввод для Windows" />
-  <meta property="og:description" content="Зажмите горячую клавишу, продиктуйте текст и отпустите. Умный ИИ уберёт слова-паразиты, расставит знаки препинания и вставит результат в любое окно." />
+  <meta property="og:title" content="Aura — быстрый голосовой ввод для Windows" />
+  <meta property="og:description" content="Зажмите горячую клавишу, надиктуйте текст и отпустите. Aura мгновенно расшифрует речь и вставит результат прямо под курсор." />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="assets/logo.svg" />
 
@@ -24,8 +24,8 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=2.1.1" />
-  <script src="main.js?v=2.1.0" defer></script>
+  <link rel="stylesheet" href="style.css?v=2.1.2" />
+  <script src="main.js?v=2.1.2" defer></script>
 </head>
 <body>
 
@@ -68,8 +68,8 @@
     <section class="hero-section" id="hero">
     <div class="section-container hero-container">
       <div class="hero-content reveal-on-scroll">
-        <h1 class="hero-title">Aura: умный голосовой ввод для Windows</h1>
-        <p class="hero-subtitle">Зажмите горячую клавишу, надиктуйте текст и отпустите. Умный ИИ уберёт слова-паразиты, расставит знаки препинания и вставит результат в любое окно.</p>
+        <h1 class="hero-title">Aura — быстрый голосовой ввод для Windows</h1>
+        <p class="hero-subtitle">Зажмите горячую клавишу, надиктуйте текст и отпустите. Aura мгновенно расшифрует речь и вставит готовый текст прямо под курсор. Работает автономно на вашем ПК или через облачные сервисы.</p>
         <div class="hero-actions">
           <div class="hero-download-wrapper">
             <a href="Aura_1.0.8_x64-setup.exe" download class="btn btn-primary btn-hero-cta" id="hero-download-btn">Скачать Aura</a>
@@ -125,15 +125,15 @@
   <!-- Features Bento Section -->
   <section class="features-section" id="features">
     <div class="section-container">
-      <h2 class="section-title reveal-on-scroll">Создана для удобства диктовки</h2>
+      <h2 class="section-title reveal-on-scroll">Возможности Aura</h2>
       
       <div class="bento-grid">
         <!-- Bento Cell 1: Engines (Double columns) -->
         <div class="bento-card bento-col-2 bento-cloud-local reveal-on-scroll">
           <div class="card-glow"></div>
           <div class="bento-card-content">
-            <h3 class="bento-card-title">Два режима: в облаке или локально</h3>
-            <p class="bento-card-desc">Пользуйтесь быстрыми облачными ИИ-моделями (Gemini, OpenAI, Groq) или переключитесь в полностью автономный режим. Локальный Whisper.cpp работает на вашем ПК без интернета и гарантирует 100% приватность.</p>
+            <h3 class="bento-card-title">Локально на ПК или через облако</h3>
+            <p class="bento-card-desc">Полная автономность с Whisper и NVIDIA Parakeet TDT v3 — звук не покидает ваш компьютер. При необходимости можно подключить облачные Gemini, Groq, OpenAI, Hugging Face или собственный API-сервер.</p>
             <div class="engine-graphic">
               <div class="engine-node node-active" id="node-cloud">
                 <svg class="engine-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -161,7 +161,7 @@
                   <line x1="8" y1="21" x2="16" y2="21"></line>
                   <line x1="12" y1="17" x2="12" y2="21"></line>
                 </svg>
-                <span class="node-label">Whisper Офлайн</span>
+                <span class="node-label">Whisper / Parakeet</span>
               </div>
             </div>
           </div>
@@ -172,31 +172,32 @@
           <div class="card-glow"></div>
           <div class="bento-card-content">
             <h3 class="bento-card-title">100% Бесплатно и Открыто</h3>
-            <p class="bento-card-desc">Никаких скрытых платежей, подписок, лимитов или встроенной рекламы. Aura — это свободный проект с открытым кодом под лицензией AGPL-3.0.</p>
+            <p class="bento-card-desc">Никаких скрытых платежей, подписок, лимитов или встроенной рекламы. Aura — свободный проект с открытым исходным кодом под лицензией AGPL-3.0.</p>
             <span class="card-accent-badge">AGPL-3.0 License</span>
           </div>
         </div>
 
-        <!-- Bento Cell 3: Smart Formatting (Single column) -->
+        <!-- Bento Cell 3: Fast & Accurate (Single column) -->
         <div class="bento-card reveal-on-scroll">
           <div class="card-glow"></div>
           <div class="bento-card-content">
-            <h3 class="bento-card-title">Умное форматирование</h3>
-            <p class="bento-card-desc">Программа не просто транскрибирует: она вырезает слова-паразиты («эээ», «типа»), наводит порядок в грамматике и аккуратно расставляет знаки препинания.</p>
+            <h3 class="bento-card-title">Быстро и точно</h3>
+            <p class="bento-card-desc">Высокая скорость распознавания, автоматическая пунктуация, личный словарь для специфических терминов и поддержка моделей от Base до Large.</p>
           </div>
         </div>
 
-        <!-- Bento Cell 4: Additional benefits (Double columns) -->
+        <!-- Bento Cell 4: Stability & Control (Double columns) -->
         <div class="bento-card bento-col-2 reveal-on-scroll">
           <div class="card-glow"></div>
           <div class="bento-card-content">
-            <h3 class="bento-card-title">Продуманные детали</h3>
-            <p class="bento-card-desc">Автоопределение языка (11 вариантов), потоковый ввод текста по мере произношения, личный словарь для специфических терминов и система Focus Guard, которая защищает от печати текста не в то окно.</p>
+            <h3 class="bento-card-title">Потоковый ввод и Focus Guard</h3>
+            <p class="bento-card-desc">Текст появляется по мере произношения без задержек. Встроенная защита Focus Guard гарантирует, что надиктованный текст никогда не напечатается в чужое окно при случайной смене фокуса.</p>
             <div class="details-tags">
               <span class="detail-tag">11 языков</span>
               <span class="detail-tag">Словарь терминов</span>
               <span class="detail-tag">Focus Guard</span>
               <span class="detail-tag">Потоковый ввод</span>
+              <span class="detail-tag">NVIDIA CUDA</span>
             </div>
           </div>
         </div>
@@ -204,7 +205,7 @@
     </div>
   </section>
 
-  <!-- 🆕 How It Works Section -->
+  <!-- How It Works Section -->
   <section class="workflow-section" id="workflow">
     <div class="section-container">
       <h2 class="section-title reveal-on-scroll">Как работает Aura?</h2>
@@ -218,21 +219,21 @@
           <div class="timeline-step reveal-on-scroll">
             <div class="step-badge">1</div>
             <h3 class="step-title">Запуск</h3>
-            <p class="step-desc">Нажмите и удерживайте глобальную горячую клавишу <kbd class="step-kbd">Alt + V</kbd> в любой программе или поле ввода на вашем компьютере.</p>
+            <p class="step-desc">Зажмите глобальную комбинацию <kbd class="step-kbd">Alt + V</kbd> в любой программе или поле ввода (поддерживается и режим переключателя кликом).</p>
           </div>
           
           <!-- Step 2 -->
           <div class="timeline-step reveal-on-scroll">
             <div class="step-badge">2</div>
             <h3 class="step-title">Диктовка</h3>
-            <p class="step-desc">Произнесите фразу. Небольшой аккуратный оверлей покажет активность записи микрофона и текущий таймер.</p>
+            <p class="step-desc">Произнесите фразу. Аккуратный оверлей отобразит активность микрофона и текущий таймер записи.</p>
           </div>
           
           <!-- Step 3 -->
           <div class="timeline-step reveal-on-scroll">
             <div class="step-badge">3</div>
             <h3 class="step-title">Вставка</h3>
-            <p class="step-desc">Отпустите клавишу. Умный ИИ отформатирует текст, исправит ошибки, расставит знаки препинания и мгновенно вставит его.</p>
+            <p class="step-desc">Отпустите клавишу. Текст мгновенно расшифровывается и вставляется в активное поле ввода.</p>
           </div>
         </div>
       </div>
@@ -246,7 +247,7 @@
         <!-- Interactive Settings Mockup Window -->
         <div class="window-mockup settings-mockup-window">
           <div class="settings-mockup-layout">
-            <!-- Sidebar Navigation -->
+            <!-- Sidebar Navigation (5 tabs matching Aura 1.0.8) -->
             <nav class="mock-settings-sidebar" aria-label="Разделы настроек" role="tablist">
               <div class="mock-nav-title">Настройки</div>
               <button type="button" class="mock-nav-tab mock-tab-active" data-mock-tab="general" role="tab" aria-selected="true" aria-controls="mock-panel-general" id="tab-general">
@@ -260,10 +261,6 @@
               <button type="button" class="mock-nav-tab" data-mock-tab="hotkeys" role="tab" aria-selected="false" aria-controls="mock-panel-hotkeys" id="tab-hotkeys">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mock-tab-icon"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><line x1="6" y1="8" x2="6" y2="8"></line><line x1="10" y1="8" x2="10" y2="8"></line><line x1="14" y1="8" x2="14" y2="8"></line><line x1="18" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="18" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
                 Управление
-              </button>
-              <button type="button" class="mock-nav-tab" data-mock-tab="apikeys" role="tab" aria-selected="false" aria-controls="mock-panel-apikeys" id="tab-apikeys">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mock-tab-icon"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
-                API-ключи
               </button>
               <button type="button" class="mock-nav-tab" data-mock-tab="history" role="tab" aria-selected="false" aria-controls="mock-panel-history" id="tab-history">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mock-tab-icon"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -308,37 +305,60 @@
               <div class="mock-panel" id="mock-panel-speech" style="display: none;" role="tabpanel" aria-labelledby="tab-speech">
                 <div class="mock-card-inner">
                   <h5 class="mock-inner-title">Способ распознавания</h5>
-                  <p class="mock-inner-desc">Выберите между облачной обработкой высокого качества или полностью локальным Whisper.</p>
+                  <p class="mock-inner-desc">Выберите между полностью автономным локальным распознаванием или облачными сервисами.</p>
                   <div class="mock-engine-toggle-group">
                     <label class="mock-engine-option">
-                      <input type="radio" name="mock_trans_mode" value="cloud" checked id="mock-radio-cloud" />
+                      <input type="radio" name="mock_trans_mode" value="local" checked id="mock-radio-local" />
                       <span class="mock-engine-card">
-                        <span class="mock-engine-name">Облачный ИИ</span>
-                        <span class="mock-engine-meta">Gemini / OpenAI / Groq</span>
+                        <span class="mock-engine-name">Локальный ИИ</span>
+                        <span class="mock-engine-meta">Whisper / Parakeet (100% офлайн)</span>
                       </span>
                     </label>
                     <label class="mock-engine-option">
-                      <input type="radio" name="mock_trans_mode" value="local" id="mock-radio-local" />
+                      <input type="radio" name="mock_trans_mode" value="cloud" id="mock-radio-cloud" />
                       <span class="mock-engine-card">
-                        <span class="mock-engine-name">Локальный ИИ</span>
-                        <span class="mock-engine-meta">Whisper.cpp (Офлайн)</span>
+                        <span class="mock-engine-name">Облачный ИИ</span>
+                        <span class="mock-engine-meta">Gemini / Groq / OpenAI / Hugging Face</span>
                       </span>
                     </label>
                   </div>
                 </div>
                 
                 <!-- Local Model Subcard -->
-                <div class="mock-card-inner" id="mock-card-local-model" style="display: none;">
-                  <h5 class="mock-inner-title">Локальная модель Whisper</h5>
+                <div class="mock-card-inner" id="mock-card-local-model">
+                  <h5 class="mock-inner-title">Локальные модели</h5>
                   <div class="mock-model-selection">
                     <div class="mock-model-card mock-model-active" data-mock-model="base">
-                      <span class="mock-model-name">Base</span>
-                      <span class="mock-model-meta">~145 МБ (рекомендуемая)</span>
+                      <span class="mock-model-name">Whisper Base</span>
+                      <span class="mock-model-meta">~145 МБ — быстрая для CPU</span>
                     </div>
-                    <div class="mock-model-card" data-mock-model="small">
-                      <span class="mock-model-name">Small</span>
-                      <span class="mock-model-meta">~465 МБ (точная для RU)</span>
+                    <div class="mock-model-card" data-mock-model="turbo">
+                      <span class="mock-model-name">Whisper Large v3 Turbo (Q5)</span>
+                      <span class="mock-model-meta">~550 МБ — рекомендуемая</span>
                     </div>
+                    <div class="mock-model-card" data-mock-model="parakeet">
+                      <span class="mock-model-name">NVIDIA Parakeet TDT v3 (int8)</span>
+                      <span class="mock-model-meta">~670 МБ — поддержка CUDA GPU</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cloud API Keys Subcard (shown when Cloud is selected) -->
+                <div class="mock-card-inner" id="mock-card-api-keys" style="display: none;">
+                  <h5 class="mock-inner-title">Облачный провайдер</h5>
+                  <div style="margin-bottom: 12px;">
+                    <div class="mock-select-wrapper">
+                      <select id="mock-api-provider" class="mock-select-box" aria-label="Провайдер API">
+                        <option value="gemini">Google Gemini AI</option>
+                        <option value="groq">Groq (Whisper + Llama)</option>
+                        <option value="openai">OpenAI (Whisper + GPT)</option>
+                        <option value="huggingface">Hugging Face</option>
+                        <option value="custom">Пользовательский сервер</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <input type="password" id="mock-api-key" class="mock-text-input" placeholder="Введите ваш API-ключ Gemini..." />
                   </div>
                 </div>
 
@@ -357,11 +377,11 @@
                 <div class="mock-card-inner">
                   <h5 class="mock-inner-title">Режим ввода текста</h5>
                   <label class="mock-toggle-switch">
-                    <input type="checkbox" id="mock-streaming-chk" />
+                    <input type="checkbox" id="mock-streaming-chk" checked />
                     <span class="mock-toggle-track">
                       <span class="mock-toggle-thumb"></span>
                     </span>
-                    <span class="mock-toggle-label">Потоковый ввод (экспериментальный)</span>
+                    <span class="mock-toggle-label">Потоковый ввод в реальном времени</span>
                   </label>
                 </div>
               </div>
@@ -403,37 +423,14 @@
                         <option value="zen">Дзен (Поющие чаши)</option>
                         <option value="rhodes">Rhodes (Джаз-пианино)</option>
                         <option value="scifi">Sci-Fi (Космический)</option>
+                        <option value="classic">Колокольчик</option>
                       </select>
                     </div>
                   </div>
                 </div>
               </div>
               
-              <!-- 4. PANEL: API KEYS -->
-              <div class="mock-panel" id="mock-panel-apikeys" style="display: none;" role="tabpanel" aria-labelledby="tab-apikeys">
-                <div class="mock-card-inner">
-                  <h5 class="mock-inner-title">Авторизация API-ключей</h5>
-                  <p class="mock-inner-desc">Укажите ваши API-ключи для авторизации в облачных сервисах Gemini, OpenAI или Groq.</p>
-                  
-                  <div style="margin-bottom: 12px;">
-                    <label class="mock-inner-title" for="mock-api-provider" style="display: block; font-size: 0.8rem; margin-bottom: 6px;">Провайдер API</label>
-                    <div class="mock-select-wrapper">
-                      <select id="mock-api-provider" class="mock-select-box">
-                        <option value="gemini">Google Gemini AI</option>
-                        <option value="openai">OpenAI (Whisper + GPT)</option>
-                        <option value="groq">Groq (Whisper + Llama)</option>
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label class="mock-inner-title" for="mock-api-key" style="display: block; font-size: 0.8rem; margin-bottom: 6px;">API-ключ</label>
-                    <input type="password" id="mock-api-key" class="mock-text-input" placeholder="Введите ваш API-ключ Gemini..." />
-                  </div>
-                </div>
-              </div>
-              
-              <!-- 5. PANEL: HISTORY -->
+              <!-- 4. PANEL: HISTORY -->
               <div class="mock-panel" id="mock-panel-history" style="display: none;" role="tabpanel" aria-labelledby="tab-history">
                 <div class="mock-card-inner" style="padding: 0;">
                   <div class="mock-history-header">
@@ -441,28 +438,42 @@
                     <button type="button" class="mock-btn-clear" id="mock-btn-clear-history">Очистить</button>
                   </div>
                   
+                  <div class="mock-history-controls">
+                    <div class="mock-history-search-wrap">
+                      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                      </svg>
+                      <input type="text" id="mock-history-search" class="mock-history-search" placeholder="Поиск по истории..." />
+                    </div>
+                    <div class="mock-history-filters">
+                      <button type="button" class="mock-filter-btn active" data-filter="all">Все</button>
+                      <button type="button" class="mock-filter-btn" data-filter="local">Локально</button>
+                      <button type="button" class="mock-filter-btn" data-filter="cloud">Облако</button>
+                    </div>
+                  </div>
+                  
                   <div class="mock-history-list" id="mock-history-list">
-                    <div class="mock-history-item">
-                      <div class="mock-history-text">Привет, запусти локальный Whisper.</div>
-                      <div class="mock-history-meta">10 секунд назад &middot; Cloud</div>
+                    <div class="mock-history-item" data-source="local">
+                      <div class="mock-history-text">Запусти локальную модель Whisper.</div>
+                      <div class="mock-history-meta">10 секунд назад &middot; Local (Base)</div>
                     </div>
-                    <div class="mock-history-item">
-                      <div class="mock-history-text">Aura: умный голосовой ввод.</div>
-                      <div class="mock-history-meta">2 минуты назад &middot; Cloud</div>
+                    <div class="mock-history-item" data-source="local">
+                      <div class="mock-history-text">Тестируем NVIDIA Parakeet с ускорением на GPU.</div>
+                      <div class="mock-history-meta">2 минуты назад &middot; Local (CUDA)</div>
                     </div>
-                    <div class="mock-history-item">
-                      <div class="mock-history-text">Тестируем офлайн-диктовку на русском языке.</div>
-                      <div class="mock-history-meta">5 минут назад &middot; Local</div>
+                    <div class="mock-history-item" data-source="cloud">
+                      <div class="mock-history-text">Быстрый голосовой ввод в активное окно.</div>
+                      <div class="mock-history-meta">5 минут назад &middot; Cloud (Groq)</div>
                     </div>
                   </div>
                   
                   <div class="mock-history-empty" id="mock-history-empty" style="display: none;">
-                    История пуста. Ваши надиктованные тексты будут здесь.
+                    История пуста.
                   </div>
                 </div>
               </div>
               
-              <!-- 6. PANEL: ABOUT -->
+              <!-- 5. PANEL: ABOUT -->
               <div class="mock-panel" id="mock-panel-about" style="display: none;" role="tabpanel" aria-labelledby="tab-about">
                 <div class="mock-card-inner mock-about-card">
                   <div class="mock-about-logo">
@@ -473,7 +484,7 @@
                   </div>
                   <h4 class="mock-about-title">Aura</h4>
                   <span class="mock-about-ver">v1.0.8</span>
-                  <p class="mock-about-text">Высокоскоростной инструмент глобального голосового ввода для Windows. Программа позволяет вводить надиктованный текст в любое активное окно с автоматической обработкой слов-паразитов и расстановкой пунктуации.</p>
+                  <p class="mock-about-text">Быстрый инструмент голосового ввода для Windows. Работает с локальными моделями (Whisper, NVIDIA Parakeet) и облачными сервисами (Gemini, OpenAI, Groq, Hugging Face).</p>
                 </div>
               </div>
 
@@ -482,8 +493,8 @@
         </div>
       </div>
       <div class="layout-content reveal-on-scroll">
-        <h2 class="section-title">Гибкость в каждой детали</h2>
-        <p class="section-desc">Настраивайте Aura под свои сценарии работы. Выбирайте глобальные горячие клавиши, включайте режим переключателя кликом вместо удержания или меняйте звуковые темы оверлея (от спокойных поющих чаш дзен до космического Rhodes-пианино).</p>
+        <h2 class="section-title">Гибкая настройка под ваши задачи</h2>
+        <p class="section-desc">Выбирайте подходящие локальные модели или облачные сервисы, настраивайте горячие клавиши, переключайте звуковые темы оверлея и управляйте историей записей.</p>
         
         <div class="shortcuts-card">
           <h3 class="shortcuts-title">Управление по умолчанию:</h3>
@@ -508,7 +519,7 @@
     </div>
   </section>
 
-  <!-- 🆕 Dedicated Privacy Highlight Banner Section -->
+  <!-- Dedicated Privacy Highlight Banner Section -->
   <section class="privacy-section" id="privacy">
     <div class="section-container">
       <div class="privacy-card reveal-on-scroll">
@@ -521,15 +532,15 @@
             </svg>
           </div>
           <div class="privacy-text-area">
-            <h3 class="privacy-title">Бескомпромиссная приватность</h3>
-            <p class="privacy-desc">Локальный режим работает полностью автономно и не передаёт аудиозаписи в сеть. В облачном режиме аудио, полученный транскрипт, выделенный текст (только при включённом редактировании выделения) и словарь передаются напрямую выбранному провайдеру по TLS без телеметрии. API-ключи и история транскрипций надёжно защищены с помощью Windows DPAPI. Необязательная проверка обновлений выполняется только вручную или при её явном включении.</p>
+            <h3 class="privacy-title">Приватность и безопасность данных</h3>
+            <p class="privacy-desc">В локальном режиме аудио обрабатывается исключительно на вашем компьютере (CPU / GPU) и никуда не передаётся. В облачном режиме звук отправляется напрямую выбранному вами провайдеру по зашифрованному соединению без телеметрии. Ключи API и история защищены с помощью Windows DPAPI.</p>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- 🆕 FAQ Section (Accordions) -->
+  <!-- FAQ Section (Accordions) -->
   <section class="faq-section" id="faq">
     <div class="section-container">
       <h2 class="section-title reveal-on-scroll">Часто задаваемые вопросы</h2>
@@ -545,7 +556,7 @@
           </button>
           <div class="faq-answer-pane">
             <div class="faq-answer-content">
-              <p>В отличие от стандартной диктовки Windows, Aura использует интеллектуальные ИИ-модели для смыслового форматирования. Она автоматически удаляет звуки-паразиты («эээ», «типа»), наводит порядок в грамматике, расставляет знаки препинания и позволяет диктовать прямо в любое активное окно без потери фокуса. Кроме того, Aura поддерживает полностью локальное Whisper-распознавание без отправки аудио в интернет.</p>
+              <p>Aura работает быстрее, точнее распознает речь и вставляет текст без перехвата фокуса окон. Главное отличие — возможность работать на 100% автономно через локальные нейросети (Whisper, NVIDIA Parakeet), не отправляя звук на серверы Microsoft или в интернет.</p>
             </div>
           </div>
         </div>
@@ -560,7 +571,7 @@
           </button>
           <div class="faq-answer-pane">
             <div class="faq-answer-content">
-              <p>Абсолютно безопасно. В программе нет встроенной телеметрии или скрытых серверов сбора данных. Если вы используете локальный режим (Whisper Офлайн), аудиоданные обрабатываются прямо на вашем процессоре/видеокарте и никуда не передаются. При использовании облачного режима звук отправляется напрямую провайдерам (Google, OpenAI, Groq) по зашифрованным соединениям. API-ключи локально зашифрованы с помощью Windows DPAPI.</p>
+              <p>В программе нет встроенной телеметрии или аналитики. Если вы используете локальный режим (Whisper или Parakeet), аудиоданные обрабатываются прямо на вашем процессоре или видеокарте и никуда не передаются. При использовании облачного режима звук отправляется напрямую выбранному провайдеру (Google, OpenAI, Groq) по зашифрованным TLS-каналам. API-ключи локально зашифрованы с помощью Windows DPAPI.</p>
             </div>
           </div>
         </div>
@@ -568,14 +579,14 @@
         <!-- Q3 -->
         <div class="faq-item reveal-on-scroll">
           <button type="button" class="faq-question-btn" aria-expanded="false">
-            <span>Какие требования к ПК для локальной работы Whisper?</span>
+            <span>Какие требования к ПК для локальной работы?</span>
             <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
           </button>
           <div class="faq-answer-pane">
             <div class="faq-answer-content">
-              <p>Для быстрой офлайн-работы модели `Base` (~145 МБ) достаточно любого современного 4-ядерного процессора и 4 ГБ оперативной памяти. Локальный Whisper в Aura работает полностью автономно «из коробки» на ресурсах вашего процессора, поэтому вам <strong>не нужно устанавливать</strong> Python, библиотеки CUDA, драйверы для видеокарты или сторонние утилиты. Программа скачивает оптимизированный файл модели одним кликом и готова к работе.</p>
+              <p>Для базовой работы Whisper Base достаточно любого современного 4-ядерного процессора и 4 ГБ оперативной памяти. Для нейросети NVIDIA Parakeet доступно аппаратное ускорение на GPU — необходимые библиотеки CUDA загружаются приложением автоматически без ручной установки сторонних пакетов.</p>
             </div>
           </div>
         </div>
@@ -590,7 +601,7 @@
           </button>
           <div class="faq-answer-pane">
             <div class="faq-answer-content">
-              <p>Нет, программа Aura на 100% бесплатна и имеет открытый исходный код под копилефт-лицензией AGPL-3.0. В ней нет платных подписок, скрытых лимитов на объём ввода или рекламы. Если вы используете облачный режим через собственные API-ключи, вы оплачиваете провайдерам лишь копеечную стоимость токенов напрямую (например, в Groq или Google Gemini часто есть бесплатные лимиты).</p>
+              <p>Нет, программа Aura на 100% бесплатна и имеет открытый исходный код под лицензией AGPL-3.0. В ней нет платных подписок, рекламы или скрытых ограничений. При использовании облачного режима через собственные API-ключи вы используете тарифы провайдеров (например, у Groq и Gemini доступны бесплатные лимиты).</p>
             </div>
           </div>
         </div>
@@ -605,7 +616,7 @@
           </button>
           <div class="faq-answer-pane">
             <div class="faq-answer-content">
-              <p>Пока Aura выходит только для Windows 10 и 11. Нативный порт под macOS (глобальные хоткеи через CGEventTap, захват звука через CoreAudio) уже есть в кодовой базе и компилируется в CI, но для реального запуска ему ещё нужны сборка распознавания под macOS, упаковка приложения и тест на живом железе — поэтому загрузки под Mac пока нет. Следить за прогрессом или помочь можно на <a href="https://github.com/malashkadev/aura" style="color: var(--accent-color);">GitHub</a>. Linux пока не планируется.</p>
+              <p>Сейчас официальные сборки выходят для Windows 10 и 11. Нативный порт под macOS уже есть в кодовой базе репозитория и компилируется в CI; релизная версия появится после завершения тестирования на живом оборудовании. Следить за прогрессом можно на <a href="https://github.com/malashkadev/aura" style="color: var(--accent-color);">GitHub</a>.</p>
             </div>
           </div>
         </div>
@@ -627,7 +638,7 @@
           </svg>
           <span class="logo-text">AURA</span>
         </div>
-        <p class="footer-desc">Умный голосовой ввод с открытым исходным кодом для Windows. Создано <a href="https://github.com/malashkadev" target="_blank" rel="noopener noreferrer" style="color: var(--accent-color); font-weight: 500;">@malashkadev</a>.</p>
+        <p class="footer-desc">Быстрый голосовой ввод с открытым исходным кодом для Windows. Создано <a href="https://github.com/malashkadev" target="_blank" rel="noopener noreferrer" style="color: var(--accent-color); font-weight: 500;">@malashkadev</a>.</p>
       </div>
       <div class="footer-links">
         <div class="footer-link-group">

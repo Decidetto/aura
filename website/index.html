@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <!-- SEO Meta Tags -->
-  <title>Aura: Smart Voice Typing for Windows | Free and Unlimited</title>
-  <meta name="description" content="Aura: a free and open-source voice typing software for Windows. Works via cloud AI (Gemini, OpenAI, Groq) or fully locally and privately via Whisper." />
-  <meta name="keywords" content="voice typing, dictation, Windows, Whisper, AI, speech recognition, transcription, free, open source, Gemini, Groq, OpenAI" />
+  <title>Aura — Fast Voice Typing for Windows | Free and Unlimited</title>
+  <meta name="description" content="Aura: free and open-source voice typing app for Windows. Works offline and privately with local models (Whisper, NVIDIA Parakeet) or via cloud providers (Gemini, OpenAI, Groq)." />
+  <meta name="keywords" content="voice typing, dictation, Windows, Whisper, Parakeet, CUDA, speech recognition, transcription, free, open source, Gemini, Groq, OpenAI" />
   
   <!-- Open Graph -->
-  <meta property="og:title" content="Aura: Smart Voice Typing for Windows" />
-  <meta property="og:description" content="Hold down the hotkey, dictate your text, and release. Smart AI will remove filler words, add punctuation, and insert the result into any window." />
+  <meta property="og:title" content="Aura — Fast Voice Typing for Windows" />
+  <meta property="og:description" content="Hold down the hotkey, dictate your text, and release. Aura instantly transcribes your speech and inserts the text right under your cursor." />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="assets/logo.svg" />
 
@@ -24,8 +24,8 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=2.1.1" />
-  <script src="main.js?v=2.1.0" defer></script>
+  <link rel="stylesheet" href="style.css?v=2.1.2" />
+  <script src="main.js?v=2.1.2" defer></script>
 </head>
 <body>
 
@@ -68,8 +68,8 @@
     <section class="hero-section" id="hero">
     <div class="section-container hero-container">
       <div class="hero-content reveal-on-scroll">
-        <h1 class="hero-title">Aura: Smart Voice Typing for Windows</h1>
-        <p class="hero-subtitle">Hold down the hotkey, dictate your text, and release. Smart AI will remove filler words, add punctuation, and instantly insert the result into any active window.</p>
+        <h1 class="hero-title">Aura — Fast Voice Typing for Windows</h1>
+        <p class="hero-subtitle">Hold down the hotkey, dictate your text, and release. Aura instantly transcribes your speech and inserts the text right under your cursor. Works offline on your PC or via cloud services.</p>
         <div class="hero-actions">
           <div class="hero-download-wrapper">
             <a href="Aura_1.0.8_x64-setup.exe" download class="btn btn-primary btn-hero-cta" id="hero-download-btn">Download Aura</a>
@@ -125,15 +125,15 @@
   <!-- Features Bento Section -->
   <section class="features-section" id="features">
     <div class="section-container">
-      <h2 class="section-title reveal-on-scroll">Designed for Effortless Dictation</h2>
+      <h2 class="section-title reveal-on-scroll">Key Features</h2>
       
       <div class="bento-grid">
         <!-- Bento Cell 1: Engines (Double columns) -->
         <div class="bento-card bento-col-2 bento-cloud-local reveal-on-scroll">
           <div class="card-glow"></div>
           <div class="bento-card-content">
-            <h3 class="bento-card-title">Two Modes: Cloud or Local</h3>
-            <p class="bento-card-desc">Use fast cloud-based AI models (Gemini, OpenAI, Groq) or switch to a completely autonomous mode. Offline Whisper.cpp runs on your PC without an internet connection, ensuring 100% privacy.</p>
+            <h3 class="bento-card-title">Local on PC or via Cloud</h3>
+            <p class="bento-card-desc">Fully autonomous with Whisper and NVIDIA Parakeet TDT v3 — audio never leaves your computer. When needed, connect cloud providers like Gemini, Groq, OpenAI, Hugging Face, or your custom API server.</p>
             <div class="engine-graphic">
               <div class="engine-node node-active" id="node-cloud">
                 <svg class="engine-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -161,7 +161,7 @@
                   <line x1="8" y1="21" x2="16" y2="21"></line>
                   <line x1="12" y1="17" x2="12" y2="21"></line>
                 </svg>
-                <span class="node-label">Whisper Offline</span>
+                <span class="node-label">Whisper / Parakeet</span>
               </div>
             </div>
           </div>
@@ -177,26 +177,27 @@
           </div>
         </div>
 
-        <!-- Bento Cell 3: Smart Formatting (Single column) -->
+        <!-- Bento Cell 3: Fast & Accurate (Single column) -->
         <div class="bento-card reveal-on-scroll">
           <div class="card-glow"></div>
           <div class="bento-card-content">
-            <h3 class="bento-card-title">Smart Formatting</h3>
-            <p class="bento-card-desc">The app does not just transcribe: it cuts out filler words ("uh", "um"), cleans up grammar, and carefully inserts punctuation marks.</p>
+            <h3 class="bento-card-title">Fast & Accurate</h3>
+            <p class="bento-card-desc">High transcription speed, automatic punctuation, custom dictionary support, and a selection of models from Base to Large.</p>
           </div>
         </div>
 
-        <!-- Bento Cell 4: Additional benefits (Double columns) -->
+        <!-- Bento Cell 4: Stability & Focus (Double columns) -->
         <div class="bento-card bento-col-2 reveal-on-scroll">
           <div class="card-glow"></div>
           <div class="bento-card-content">
-            <h3 class="bento-card-title">Thoughtful Details</h3>
-            <p class="bento-card-desc">Auto-detect language (11 languages supported), streaming text input as you speak, a custom dictionary for specific terms, and Focus Guard protection to prevent typing into the wrong window.</p>
+            <h3 class="bento-card-title">Streaming Input & Focus Guard</h3>
+            <p class="bento-card-desc">Text appears as you speak without delay. Built-in Focus Guard ensures transcribed text is never typed into the wrong window if focus shifts.</p>
             <div class="details-tags">
               <span class="detail-tag">11 Languages</span>
-              <span class="detail-tag">Term Dictionary</span>
+              <span class="detail-tag">Custom Dictionary</span>
               <span class="detail-tag">Focus Guard</span>
               <span class="detail-tag">Streaming Input</span>
+              <span class="detail-tag">NVIDIA CUDA</span>
             </div>
           </div>
         </div>
@@ -204,7 +205,7 @@
     </div>
   </section>
 
-  <!-- 🆕 How It Works Section -->
+  <!-- How It Works Section -->
   <section class="workflow-section" id="workflow">
     <div class="section-container">
       <h2 class="section-title reveal-on-scroll">How Does Aura Work?</h2>
@@ -218,21 +219,21 @@
           <div class="timeline-step reveal-on-scroll">
             <div class="step-badge">1</div>
             <h3 class="step-title">Trigger</h3>
-            <p class="step-desc">Press and hold the global hotkey <kbd class="step-kbd">Alt + V</kbd> in any application or text field on your computer.</p>
+            <p class="step-desc">Press and hold the global hotkey <kbd class="step-kbd">Alt + V</kbd> in any application or text field (toggle mode is also supported).</p>
           </div>
           
           <!-- Step 2 -->
           <div class="timeline-step reveal-on-scroll">
             <div class="step-badge">2</div>
             <h3 class="step-title">Dictation</h3>
-            <p class="step-desc">Speak your phrase. A clean, subtle overlay pill will show microphone recording activity and the current elapsed time.</p>
+            <p class="step-desc">Speak your phrase. A clean, subtle overlay pill displays microphone volume levels and recording duration.</p>
           </div>
           
           <!-- Step 3 -->
           <div class="timeline-step reveal-on-scroll">
             <div class="step-badge">3</div>
             <h3 class="step-title">Insertion</h3>
-            <p class="step-desc">Release the key. Smart AI will format the text, correct any errors, add punctuation, and instantly type the result.</p>
+            <p class="step-desc">Release the key. Text is instantly transcribed and typed directly into the active field.</p>
           </div>
         </div>
       </div>
@@ -246,7 +247,7 @@
         <!-- Interactive Settings Mockup Window -->
         <div class="window-mockup settings-mockup-window">
           <div class="settings-mockup-layout">
-            <!-- Sidebar Navigation -->
+            <!-- Sidebar Navigation (5 tabs matching Aura 1.0.8) -->
             <nav class="mock-settings-sidebar" aria-label="Settings categories" role="tablist">
               <div class="mock-nav-title">Settings</div>
               <button type="button" class="mock-nav-tab mock-tab-active" data-mock-tab="general" role="tab" aria-selected="true" aria-controls="mock-panel-general" id="tab-general">
@@ -260,10 +261,6 @@
               <button type="button" class="mock-nav-tab" data-mock-tab="hotkeys" role="tab" aria-selected="false" aria-controls="mock-panel-hotkeys" id="tab-hotkeys">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mock-tab-icon"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><line x1="6" y1="8" x2="6" y2="8"></line><line x1="10" y1="8" x2="10" y2="8"></line><line x1="14" y1="8" x2="14" y2="8"></line><line x1="18" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="18" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
                 Hotkeys
-              </button>
-              <button type="button" class="mock-nav-tab" data-mock-tab="apikeys" role="tab" aria-selected="false" aria-controls="mock-panel-apikeys" id="tab-apikeys">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mock-tab-icon"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
-                API Keys
               </button>
               <button type="button" class="mock-nav-tab" data-mock-tab="history" role="tab" aria-selected="false" aria-controls="mock-panel-history" id="tab-history">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mock-tab-icon"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -296,8 +293,8 @@
                   <p class="mock-inner-desc">Select the display language for settings and notifications.</p>
                   <div class="mock-select-wrapper">
                     <select class="mock-select-box" aria-label="Interface language">
-                      <option value="ru">Russian</option>
                       <option value="en">English</option>
+                      <option value="ru">Russian</option>
                       <option value="de">Deutsch</option>
                     </select>
                   </div>
@@ -308,37 +305,60 @@
               <div class="mock-panel" id="mock-panel-speech" style="display: none;" role="tabpanel" aria-labelledby="tab-speech">
                 <div class="mock-card-inner">
                   <h5 class="mock-inner-title">Recognition Method</h5>
-                  <p class="mock-inner-desc">Choose between high-quality cloud processing or completely local Whisper AI.</p>
+                  <p class="mock-inner-desc">Choose between completely offline local transcription or cloud-based AI providers.</p>
                   <div class="mock-engine-toggle-group">
                     <label class="mock-engine-option">
-                      <input type="radio" name="mock_trans_mode" value="cloud" checked id="mock-radio-cloud" />
+                      <input type="radio" name="mock_trans_mode" value="local" checked id="mock-radio-local" />
                       <span class="mock-engine-card">
-                        <span class="mock-engine-name">Cloud AI</span>
-                        <span class="mock-engine-meta">Gemini / OpenAI / Groq</span>
+                        <span class="mock-engine-name">Local AI</span>
+                        <span class="mock-engine-meta">Whisper / Parakeet (100% Offline)</span>
                       </span>
                     </label>
                     <label class="mock-engine-option">
-                      <input type="radio" name="mock_trans_mode" value="local" id="mock-radio-local" />
+                      <input type="radio" name="mock_trans_mode" value="cloud" id="mock-radio-cloud" />
                       <span class="mock-engine-card">
-                        <span class="mock-engine-name">Local AI</span>
-                        <span class="mock-engine-meta">Whisper.cpp (Offline)</span>
+                        <span class="mock-engine-name">Cloud AI</span>
+                        <span class="mock-engine-meta">Gemini / Groq / OpenAI / Hugging Face</span>
                       </span>
                     </label>
                   </div>
                 </div>
                 
                 <!-- Local Model Subcard -->
-                <div class="mock-card-inner" id="mock-card-local-model" style="display: none;">
-                  <h5 class="mock-inner-title">Local Whisper Model</h5>
+                <div class="mock-card-inner" id="mock-card-local-model">
+                  <h5 class="mock-inner-title">Local Models</h5>
                   <div class="mock-model-selection">
                     <div class="mock-model-card mock-model-active" data-mock-model="base">
-                      <span class="mock-model-name">Base</span>
-                      <span class="mock-model-meta">~145 MB (Recommended)</span>
+                      <span class="mock-model-name">Whisper Base</span>
+                      <span class="mock-model-meta">~145 MB — fast on CPU</span>
                     </div>
-                    <div class="mock-model-card" data-mock-model="small">
-                      <span class="mock-model-name">Small</span>
-                      <span class="mock-model-meta">~465 MB (Precise for RU)</span>
+                    <div class="mock-model-card" data-mock-model="turbo">
+                      <span class="mock-model-name">Whisper Large v3 Turbo (Q5)</span>
+                      <span class="mock-model-meta">~550 MB — recommended</span>
                     </div>
+                    <div class="mock-model-card" data-mock-model="parakeet">
+                      <span class="mock-model-name">NVIDIA Parakeet TDT v3 (int8)</span>
+                      <span class="mock-model-meta">~670 MB — CUDA GPU support</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cloud API Keys Subcard -->
+                <div class="mock-card-inner" id="mock-card-api-keys" style="display: none;">
+                  <h5 class="mock-inner-title">Cloud Provider</h5>
+                  <div style="margin-bottom: 12px;">
+                    <div class="mock-select-wrapper">
+                      <select id="mock-api-provider" class="mock-select-box" aria-label="API Provider">
+                        <option value="gemini">Google Gemini AI</option>
+                        <option value="groq">Groq (Whisper + Llama)</option>
+                        <option value="openai">OpenAI (Whisper + GPT)</option>
+                        <option value="huggingface">Hugging Face</option>
+                        <option value="custom">Custom Server</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <input type="password" id="mock-api-key" class="mock-text-input" placeholder="Enter your Gemini API key..." />
                   </div>
                 </div>
 
@@ -348,8 +368,8 @@
                     <select class="mock-select-box" aria-label="Recognition language">
                       <option value="auto">Auto-detect (default)</option>
                       <option value="layout">Match keyboard layout</option>
-                      <option value="ru">Russian (Russian)</option>
                       <option value="en">English (English)</option>
+                      <option value="ru">Russian (Russian)</option>
                     </select>
                   </div>
                 </div>
@@ -357,11 +377,11 @@
                 <div class="mock-card-inner">
                   <h5 class="mock-inner-title">Text Input Mode</h5>
                   <label class="mock-toggle-switch">
-                    <input type="checkbox" id="mock-streaming-chk" />
+                    <input type="checkbox" id="mock-streaming-chk" checked />
                     <span class="mock-toggle-track">
                       <span class="mock-toggle-thumb"></span>
                     </span>
-                    <span class="mock-toggle-label">Streaming input (experimental)</span>
+                    <span class="mock-toggle-label">Real-time streaming input</span>
                   </label>
                 </div>
               </div>
@@ -403,37 +423,14 @@
                         <option value="zen">Zen (Singing Bowls)</option>
                         <option value="rhodes">Rhodes (Jazz Piano)</option>
                         <option value="scifi">Sci-Fi (Space)</option>
+                        <option value="classic">Classic Bell</option>
                       </select>
                     </div>
                   </div>
                 </div>
               </div>
               
-              <!-- 4. PANEL: API KEYS -->
-              <div class="mock-panel" id="mock-panel-apikeys" style="display: none;" role="tabpanel" aria-labelledby="tab-apikeys">
-                <div class="mock-card-inner">
-                  <h5 class="mock-inner-title">API Key Authorization</h5>
-                  <p class="mock-inner-desc">Provide your API keys to authorize cloud services like Gemini, OpenAI, or Groq.</p>
-                  
-                  <div style="margin-bottom: 12px;">
-                    <label class="mock-inner-title" for="mock-api-provider" style="display: block; font-size: 0.8rem; margin-bottom: 6px;">API Provider</label>
-                    <div class="mock-select-wrapper">
-                      <select id="mock-api-provider" class="mock-select-box">
-                        <option value="gemini">Google Gemini AI</option>
-                        <option value="openai">OpenAI (Whisper + GPT)</option>
-                        <option value="groq">Groq (Whisper + Llama)</option>
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label class="mock-inner-title" for="mock-api-key" style="display: block; font-size: 0.8rem; margin-bottom: 6px;">API Key</label>
-                    <input type="password" id="mock-api-key" class="mock-text-input" placeholder="Enter your Gemini API key..." />
-                  </div>
-                </div>
-              </div>
-              
-              <!-- 5. PANEL: HISTORY -->
+              <!-- 4. PANEL: HISTORY -->
               <div class="mock-panel" id="mock-panel-history" style="display: none;" role="tabpanel" aria-labelledby="tab-history">
                 <div class="mock-card-inner" style="padding: 0;">
                   <div class="mock-history-header">
@@ -441,28 +438,42 @@
                     <button type="button" class="mock-btn-clear" id="mock-btn-clear-history">Clear</button>
                   </div>
                   
+                  <div class="mock-history-controls">
+                    <div class="mock-history-search-wrap">
+                      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                      </svg>
+                      <input type="text" id="mock-history-search" class="mock-history-search" placeholder="Search history..." />
+                    </div>
+                    <div class="mock-history-filters">
+                      <button type="button" class="mock-filter-btn active" data-filter="all">All</button>
+                      <button type="button" class="mock-filter-btn" data-filter="local">Local</button>
+                      <button type="button" class="mock-filter-btn" data-filter="cloud">Cloud</button>
+                    </div>
+                  </div>
+                  
                   <div class="mock-history-list" id="mock-history-list">
-                    <div class="mock-history-item">
-                      <div class="mock-history-text">Hello, start local Whisper.</div>
-                      <div class="mock-history-meta">10 seconds ago &middot; Cloud</div>
+                    <div class="mock-history-item" data-source="local">
+                      <div class="mock-history-text">Run local Whisper model.</div>
+                      <div class="mock-history-meta">10 seconds ago &middot; Local (Base)</div>
                     </div>
-                    <div class="mock-history-item">
-                      <div class="mock-history-text">Aura: smart voice input.</div>
-                      <div class="mock-history-meta">2 minutes ago &middot; Cloud</div>
+                    <div class="mock-history-item" data-source="local">
+                      <div class="mock-history-text">Testing NVIDIA Parakeet GPU acceleration.</div>
+                      <div class="mock-history-meta">2 minutes ago &middot; Local (CUDA)</div>
                     </div>
-                    <div class="mock-history-item">
-                      <div class="mock-history-text">Testing offline dictation in English.</div>
-                      <div class="mock-history-meta">5 minutes ago &middot; Local</div>
+                    <div class="mock-history-item" data-source="cloud">
+                      <div class="mock-history-text">Fast speech typing into the active window.</div>
+                      <div class="mock-history-meta">5 minutes ago &middot; Cloud (Groq)</div>
                     </div>
                   </div>
                   
                   <div class="mock-history-empty" id="mock-history-empty" style="display: none;">
-                    History is empty. Your dictated texts will appear here.
+                    History is empty.
                   </div>
                 </div>
               </div>
               
-              <!-- 6. PANEL: ABOUT -->
+              <!-- 5. PANEL: ABOUT -->
               <div class="mock-panel" id="mock-panel-about" style="display: none;" role="tabpanel" aria-labelledby="tab-about">
                 <div class="mock-card-inner mock-about-card">
                   <div class="mock-about-logo">
@@ -473,7 +484,7 @@
                   </div>
                   <h4 class="mock-about-title">Aura</h4>
                   <span class="mock-about-ver">v1.0.8</span>
-                  <p class="mock-about-text">A high-speed global voice typing utility for Windows. The application allows you to type dictated text into any active window with automatic filler word removal and smart punctuation.</p>
+                  <p class="mock-about-text">Fast voice typing utility for Windows. Works with local models (Whisper, NVIDIA Parakeet) and cloud providers (Gemini, OpenAI, Groq, Hugging Face).</p>
                 </div>
               </div>
 
@@ -483,7 +494,7 @@
       </div>
       <div class="layout-content reveal-on-scroll">
         <h2 class="section-title">Flexibility in Every Detail</h2>
-        <p class="section-desc">Customize Aura for your workflow. Choose global hotkeys, enable toggle mode with a single click instead of holding the key, or change overlay sound themes (from peaceful Zen singing bowls to sci-fi and Rhodes jazz piano).</p>
+        <p class="section-desc">Customize Aura for your workflow. Choose local models or cloud services, adjust hotkeys, select overlay sound themes, and manage your history.</p>
         
         <div class="shortcuts-card">
           <h3 class="shortcuts-title">Default Controls:</h3>
@@ -508,7 +519,7 @@
     </div>
   </section>
 
-  <!-- 🆕 Dedicated Privacy Highlight Banner Section -->
+  <!-- Dedicated Privacy Highlight Banner Section -->
   <section class="privacy-section" id="privacy">
     <div class="section-container">
       <div class="privacy-card reveal-on-scroll">
@@ -521,15 +532,15 @@
             </svg>
           </div>
           <div class="privacy-text-area">
-            <h3 class="privacy-title">Uncompromising Privacy</h3>
-            <p class="privacy-desc">Local mode runs entirely offline and does not transmit recordings. In cloud mode, audio, the generated transcript, selected text (only when selection editing is enabled), and custom dictionary terms are sent directly to your chosen provider over TLS with zero telemetry. API keys and transcript history are stored locally and protected with Windows DPAPI. Optional update checks run only on demand or when explicitly enabled.</p>
+            <h3 class="privacy-title">Privacy & Data Security</h3>
+            <p class="privacy-desc">In local mode, audio is processed entirely on your machine (CPU / GPU) and never leaves your PC. In cloud mode, audio is sent directly to your chosen provider over encrypted TLS with zero telemetry. API keys and history are protected locally with Windows DPAPI.</p>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- 🆕 FAQ Section (Accordions) -->
+  <!-- FAQ Section (Accordions) -->
   <section class="faq-section" id="faq">
     <div class="section-container">
       <h2 class="section-title reveal-on-scroll">Frequently Asked Questions</h2>
@@ -538,14 +549,14 @@
         <!-- Q1 -->
         <div class="faq-item reveal-on-scroll">
           <button type="button" class="faq-question-btn" aria-expanded="false">
-            <span>How is it different from the built-in Windows voice typing (Win+H)?</span>
+            <span>How is Aura different from Windows built-in voice typing (Win+H)?</span>
             <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
           </button>
           <div class="faq-answer-pane">
             <div class="faq-answer-content">
-              <p>Unlike standard Windows dictation, Aura uses intelligent AI models for semantic formatting. It automatically removes filler words ("uh", "um"), cleans up grammar, adds punctuation, and allows you to dictate directly into any active window without losing focus. Additionally, Aura supports fully local offline Whisper speech recognition without sending audio to the internet.</p>
+              <p>Aura is faster, transcribes speech more accurately, and types text directly without losing window focus. The biggest difference is full offline autonomy with local models (Whisper, NVIDIA Parakeet) without sending voice data to Microsoft servers or the internet.</p>
             </div>
           </div>
         </div>
@@ -560,7 +571,7 @@
           </button>
           <div class="faq-answer-pane">
             <div class="faq-answer-content">
-              <p>Completely secure. The program has no built-in telemetry or hidden data collection servers. If you use local mode (Whisper Offline), audio data is processed directly on your CPU/GPU and is never transmitted anywhere. When using cloud mode, the audio is sent directly to the providers (Google, OpenAI, Groq) via encrypted connections. API keys are encrypted locally with Windows DPAPI.</p>
+              <p>The application contains no telemetry or analytics. Local mode runs entirely offline on your PC. Cloud mode communicates directly with your selected provider (Google, OpenAI, Groq) via encrypted TLS connections. API keys and transcription history are encrypted locally with Windows DPAPI.</p>
             </div>
           </div>
         </div>
@@ -568,14 +579,14 @@
         <!-- Q3 -->
         <div class="faq-item reveal-on-scroll">
           <button type="button" class="faq-question-btn" aria-expanded="false">
-            <span>What are the PC requirements for local Whisper execution?</span>
+            <span>What PC requirements are needed for local recognition?</span>
             <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
           </button>
           <div class="faq-answer-pane">
             <div class="faq-answer-content">
-              <p>For fast offline performance using the "Base" model (~145 MB), any modern 4-core processor and 4 GB of RAM is sufficient. Local Whisper in Aura runs completely autonomously out of the box using your CPU resources, so you <strong>do not need to install</strong> Python, CUDA libraries, graphics card drivers, or any third-party tools. The application downloads the optimized model file in a single click and is ready to go.</p>
+              <p>For Whisper Base, any modern 4-core CPU and 4 GB RAM is sufficient with no extra setup. For NVIDIA Parakeet, GPU acceleration is supported — required CUDA libraries are downloaded automatically by the app without manual software installation.</p>
             </div>
           </div>
         </div>
@@ -583,14 +594,14 @@
         <!-- Q4 -->
         <div class="faq-item reveal-on-scroll">
           <button type="button" class="faq-question-btn" aria-expanded="false">
-            <span>Do I need to pay to use the software?</span>
+            <span>Do I need to pay for Aura?</span>
             <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
           </button>
           <div class="faq-answer-pane">
             <div class="faq-answer-content">
-              <p>No, Aura is 100% free and open-source under the AGPL-3.0 copyleft license. There are no paid subscriptions, hidden typing limits, or advertisements. If you use cloud mode with your own API keys, you only pay the providers directly for the actual token costs (for example, Google Gemini and Groq often provide free tiers).</p>
+              <p>No, Aura is 100% free and open-source under the AGPL-3.0 license. There are no subscriptions or hidden limits. If using cloud mode with your own API keys, you only use the provider's pricing (Groq and Gemini often offer free tiers).</p>
             </div>
           </div>
         </div>
@@ -598,14 +609,14 @@
         <!-- Q5 -->
         <div class="faq-item reveal-on-scroll">
           <button type="button" class="faq-question-btn" aria-expanded="false">
-            <span>Is there a macOS or Linux version?</span>
+            <span>Is there a version for macOS or Linux?</span>
             <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
           </button>
           <div class="faq-answer-pane">
             <div class="faq-answer-content">
-              <p>Right now Aura ships for Windows 10 and 11 only. A native macOS port (global hotkeys via CGEventTap, CoreAudio capture) already lives in the codebase and compiles in CI, but it still needs a macOS speech-recognition build, app packaging and testing on real hardware before it's usable — so there is no Mac download yet. You can follow progress or contribute on <a href="https://github.com/malashkadev/aura" style="color: var(--accent-color);">GitHub</a>. Linux isn't planned yet.</p>
+              <p>Official builds are currently available for Windows 10 and 11. A native macOS port is already in the repository and builds on CI; a release will follow once hardware testing is completed. Follow development on <a href="https://github.com/malashkadev/aura" style="color: var(--accent-color);">GitHub</a>.</p>
             </div>
           </div>
         </div>
