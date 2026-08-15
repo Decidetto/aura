@@ -33,14 +33,16 @@ Think of it as a **free, open-source alternative to Wispr Flow** — not just a 
 - **Two engines**:
   - **Cloud** — Gemini, OpenAI (Whisper + GPT) or Groq (Whisper + Llama), with per-provider API keys.
   - **Local** — whisper.cpp sidecar or NVIDIA Parakeet (via sherpa-onnx), 100% offline and private; models downloaded from the settings UI.
+- **GPU acceleration** — optional NVIDIA CUDA hardware acceleration for Parakeet with automatic CPU fallback.
 - **AI cleanup** — removes filler words, fixes punctuation and grammar, never answers your questions — only transcribes them.
-- **Live streaming mode** (experimental) — text appears as you speak and is replaced by the final version.
+- **Live streaming mode** (experimental) — stable prefix locking with smart word-level diffing as you speak.
+- **Unified diagnostics** — 1-click anonymized report generation for easy troubleshooting.
 - **Transcription history** — the last 50 dictations with one-click copy.
 - **Custom dictionary** — bias recognition towards your names and terms.
 - **11 language options** — auto-detect, keyboard-layout detection, or a fixed language (ru, en, de, es, fr, it, zh, pt, tr).
 - **Voice punctuation commands** (optional) — “comma”, “period”, “new line” → `,`, `.`, newline.
 - **Polished overlay** — live waveform, recording timer, error states and optional sound themes (zen / rhodes / sci-fi / classic).
-- **Quality of life** — autostart with Windows, tray icon, single-instance guard, focus guard (never types into the wrong window).
+- **Quality of life** — custom dropdown menus, autostart with Windows, tray icon, single-instance guard, focus guard (never types into the wrong window).
 
 ## How Aura compares
 
@@ -102,15 +104,17 @@ cargo test
 
 ## Privacy
 
-- **Local mode** never sends anything anywhere — audio is processed on your machine.
-- **Cloud mode** sends the recorded audio to the provider you chose. Nothing else is collected; there is no telemetry.
-- Settings (including API keys) are stored locally in `%APPDATA%/com.aura.app/settings.json`; history in `%LOCALAPPDATA%/com.aura.app/history.json`. Note: API keys are stored in plain text (tested OS Credential Manager integration, but reverted it to stable local storage due to OS-specific service instability).
+- **Local mode** never sends anything anywhere — audio is processed locally on your machine.
+- **Cloud mode** sends recorded audio directly to your chosen provider over TLS. Nothing else is collected; there is no telemetry.
+- **Secure local storage** — API keys and transcription history are encrypted on your machine using **Windows DPAPI** (`CryptProtectData`) with file permissions restricted strictly to the current user and SYSTEM.
 
 ## Recently added
 
-- **Parakeet local engine** — offline NVIDIA Parakeet TDT v3 via [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx), running as a resident WebSocket server so the model loads once and recognition takes under a second (vs. ~12 s for a cold CLI call). Notes: the custom dictionary isn't applied on this engine due to a model-level limitation (the NeMo transducer only supports greedy search, which is incompatible with hotwords in sherpa-onnx), and the built-in offline punctuation model covers English — Russian uses the voice-command punctuation instead.
-- **Silero VAD** — replaces the old energy-based silence gate to trim pauses and cut silence hallucinations.
-- **Signed auto-updates** — releases are signed and the app checks for and can install updates in-app.
+- **NVIDIA CUDA GPU acceleration** — offload local Parakeet transcription to NVIDIA GPUs with on-demand runtime downloading and auto CPU fallback.
+- **Stable live streaming** — prefix locking and smart word diffing prevent flickering and duplicates during real-time speech.
+- **Windows DPAPI encryption** — protected credentials and history with strict ACL isolation.
+- **Custom accessible dropdowns** — sleek animated dropdown panels matching the UI with full keyboard navigation and scroll tracking.
+- **Silero VAD & audio hardening** — zero-padded frame alignment and robust WAV fallback for zero data loss.
 
 ## Roadmap
 

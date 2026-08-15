@@ -203,7 +203,7 @@ pub fn generate_diagnostic_report<R: tauri::Runtime>(
     let punc_model = punc_dir.join("model.int8.onnx").exists();
 
     let cuda_bin_dir = app_local_data.join("binaries").join("cuda").join("bin");
-    let cuda_dll = cuda_bin_dir.join("cudart64_110.dll").exists();
+    let cuda_dll = cuda_bin_dir.join("onnxruntime_providers_cuda.dll").exists();
     let cuda_exe = cuda_bin_dir
         .join("sherpa-onnx-offline-websocket-server.exe")
         .exists();
@@ -229,7 +229,7 @@ pub fn generate_diagnostic_report<R: tauri::Runtime>(
     let raw_logs = get_recent_logs(50);
     let logs = sanitize_logs_for_report(&raw_logs, settings.log_speech_text);
 
-Ok(format_diagnostic_report(
+    Ok(format_diagnostic_report(
         &version,
         os,
         arch,
@@ -250,10 +250,7 @@ Ok(format_diagnostic_report(
         cuda_exe,
         &whisper_models,
         &logs,
-        &engine_status(
-            app_handle,
-            settings.local_engine.as_str(),
-        ),
+        &engine_status(app_handle, settings.local_engine.as_str()),
     ))
 }
 
@@ -353,7 +350,7 @@ pub fn format_diagnostic_report(
           - tokens.txt: {}\n\
         - **Punctuation Model**: {}\n\
         - **CUDA Binaries**: {}\n  \
-          - cudart64_110.dll: {}\n  \
+          - onnxruntime_providers_cuda.dll: {}\n  \
           - sherpa-onnx-offline-websocket-server.exe: {}\n\
         - **Whisper GGML Models**: {}\n\n\
         ## Unified Log (Last 50 Lines)\n\
@@ -363,7 +360,7 @@ pub fn format_diagnostic_report(
         version,
         os,
         arch,
-transcription_mode,
+        transcription_mode,
         local_engine,
         engine_status,
         model_name,
@@ -488,7 +485,7 @@ mod tests {
         let whisper_models = vec!["small".to_string(), "base".to_string()];
 
         let report = format_diagnostic_report(
-            "1.0.9",
+            "1.0.8",
             "windows",
             "x86_64",
             "cloud",
@@ -505,7 +502,7 @@ mod tests {
             true,
             true,
             true,
-true,
+            true,
             &whisper_models,
             &logs,
             "Running (provider: cuda, port: 3033)",
@@ -515,7 +512,7 @@ true,
         assert!(report.contains("## System & Config Specs"));
         assert!(report.contains("## Component Verification"));
         assert!(report.contains("## Unified Log (Last 50 Lines)"));
-        assert!(report.contains("- **App Version**: 1.0.9"));
+        assert!(report.contains("- **App Version**: 1.0.8"));
         assert!(report.contains("- **Engine Status**: Running (provider: cuda, port: 3033)"));
         assert!(report.contains("- **Selected Model**: parakeet-v3"));
         assert!(report.contains("- **Real-time Streaming**: true"));

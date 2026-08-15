@@ -23,10 +23,24 @@ const APP_COMMANDS: &[&str] = &[
     "hide_overlay_window",
     "download_gpu_binaries",
     "delete_gpu_binaries",
+    "cancel_gpu_download",
     "check_gpu_downloaded",
     "get_diagnostic_report",
+    "get_engine_health",
     "log_frontend_event",
+    "start_mic_meter",
+    "stop_mic_meter",
+    "reprocess_history_text",
 ];
+
+fn is_cuda_dll(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.starts_with("cublas")
+        || lower.starts_with("cuda")
+        || lower.starts_with("cuinj")
+        || lower.starts_with("nvrtc")
+        || lower == "ggml-cuda.dll"
+}
 
 fn copy_runtime_dlls() {
     let Some(out_dir) = env::var_os("OUT_DIR") else {
@@ -58,6 +72,11 @@ fn copy_runtime_dlls() {
         let Some(file_name) = path.file_name() else {
             continue;
         };
+        if let Some(name_str) = file_name.to_str() {
+            if is_cuda_dll(name_str) {
+                continue;
+            }
+        }
         if let Err(error) = fs::copy(&path, profile_dir.join(file_name)) {
             println!(
                 "cargo:warning=Could not copy runtime DLL {}: {error}",

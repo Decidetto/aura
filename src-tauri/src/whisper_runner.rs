@@ -1,4 +1,4 @@
-﻿use std::collections::HashSet;
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
@@ -439,8 +439,12 @@ fn runtime_verify_model_file(
     if verified.contains(path) {
         return Ok(());
     }
-    let actual = crate::artifact_download::sha256_file(path)
-        .map_err(|error| format!("Could not hash-check {label} at {}: {error}", path.display()))?;
+    let actual = crate::artifact_download::sha256_file(path).map_err(|error| {
+        format!(
+            "Could not hash-check {label} at {}: {error}",
+            path.display()
+        )
+    })?;
     if actual.eq_ignore_ascii_case(expected_sha256) {
         verified.insert(path.to_path_buf());
         Ok(())
@@ -451,6 +455,46 @@ fn runtime_verify_model_file(
             path.display()
         ))
     }
+}
+
+/// Pre-warms and verifies the specified local model in the background so that
+/// the first dictation does not suffer any SHA-256 calculation or cold-start lag.
+pub fn prewarm_local_model_background<R: Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+    model_name: &str,
+) {
+    let Ok(spec) = whisper_artifact(model_name) else {
+        return;
+    };
+    let Ok(app_local_data) = app_handle.path().app_local_data_dir() else {
+        return;
+    };
+    let model_path = app_local_data.join("models").join(spec.filename);
+    let size_ok = std::fs::metadata(&model_path)
+        .map(|m| m.is_file() && m.len() == spec.expected_size)
+        .unwrap_or(false);
+    if !size_ok {
+        return;
+    }
+
+    let model_label = spec.filename.to_string();
+    std::thread::Builder::new()
+        .name("aura-model-prewarm".to_string())
+        .spawn(move || {
+            let started = std::time::Instant::now();
+            if let Ok(()) = runtime_verify_model_file(&model_label, &model_path, spec.sha256) {
+                crate::logger::log(
+                    "INFO",
+                    "Model",
+                    None,
+                    &format!(
+                        "Pre-warmed and verified model '{model_label}' in {:?}",
+                        started.elapsed()
+                    ),
+                );
+            }
+        })
+        .ok();
 }
 
 /// Download a verified GGML model from a pinned repository revision.
@@ -571,11 +615,10 @@ pub fn run_local_whisper<R: Runtime>(
         _ => "auto",
     };
 
-    // whisper.cpp defaults to only 4 threads; on modern many-core CPUs that leaves
-    // most of the machine idle (~20% usage). Use all available logical cores so
-    // transcription runs several times faster.
+    // In GGML matrix computation on CPU, capping threads to 8 prevents
+    // thread-sync thrashing and cache contention on high-core-count processors.
     let n_threads = std::thread::available_parallelism()
-        .map(|n| n.get())
+        .map(|n| n.get().min(8))
         .unwrap_or(4);
 
     let mut args: Vec<String> = vec![
@@ -602,6 +645,11 @@ pub fn run_local_whisper<R: Runtime>(
         "--beam-size".to_string(),
         "-1".to_string(),
     ];
+
+    let settings = crate::settings::load_settings(app_handle).unwrap_or_default();
+    if settings.local_acceleration == "cpu" {
+        args.push("-ng".to_string());
+    }
 
     let dict = dictionary.trim();
     if !dict.is_empty() {
@@ -915,8 +963,7 @@ pub fn find_sherpa_websocket_server<R: Runtime>(
                     if let Some(parent) = gpu_exe.parent() {
                         let has_ort = parent.join("onnxruntime.dll").exists();
                         let is_cuda_valid = if settings.local_acceleration == "cuda" {
-                            parent.join("cudart64_110.dll").exists()
-                                || parent.join("cublas64_11.dll").exists()
+                            parent.join("onnxruntime_providers_cuda.dll").exists()
                         } else {
                             true
                         };
@@ -934,6 +981,24 @@ pub fn find_sherpa_websocket_server<R: Runtime>(
     }
 
     find_cpu_sherpa_websocket_server(app_handle)
+}
+
+pub(crate) struct RunningWhisperServer {
+    child: std::process::Child,
+    model: String,
+    provider: String,
+    port: u16,
+    readers: SidecarPipeReaders,
+    #[cfg(target_os = "windows")]
+    _kill_on_close_job: Option<KillOnCloseJob>,
+}
+
+impl Drop for RunningWhisperServer {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+        self.readers.join();
+    }
 }
 
 pub(crate) struct RunningParakeetServer {
@@ -1009,10 +1074,7 @@ fn create_kill_on_close_job() -> Result<KillOnCloseJob, String> {
 }
 
 #[cfg(target_os = "windows")]
-fn assign_process_to_job(
-    job: &KillOnCloseJob,
-    child: &std::process::Child,
-) -> Result<(), String> {
+fn assign_process_to_job(job: &KillOnCloseJob, child: &std::process::Child) -> Result<(), String> {
     use std::os::windows::io::AsRawHandle;
     use windows_sys::Win32::System::JobObjects::AssignProcessToJobObject;
 
@@ -1492,11 +1554,7 @@ fn start_parakeet_server_unlocked<R: Runtime>(
     // Sizes alone can hide same-size corruption: verify each artifact's
     // SHA-256 once per process before letting the server load it (C8).
     for spec in PARAKEET_ARTIFACTS {
-        runtime_verify_model_file(
-            spec.filename,
-            &model_dir.join(spec.filename),
-            spec.sha256,
-        )?;
+        runtime_verify_model_file(spec.filename, &model_dir.join(spec.filename), spec.sha256)?;
     }
 
     let short_encoder = get_short_path(&encoder_path)?;
@@ -1621,7 +1679,9 @@ pub(crate) fn parakeet_server_status<R: Runtime>(
 ) -> Option<(String, u16)> {
     let state = app_handle.try_state::<crate::AppState>()?;
     let server = recover_lock(&state.parakeet_server, "Parakeet server");
-    server.as_ref().map(|running| (running.provider.clone(), running.port))
+    server
+        .as_ref()
+        .map(|running| (running.provider.clone(), running.port))
 }
 
 pub fn stop_parakeet_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) {
@@ -1664,10 +1724,7 @@ impl Drop for ParakeetWatchdog {
 impl ParakeetWatchdog {
     fn spawn<R: Runtime>(
         app_handle: tauri::AppHandle<R>,
-    ) -> (
-        Self,
-        std::sync::Arc<std::sync::atomic::AtomicBool>,
-    ) {
+    ) -> (Self, std::sync::Arc<std::sync::atomic::AtomicBool>) {
         let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let thread_stop = std::sync::Arc::clone(&stop);
         // A watchdog is a convenience, not a requirement: if the OS refuses
@@ -1901,7 +1958,7 @@ pub fn run_parakeet<R: Runtime>(
                     // Tell the user so the wait doesn't look like a freeze.
                     if !notified {
                         notified = true;
-                        let _ = app_handle.emit("recording-state", "notice:Загрузка модели…");
+                        let _ = app_handle.emit("recording-state", "notice:loading-model");
                     }
                     std::thread::sleep(std::time::Duration::from_millis(200));
                 }
@@ -1957,7 +2014,9 @@ pub fn run_parakeet<R: Runtime>(
     }
 
     let response_deadline = std::time::Instant::now()
-        + std::time::Duration::from_secs((30 + sample_count / u64::from(spec.sample_rate) / 2).min(360));
+        + std::time::Duration::from_secs(
+            (30 + sample_count / u64::from(spec.sample_rate) / 2).min(360),
+        );
     let response_text = loop {
         if is_cancelled() {
             return Err("Parakeet request was cancelled".to_string());
@@ -2012,6 +2071,421 @@ pub fn run_parakeet<R: Runtime>(
     };
 
     Ok(transcript)
+}
+
+pub fn find_whisper_server<R: Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+) -> Result<PathBuf, String> {
+    #[cfg(target_os = "windows")]
+    let target_names = [
+        "whisper-server-x86_64-pc-windows-msvc.exe",
+        "whisper-server.exe",
+    ];
+    #[cfg(target_os = "macos")]
+    let target_names = [
+        "whisper-server-aarch64-apple-darwin",
+        "whisper-server-x86_64-apple-darwin",
+        "whisper-server",
+    ];
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let target_names = ["whisper-server"];
+
+    let resource_dir = app_handle
+        .path()
+        .resource_dir()
+        .map_err(|e| format!("Failed to get resource dir: {}", e))?;
+
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    #[cfg(debug_assertions)]
+    for name in &target_names {
+        candidates.push(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("binaries")
+                .join(name),
+        );
+    }
+
+    for name in &target_names {
+        candidates.push(resource_dir.join("binaries").join(name));
+        candidates.push(resource_dir.join("_up_").join("binaries").join(name));
+        candidates.push(resource_dir.join(name));
+        candidates.push(PathBuf::from("binaries").join(name));
+        candidates.push(PathBuf::from("src-tauri").join("binaries").join(name));
+    }
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            for name in &target_names {
+                candidates.push(exe_dir.join(name));
+            }
+        }
+    }
+
+    let existing: Vec<PathBuf> = candidates.into_iter().filter(|p| p.exists()).collect();
+    if let Some(path) = existing.first() {
+        return Ok(path.clone());
+    }
+
+    find_sidecar(app_handle)
+}
+
+pub fn start_whisper_server<R: Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+    model_name: &str,
+) -> Result<(), String> {
+    let state = app_handle
+        .try_state::<crate::AppState>()
+        .ok_or_else(|| "Application state is not initialized".to_string())?;
+
+    let _lifecycle = recover_lock(&state.whisper_lifecycle, "Whisper lifecycle");
+    start_whisper_server_unlocked(app_handle, &state, model_name)
+}
+
+fn start_whisper_server_unlocked<R: Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+    state: &crate::AppState,
+    model_name: &str,
+) -> Result<(), String> {
+    let server_path = find_whisper_server(app_handle)?;
+    let short_server_path = get_short_path(&server_path)?;
+    let sidecar_dir = server_path
+        .parent()
+        .ok_or_else(|| "Invalid sidecar path".to_string())?;
+    let short_sidecar_dir = get_short_path(sidecar_dir)?;
+
+    let resource_dir = app_handle
+        .path()
+        .resource_dir()
+        .map_err(|e| format!("Failed to get resource dir: {e}"))?;
+    let dlls_dir = resource_dir.join("binaries");
+    let short_dlls_dir = get_short_path(&dlls_dir)?;
+
+    let filename = format_model_filename(model_name);
+    let app_local_data = app_handle
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Failed to get app local data dir: {e}"))?;
+    let model_path = app_local_data.join("models").join(&filename);
+
+    let spec = whisper_artifact(model_name)?;
+    let size_ok = std::fs::metadata(&model_path)
+        .map(|metadata| metadata.is_file() && metadata.len() == spec.expected_size)
+        .unwrap_or(false);
+    if !size_ok {
+        return Err(format!(
+            "Model file missing or incomplete at: {:?}. Please download it first.",
+            model_path
+        ));
+    }
+    runtime_verify_model_file(&filename, &model_path, spec.sha256)?;
+
+    let short_model_path = get_short_path(&model_path)?;
+    let n_threads = std::thread::available_parallelism()
+        .map(|n| n.get().min(8))
+        .unwrap_or(4);
+
+    let settings = crate::settings::load_settings(app_handle).unwrap_or_default();
+    let current_accel = if settings.local_acceleration == "cuda" {
+        "cuda".to_string()
+    } else {
+        "cpu".to_string()
+    };
+
+    let previous = {
+        let mut server = recover_lock(&state.whisper_server, "Whisper server");
+        let keep_existing = if let Some(running) = server.as_mut() {
+            match running.child.try_wait() {
+                Ok(None) => running.model == model_name && running.provider == current_accel,
+                Ok(Some(_)) | Err(_) => false,
+            }
+        } else {
+            false
+        };
+        if keep_existing {
+            return Ok(());
+        }
+        server.take()
+    };
+
+    if let Some(previous) = previous {
+        state
+            .whisper_port
+            .store(0, std::sync::atomic::Ordering::SeqCst);
+        drop(previous);
+    }
+
+    let port = get_free_port()?;
+    let mut cmd = Command::new(&short_server_path);
+    cmd.current_dir(&short_dlls_dir);
+    let mut args = vec![
+        "-m".to_string(),
+        short_model_path.to_string_lossy().to_string(),
+        "--host".to_string(),
+        "127.0.0.1".to_string(),
+        "--port".to_string(),
+        port.to_string(),
+        "-t".to_string(),
+        n_threads.to_string(),
+        "-bo".to_string(),
+        "1".to_string(),
+        "-bs".to_string(),
+        "-1".to_string(),
+        "-nt".to_string(),
+        "-nf".to_string(),
+    ];
+    if current_accel == "cpu" {
+        args.push("-ng".to_string());
+    }
+    cmd.args(&args);
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let path_key = std::env::vars_os()
+            .map(|(k, _)| k.to_string_lossy().into_owned())
+            .find(|name| name.eq_ignore_ascii_case("path"))
+            .unwrap_or_else(|| "PATH".to_string());
+
+        let mut paths = if let Some(path_env) = std::env::var_os(&path_key) {
+            std::env::split_paths(&path_env).collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
+
+        if let Ok(app_local_data) = app_handle.path().app_local_data_dir() {
+            paths.insert(0, app_local_data.join("binaries").join("cuda").join("bin"));
+            paths.insert(0, app_local_data.join("binaries").join("cuda"));
+        }
+        if let Some(parent) = server_path.parent() {
+            paths.insert(
+                0,
+                parent
+                    .join("cuda")
+                    .join("sherpa-onnx-v1.13.4-win-x64-cuda")
+                    .join("bin"),
+            );
+            paths.insert(0, parent.join("cuda").join("bin"));
+            paths.insert(0, parent.join("cuda"));
+            paths.insert(0, parent.join("resources").join("binaries"));
+            paths.insert(0, parent.to_path_buf());
+        }
+        paths.insert(0, dlls_dir.clone());
+        paths.insert(0, short_sidecar_dir.to_path_buf());
+        paths.insert(0, short_dlls_dir.to_path_buf());
+
+        if let Ok(new_path) = std::env::join_paths(paths) {
+            cmd.env(&path_key, new_path);
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    let prepared_job = match create_kill_on_close_job() {
+        Ok(job) => Some(job),
+        Err(error) => {
+            crate::logger::log(
+                "WARN",
+                "Sidecar",
+                None,
+                &format!("Could not create Whisper kill-on-close Job Object: {error}"),
+            );
+            None
+        }
+    };
+
+    let mut child = cmd
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn Whisper server: {e}"))?;
+
+    #[cfg(target_os = "windows")]
+    let kill_on_close_job = match prepared_job {
+        Some(job) => match assign_process_to_job(&job, &child) {
+            Ok(()) => Some(job),
+            Err(_) => None,
+        },
+        None => None,
+    };
+
+    let mut readers = pipe_child_output(&mut child);
+
+    let started = std::time::Instant::now();
+    let timeout = std::time::Duration::from_secs(30);
+    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+
+    let mut is_ready = false;
+    while started.elapsed() < timeout {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                readers.join();
+                return Err(format!("Whisper server exited early with status {status}"));
+            }
+            Ok(None) => {}
+            Err(e) => return Err(format!("Failed to wait on Whisper server: {e}")),
+        }
+
+        if std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(100))
+            .is_ok()
+        {
+            is_ready = true;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+
+    if !is_ready {
+        let _ = child.kill();
+        let _ = child.wait();
+        readers.join();
+        return Err(format!(
+            "Whisper server timed out waiting for HTTP port {port}"
+        ));
+    }
+
+    crate::logger::log(
+        "INFO",
+        "Sidecar",
+        None,
+        &format!("Whisper server started successfully on port {port} for model {model_name}"),
+    );
+
+    let provider = {
+        let settings = crate::settings::load_settings(app_handle).unwrap_or_default();
+        if settings.local_acceleration == "cuda" {
+            "cuda".to_string()
+        } else {
+            "cpu".to_string()
+        }
+    };
+
+    state
+        .whisper_port
+        .store(port, std::sync::atomic::Ordering::SeqCst);
+    *recover_lock(&state.whisper_server, "Whisper server") = Some(RunningWhisperServer {
+        child,
+        model: model_name.to_string(),
+        provider,
+        port,
+        readers,
+        #[cfg(target_os = "windows")]
+        _kill_on_close_job: kill_on_close_job,
+    });
+
+    Ok(())
+}
+
+pub fn stop_whisper_server<R: Runtime>(app_handle: &tauri::AppHandle<R>) {
+    let Some(state) = app_handle.try_state::<crate::AppState>() else {
+        return;
+    };
+    let _lifecycle = recover_lock(&state.whisper_lifecycle, "Whisper lifecycle");
+    state
+        .whisper_port
+        .store(0, std::sync::atomic::Ordering::SeqCst);
+    let mut server = recover_lock(&state.whisper_server, "Whisper server");
+    if let Some(running) = server.take() {
+        drop(running);
+    }
+}
+
+pub fn ensure_whisper_server_state<R: Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+    settings: &crate::settings::Settings,
+) {
+    if settings.transcription_mode == "local" && settings.local_engine == "whisper" {
+        let model = settings.model_name.clone();
+        let app_handle_clone = app_handle.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            if let Err(e) = start_whisper_server(&app_handle_clone, &model) {
+                crate::logger::log(
+                    "WARN",
+                    "Sidecar",
+                    None,
+                    &format!("Could not prewarm resident Whisper server for '{model}': {e}"),
+                );
+            }
+        });
+    } else {
+        stop_whisper_server(app_handle);
+    }
+}
+
+pub(crate) fn whisper_server_status<R: Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+) -> Option<(String, u16)> {
+    let state = app_handle.try_state::<crate::AppState>()?;
+    let server = recover_lock(&state.whisper_server, "Whisper server");
+    server
+        .as_ref()
+        .map(|running| (running.provider.clone(), running.port))
+}
+
+pub async fn transcribe_via_whisper_server(
+    port: u16,
+    wav_path: &Path,
+    language: &str,
+    dictionary: &str,
+) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
+
+    let file_bytes = tokio::fs::read(wav_path)
+        .await
+        .map_err(|e| format!("Failed to read WAV file: {e}"))?;
+
+    let file_part = reqwest::multipart::Part::bytes(file_bytes)
+        .file_name("audio.wav")
+        .mime_str("audio/wav")
+        .map_err(|e| format!("Failed to set MIME type: {e}"))?;
+
+    let lang = match language {
+        "ru" | "en" | "de" | "es" | "fr" | "it" | "zh" | "pt" | "tr" => language,
+        _ => "auto",
+    };
+
+    let mut form = reqwest::multipart::Form::new()
+        .part("file", file_part)
+        .text("language", lang.to_string())
+        .text("response_format", "json")
+        .text("temperature", "0.0");
+
+    let dict = dictionary.trim();
+    if !dict.is_empty() {
+        form = form.text("prompt", dict.to_string());
+    }
+
+    let url = format!("http://127.0.0.1:{port}/inference");
+    let response = client
+        .post(&url)
+        .multipart(form)
+        .send()
+        .await
+        .map_err(|e| format!("Whisper server request failed: {e}"))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("Whisper server error ({status}): {body}"));
+    }
+
+    let body: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse Whisper server response: {e}"))?;
+
+    if let Some(text) = body.get("text").and_then(|v| v.as_str()) {
+        Ok(text.trim().to_string())
+    } else {
+        Err(format!("Unexpected Whisper server response format: {body}"))
+    }
 }
 
 pub fn find_sherpa_punctuation_exe<R: Runtime>(
@@ -2189,8 +2663,9 @@ fn install_punctuation_archive(
 
     // The archives ship inside a versioned top-level directory; resolve it
     // instead of assuming a fixed folder name at a fixed depth.
-    let source = find_dir_containing_punctuation_model(&extraction_dir, 2)
-        .ok_or_else(|| "Verified punctuation archive does not contain model.int8.onnx".to_string())?;
+    let source = find_dir_containing_punctuation_model(&extraction_dir, 2).ok_or_else(|| {
+        "Verified punctuation archive does not contain model.int8.onnx".to_string()
+    })?;
     let parent = destination
         .parent()
         .ok_or_else(|| "Punctuation destination has no parent directory".to_string())?;
@@ -2256,7 +2731,9 @@ pub async fn download_punctuation_model<R: Runtime>(
             }
         }
     }
-    Err(format!("Punctuation download failed after retries: {last_error}"))
+    Err(format!(
+        "Punctuation download failed after retries: {last_error}"
+    ))
 }
 
 async fn download_punctuation_model_attempt<R: Runtime>(
@@ -2349,7 +2826,9 @@ async fn download_punctuation_model_attempt<R: Runtime>(
         if is_cancel_requested("punctuation") {
             return Err("Punctuation download cancelled".to_string());
         }
-        let take = chunk.len().min((PUNCTUATION_ARCHIVE_SIZE - downloaded) as usize);
+        let take = chunk
+            .len()
+            .min((PUNCTUATION_ARCHIVE_SIZE - downloaded) as usize);
         let payload = &chunk[..take];
         downloaded = downloaded.saturating_add(take as u64);
         let _ = app_handle.emit(
@@ -2565,7 +3044,9 @@ mod tests {
         std::fs::write(root.join("README.md"), b"readme").unwrap();
 
         let found = find_dir_containing_punctuation_model(&root, 2).unwrap();
-        assert!(found.ends_with("sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8"));
+        assert!(
+            found.ends_with("sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8")
+        );
         assert!(punctuation_files_complete(&found));
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -2597,7 +3078,10 @@ mod tests {
             "REPRO received={received} advertised={advertised:?} pinned={PUNCTUATION_ARCHIVE_SIZE} sha256={:x}",
             hasher.finalize()
         );
-        assert_eq!(received, PUNCTUATION_ARCHIVE_SIZE, "stream byte count mismatch");
+        assert_eq!(
+            received, PUNCTUATION_ARCHIVE_SIZE,
+            "stream byte count mismatch"
+        );
     }
 
     #[test]
@@ -2662,7 +3146,9 @@ mod tests {
         assert!(is_retryable_sidecar_failure(
             "cpu sidecar did not accept WebSocket connections on port 51234 within 45 seconds: connection refused"
         ));
-        assert!(!is_retryable_sidecar_failure("Failed to spawn Parakeet server 'x' (cpu): oom"));
+        assert!(!is_retryable_sidecar_failure(
+            "Failed to spawn Parakeet server 'x' (cpu): oom"
+        ));
         // A functional warm-up hiccup is transient (first-inference JIT, driver
         // init), so it retries like a bind race rather than failing startup
         // permanently after a single attempt.
@@ -2796,5 +3282,27 @@ mod tests {
             recent_sidecar_diagnostics(&readers.diagnostics).contains("sidecar-hello"),
             "the joined reader must have drained the sidecar output"
         );
+    }
+
+    #[test]
+    fn dropping_running_whisper_server_kills_the_sidecar() {
+        let child = spawn_sleeper_process();
+        let pid = child.id();
+        let server = RunningWhisperServer {
+            child,
+            model: "test_model".to_string(),
+            provider: "whisper".to_string(),
+            port: 0,
+            readers: SidecarPipeReaders::default(),
+            #[cfg(target_os = "windows")]
+            _kill_on_close_job: None,
+        };
+        drop(server);
+        #[cfg(target_os = "windows")]
+        wait_for_process_exit(pid);
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = pid;
+        }
     }
 }

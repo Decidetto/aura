@@ -189,7 +189,14 @@ pub fn add_entry(
     let _guard = lock_history();
     let mut entries = load_history_unlocked(app_handle)?;
     let timestamp_ms = timestamp_millis() as u64;
-    insert_entry(&mut entries, text, mode, engine, processing_ms, timestamp_ms);
+    insert_entry(
+        &mut entries,
+        text,
+        mode,
+        engine,
+        processing_ms,
+        timestamp_ms,
+    );
     save_history_unlocked(app_handle, &entries)
 }
 

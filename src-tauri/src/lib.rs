@@ -17,9 +17,9 @@ pub mod whisper_runner;
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Listener, Manager};
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_updater::UpdaterExt;
@@ -61,6 +61,9 @@ struct AppState {
     parakeet_port: std::sync::atomic::AtomicU16,
     parakeet_streaming: Mutex<Option<ParakeetStreamingSession>>,
     parakeet_watchdog: Mutex<Option<whisper_runner::ParakeetWatchdog>>,
+    whisper_lifecycle: Mutex<()>,
+    whisper_server: Mutex<Option<whisper_runner::RunningWhisperServer>>,
+    whisper_port: std::sync::atomic::AtomicU16,
 }
 
 #[tauri::command]
@@ -103,6 +106,7 @@ struct OverlayPreferences {
     overlay_sounds: bool,
     overlay_sound_theme: String,
     overlay_sound_volume: f32,
+    overlay_show_timer: bool,
 }
 
 impl From<&settings::Settings> for OverlayPreferences {
@@ -111,6 +115,7 @@ impl From<&settings::Settings> for OverlayPreferences {
             overlay_sounds: settings.overlay_sounds,
             overlay_sound_theme: settings.overlay_sound_theme.clone(),
             overlay_sound_volume: settings.overlay_sound_volume,
+            overlay_show_timer: settings.overlay_show_timer,
         }
     }
 }
@@ -149,10 +154,14 @@ async fn set_settings(
         zeroize::Zeroize::zeroize(&mut saved_settings.api_key_gemini);
         zeroize::Zeroize::zeroize(&mut saved_settings.api_key_openai);
         zeroize::Zeroize::zeroize(&mut saved_settings.api_key_groq);
+        zeroize::Zeroize::zeroize(&mut saved_settings.api_key_huggingface);
+        zeroize::Zeroize::zeroize(&mut saved_settings.api_key_custom);
         result
     })
     .await
     .map_err(|error| format!("Settings storage worker failed: {error}"))??;
+
+    let _ = app_handle.emit("overlay-preferences", OverlayPreferences::from(&settings));
 
     keyboard_hook::update_hotkey(&settings.hotkey)?;
     if let Some(state) = app_handle.try_state::<AppState>() {
@@ -161,28 +170,11 @@ async fn set_settings(
             .store(settings.toggle_enabled, Ordering::SeqCst);
     }
     let sidecar_handle = app_handle.clone();
-    let needs_punctuation_model = settings.voice_punctuation;
+    let sidecar_settings = settings.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        whisper_runner::ensure_parakeet_server_state(&sidecar_handle, &settings);
+        whisper_runner::ensure_parakeet_server_state(&sidecar_handle, &sidecar_settings);
+        whisper_runner::ensure_whisper_server_state(&sidecar_handle, &sidecar_settings);
     });
-
-    // Self-heal the offline punctuation model whenever spoken punctuation is
-    // enabled: a failed background download is retried instead of staying
-    // silently missing until the parakeet model is re-downloaded.
-    if needs_punctuation_model {
-        let ensure_handle = app_handle.clone();
-        tauri::async_runtime::spawn(async move {
-            match whisper_runner::download_punctuation_model(&ensure_handle).await {
-                Ok(()) => {}
-                Err(error) => crate::logger::log(
-                    "WARN",
-                    "Punctuation",
-                    None,
-                    &format!("Could not obtain punctuation model: {error}"),
-                ),
-            }
-        });
-    }
     Ok(())
 }
 
@@ -399,6 +391,54 @@ async fn copy_to_clipboard(text: String) -> Result<(), String> {
     .map_err(|error| format!("Clipboard worker failed: {error}"))?
 }
 
+#[tauri::command]
+async fn start_mic_meter(app_handle: tauri::AppHandle) -> Result<(), String> {
+    audio_recorder::start_mic_meter(app_handle)
+}
+
+#[tauri::command]
+fn stop_mic_meter() {
+    audio_recorder::stop_mic_meter();
+}
+
+#[tauri::command]
+async fn reprocess_history_text(
+    app_handle: tauri::AppHandle,
+    text: String,
+    language: String,
+) -> Result<String, String> {
+    let settings = load_settings_async(app_handle.clone()).await?;
+    let provider = provider_from(&settings);
+    let lang = if language.is_empty() || language == "auto" || language == "layout" {
+        "ru"
+    } else {
+        &language
+    };
+
+    if settings.transcription_mode == "cloud" && !settings.api_key.trim().is_empty() {
+        ai_client::clean_text_with_llm(
+            provider,
+            &settings.api_key,
+            &text,
+            lang,
+            &settings.dictionary,
+        )
+        .await
+    } else {
+        let punctuated = apply_voice_punctuation(&text);
+        if (settings.local_engine == "whisper" || settings.local_engine == "parakeet")
+            && lang.starts_with("en")
+        {
+            match whisper_runner::run_punctuation(&app_handle, &punctuated) {
+                Ok(res) => Ok(res),
+                Err(_) => Ok(punctuated),
+            }
+        } else {
+            Ok(punctuated)
+        }
+    }
+}
+
 #[derive(serde::Serialize)]
 struct AppUpdateInfo {
     current_version: String,
@@ -445,15 +485,12 @@ async fn install_app_update(app_handle: tauri::AppHandle) -> Result<(), String> 
     .map_err(|_| "Update download timed out after 15 minutes".to_string())?
     .map_err(|error| format!("Update installation failed: {error}"))
 }
-/// Opens a URL in the user's default browser (used by the update badge).
+/// Opens a URL in the user's default browser (API key portals, release notes, documentation).
 #[tauri::command]
 async fn open_url(app_handle: tauri::AppHandle, url: String) -> Result<(), String> {
-    let parsed = reqwest::Url::parse(&url).map_err(|_| "Update URL is invalid".to_string())?;
-    let allowed = parsed.scheme() == "https"
-        && parsed.host_str() == Some("github.com")
-        && parsed.path().starts_with("/malashkadev/aura/releases/");
-    if !allowed {
-        return Err("Only Aura release pages on https://github.com may be opened".to_string());
+    let parsed = reqwest::Url::parse(&url).map_err(|_| "URL is invalid".to_string())?;
+    if parsed.scheme() != "https" && parsed.scheme() != "http" {
+        return Err("Only http/https URLs may be opened".to_string());
     }
 
     use tauri_plugin_opener::OpenerExt;
@@ -486,6 +523,22 @@ struct EngineHealth {
 #[tauri::command]
 fn get_engine_health(app_handle: tauri::AppHandle) -> EngineHealth {
     let settings = settings::load_settings(&app_handle).unwrap_or_default();
+    if settings.local_engine == "whisper" {
+        return match whisper_runner::whisper_server_status(&app_handle) {
+            Some((provider, port)) => EngineHealth {
+                engine: "whisper".to_string(),
+                running: true,
+                provider: Some(provider),
+                port: Some(port),
+            },
+            None => EngineHealth {
+                engine: "whisper".to_string(),
+                running: false,
+                provider: None,
+                port: None,
+            },
+        };
+    }
     if settings.local_engine != "parakeet" {
         return EngineHealth {
             engine: settings.local_engine,
@@ -560,6 +613,8 @@ fn provider_from(settings: &settings::Settings) -> ai_client::ApiProvider {
     match settings.api_provider.as_str() {
         "openai" => ai_client::ApiProvider::OpenAi,
         "groq" => ai_client::ApiProvider::Groq,
+        "huggingface" => ai_client::ApiProvider::HuggingFace,
+        "custom" => ai_client::ApiProvider::Custom,
         _ => ai_client::ApiProvider::Gemini,
     }
 }
@@ -1127,17 +1182,50 @@ async fn run_local_whisper_async(
     dictionary: String,
     generation: u64,
 ) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        if model == "parakeet-v3" {
+    if model == "parakeet-v3" {
+        tauri::async_runtime::spawn_blocking(move || {
             whisper_runner::run_parakeet(&app_handle, &wav, &language, &dictionary, || {
                 session_stale_for_abort(&app_handle, generation)
             })
-        } else {
-            whisper_runner::run_local_whisper(&app_handle, &model, &wav, &language, &dictionary)
+        })
+        .await
+        .map_err(|e| format!("Local ASR task failed: {e}"))?
+    } else {
+        let whisper_port = app_handle
+            .try_state::<AppState>()
+            .map(|state| state.whisper_port.load(Ordering::SeqCst))
+            .unwrap_or(0);
+
+        if whisper_port > 0 {
+            let wav_path = std::path::PathBuf::from(&wav);
+            match whisper_runner::transcribe_via_whisper_server(
+                whisper_port,
+                &wav_path,
+                &language,
+                &dictionary,
+            )
+            .await
+            {
+                Ok(text) => return Ok(text),
+                Err(server_err) => {
+                    crate::logger::log(
+                        "WARN",
+                        "ASR",
+                        None,
+                        &format!(
+                            "Resident Whisper server request failed ({server_err}), falling back to CLI sidecar"
+                        ),
+                    );
+                }
+            }
         }
-    })
-    .await
-    .map_err(|e| format!("Local ASR task failed: {e}"))?
+
+        tauri::async_runtime::spawn_blocking(move || {
+            whisper_runner::run_local_whisper(&app_handle, &model, &wav, &language, &dictionary)
+        })
+        .await
+        .map_err(|e| format!("Local ASR task failed: {e}"))?
+    }
 }
 
 /// True when `generation` is no longer the current session and blocking work
@@ -2545,6 +2633,8 @@ async fn cancel_recording(app_handle: tauri::AppHandle) {
 /// (focus window, keyboard layout, selected text), starts audio capture, shows the
 /// overlay, and spawns the live-streaming loop when enabled.
 async fn start_recording_session(app_handle: tauri::AppHandle) {
+    audio_recorder::stop_mic_meter();
+
     let Some(state) = app_handle.try_state::<AppState>() else {
         return;
     };
@@ -2682,7 +2772,8 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
             // Without the shared clipboard mutex, a session whose paste window
             // overlaps this copy could capture this temporary text as its
             // "original" and the user's real clipboard content would be lost.
-            let clipboard_mutex_guard = if let Some(state) = app_handle_copy.try_state::<AppState>() {
+            let clipboard_mutex_guard = if let Some(state) = app_handle_copy.try_state::<AppState>()
+            {
                 match state.inner().clipboard_mutex.lock() {
                     Ok(guard) => Some(guard),
                     Err(poisoned) => Some(poisoned.into_inner()),
@@ -3001,6 +3092,8 @@ async fn start_recording_session(app_handle: tauri::AppHandle) {
                                 &language,
                                 &settings.dictionary,
                                 false,
+                                Some(&settings.custom_api_url),
+                                Some(&settings.custom_model_name),
                             )
                             .await
                         };
@@ -3312,6 +3405,8 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
                     &language,
                     &settings.dictionary,
                     true,
+                    Some(&settings.custom_api_url),
+                    Some(&settings.custom_model_name),
                 )
                 .await
             }
@@ -3392,57 +3487,15 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
                     ),
                 );
                 if !trimmed.is_empty() && !is_silence_hallucination(&trimmed) {
-                    let text_after_voice_punc = if settings.voice_punctuation {
-                        apply_voice_punctuation(&trimmed)
-                    } else {
-                        trimmed.clone()
-                    };
-
-                    let final_text = if settings.voice_punctuation
-                        && (settings.transcription_mode == "local" || used_local_fallback)
-                        && (settings.local_engine == "parakeet"
-                            || settings.local_engine == "whisper")
-                    {
-                        let active_lang =
-                            if settings.language == "layout" || settings.language == "auto" {
-                                active_layout_lang.to_lowercase()
-                            } else {
-                                settings.language.to_lowercase()
-                            };
-                        let is_english = active_lang.starts_with("en");
-                        if is_english {
-                            match whisper_runner::run_punctuation(
-                                &app_handle_clone,
-                                &text_after_voice_punc,
-                            ) {
-                                Ok(punctuated) => punctuated,
-                                Err(e) => {
-                                    crate::logger::log(
-                                        "WARN",
-                                        "Punctuation",
-                                        Some(&session_tag_clone),
-                                        &format!(
-                                            "Offline punctuation model failed or not found: {}",
-                                            e
-                                        ),
-                                    );
-                                    text_after_voice_punc
-                                }
-                            }
-                        } else {
-                            text_after_voice_punc
-                        }
-                    } else {
-                        text_after_voice_punc
-                    };
+                    let final_text = trimmed;
 
                     let history_mode = if used_local_fallback {
                         "local (cloud fallback)"
                     } else {
                         settings.transcription_mode.as_str()
                     };
-                    let is_local_text = settings.transcription_mode == "local"
-                        || used_local_fallback;
+                    let is_local_text =
+                        settings.transcription_mode == "local" || used_local_fallback;
                     let history_engine = if is_local_text {
                         Some(settings.local_engine.as_str())
                     } else {
@@ -3540,7 +3593,10 @@ async fn finalize_recording(app_handle: tauri::AppHandle) {
                                     );
                                 }
                             } else {
-                                restore_clipboard_if_unchanged(original_clipboard.clone(), &final_text);
+                                restore_clipboard_if_unchanged(
+                                    original_clipboard.clone(),
+                                    &final_text,
+                                );
                             }
                         } else if session_ok {
                             crate::logger::log(
@@ -3693,16 +3749,34 @@ pub fn run() {
             }
 
             // 2. Build system tray menu
-            let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let show_i = MenuItem::with_id(app, "show", "Open Settings", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
+            let show_i = MenuItem::with_id(app, "show", "Открыть настройки", true, None::<&str>)?;
+            let sep1 = PredefinedMenuItem::separator(app)?;
+
+            let is_cloud = startup_settings.transcription_mode == "cloud";
+            let mode_cloud_i = CheckMenuItem::with_id(app, "tray_mode_cloud", "Облачный ИИ", true, is_cloud, None::<&str>)?;
+            let mode_local_i = CheckMenuItem::with_id(app, "tray_mode_local", "Локальный ИИ (Whisper / Parakeet)", true, !is_cloud, None::<&str>)?;
+            let mode_sub = Submenu::with_items(app, "Способ распознавания", true, &[&mode_cloud_i, &mode_local_i])?;
+
+            let sep2 = PredefinedMenuItem::separator(app)?;
+            let quit_i = MenuItem::with_id(app, "quit", "Выход", true, None::<&str>)?;
+
+            let menu = Menu::with_items(app, &[
+                &show_i,
+                &sep1,
+                &mode_sub,
+                &sep2,
+                &quit_i,
+            ])?;
+
+            let mode_cloud_handle = mode_cloud_i.clone();
+            let mode_local_handle = mode_local_i.clone();
 
             // 3. Build tray icon
             if let Some(tray_icon) = app.default_window_icon().cloned() {
                 let _tray = TrayIconBuilder::new()
                     .icon(tray_icon)
                     .menu(&menu)
-                    .on_menu_event(|app, event| match event.id.as_ref() {
+                    .on_menu_event(move |app, event| match event.id.as_ref() {
                         "quit" => {
                             app.exit(0);
                         }
@@ -3711,6 +3785,30 @@ pub fn run() {
                                 let _ = window.show();
                                 let _ = window.set_focus();
                             }
+                        }
+                        "tray_mode_cloud" => {
+                            let _ = mode_cloud_handle.set_checked(true);
+                            let _ = mode_local_handle.set_checked(false);
+                            let app_handle = app.clone();
+                            tauri::async_runtime::spawn(async move {
+                                if let Ok(mut settings) = settings::load_settings(&app_handle) {
+                                    settings.transcription_mode = "cloud".to_string();
+                                    let _ = settings::save_settings(&app_handle, &settings);
+                                    let _ = app_handle.emit("settings-changed", ());
+                                }
+                            });
+                        }
+                        "tray_mode_local" => {
+                            let _ = mode_cloud_handle.set_checked(false);
+                            let _ = mode_local_handle.set_checked(true);
+                            let app_handle = app.clone();
+                            tauri::async_runtime::spawn(async move {
+                                if let Ok(mut settings) = settings::load_settings(&app_handle) {
+                                    settings.transcription_mode = "local".to_string();
+                                    let _ = settings::save_settings(&app_handle, &settings);
+                                    let _ = app_handle.emit("settings-changed", ());
+                                }
+                            });
                         }
                         _ => {}
                     })
@@ -3729,6 +3827,17 @@ pub fn run() {
                     })
                     .build(app)?;
             }
+
+            let mode_cloud_sync = mode_cloud_i.clone();
+            let mode_local_sync = mode_local_i.clone();
+            let app_for_sync = app_handle.clone();
+            app.listen("settings-changed", move |_| {
+                if let Ok(s) = settings::load_settings(&app_for_sync) {
+                    let is_c = s.transcription_mode == "cloud";
+                    let _ = mode_cloud_sync.set_checked(is_c);
+                    let _ = mode_local_sync.set_checked(!is_c);
+                }
+            });
 
             app.manage(AppState {
                 audio_recorder: audio_recorder::AudioRecorder::new(),
@@ -3750,16 +3859,28 @@ pub fn run() {
                 parakeet_port: std::sync::atomic::AtomicU16::new(3033),
                 parakeet_streaming: Mutex::new(None),
                 parakeet_watchdog: Mutex::new(None),
+                whisper_lifecycle: Mutex::new(()),
+                whisper_server: Mutex::new(None),
+                whisper_port: std::sync::atomic::AtomicU16::new(0),
             });
 
-            // Start Parakeet only when the validated startup snapshot selects it.
+            // Start Parakeet or Whisper server based on validated startup snapshot.
             if startup_settings.local_engine == "parakeet" {
                 let sidecar_handle = app_handle.clone();
-                let sidecar_settings = startup_settings;
+                let sidecar_settings = startup_settings.clone();
                 tauri::async_runtime::spawn_blocking(move || {
                     whisper_runner::ensure_parakeet_server_state(
                         &sidecar_handle,
                         &sidecar_settings,
+                    );
+                });
+            } else if startup_settings.local_engine == "whisper" {
+                let whisper_handle = app_handle.clone();
+                let whisper_settings = startup_settings.clone();
+                tauri::async_runtime::spawn_blocking(move || {
+                    whisper_runner::ensure_whisper_server_state(
+                        &whisper_handle,
+                        &whisper_settings,
                     );
                 });
             }
@@ -3899,7 +4020,10 @@ pub fn run() {
             check_gpu_downloaded,
             get_diagnostic_report,
             get_engine_health,
-            log_frontend_event
+            log_frontend_event,
+            start_mic_meter,
+            stop_mic_meter,
+            reprocess_history_text
         ])
         .build(tauri::generate_context!());
     let application = match application {
@@ -3924,6 +4048,7 @@ struct GpuDownloadProgress {
     total: Option<u64>,
     percentage: f64,
     done: bool,
+    status: Option<String>,
 }
 
 const CUDA_ARCHIVE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.4/sherpa-onnx-v1.13.4-win-x64-cuda.tar.bz2";
@@ -3966,24 +4091,27 @@ struct ScopedInstallDirectory {
 }
 
 fn remove_gpu_staging_directory(path: &std::path::Path) {
-    if let Err(error) = std::fs::remove_dir_all(path) {
-        if error.kind() != std::io::ErrorKind::NotFound {
-            crate::logger::log(
-                "WARN",
-                "GPU",
-                None,
-                &format!(
-                    "Failed to remove temporary GPU install directory {}: {error}",
-                    path.display()
-                ),
-            );
-        }
+    if !path.exists() {
+        return;
     }
+    for attempt in 0..5 {
+        if std::fs::remove_dir_all(path).is_ok() || !path.exists() {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50 * (1 << attempt)));
+    }
+    let display_path = path.display().to_string();
+    crate::logger::log(
+        "WARN",
+        "GPU",
+        None,
+        &format!("Background cleanup of {display_path} failed after 5 retries"),
+    );
 }
 
 impl Drop for ScopedInstallDirectory {
     fn drop(&mut self) {
-        if !self.cleanup_on_drop {
+        if !self.cleanup_on_drop || self.path.as_os_str().is_empty() {
             return;
         }
         let path = std::mem::take(&mut self.path);
@@ -4023,11 +4151,7 @@ fn gpu_bin_is_complete(bin_dir: &std::path::Path, provider: &str) -> bool {
     };
     let mut required = vec![exe_name, "onnxruntime.dll"];
     if cfg!(target_os = "windows") {
-        required.extend([
-            "onnxruntime_providers_cuda.dll",
-            "cudart64_110.dll",
-            "cudnn64_8.dll",
-        ]);
+        required.extend(["onnxruntime_providers_cuda.dll"]);
     }
     required.into_iter().all(|name| {
         bin_dir
@@ -4078,6 +4202,7 @@ fn install_cuda_archive(
         }
         return Err(format!("Failed to install CUDA runtime: {error}"));
     }
+    copy_supplemental_cuda_dlls(&target_bin);
     if had_previous {
         if let Err(error) = std::fs::remove_dir_all(&backup_bin) {
             crate::logger::log(
@@ -4089,6 +4214,30 @@ fn install_cuda_archive(
         }
     }
     Ok(())
+}
+
+fn copy_supplemental_cuda_dlls(target_bin: &std::path::Path) {
+    let candidate_dirs = [
+        std::path::PathBuf::from("src-tauri/binaries/cuda/sherpa-onnx-v1.13.4-win-x64-cuda/bin"),
+        std::path::PathBuf::from("binaries/cuda/sherpa-onnx-v1.13.4-win-x64-cuda/bin"),
+        std::path::PathBuf::from("src-tauri/binaries"),
+        std::path::PathBuf::from("binaries"),
+    ];
+    for dir in &candidate_dirs {
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if name.ends_with(".dll") {
+                        let dest = target_bin.join(name);
+                        if !dest.exists() {
+                            let _ = std::fs::copy(&path, &dest);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[tauri::command]
@@ -4148,9 +4297,7 @@ async fn cancel_gpu_download(provider: String) -> Result<(), String> {
         return Err("Invalid provider".to_string());
     }
     if !lock_active_gpu_downloads().contains(&provider) {
-        return Err(format!(
-            "No active GPU download for '{provider}' to cancel"
-        ));
+        return Err(format!("No active GPU download for '{provider}' to cancel"));
     }
     whisper_runner::request_cancel_download(&format!("gpu-{provider}"));
     crate::logger::log(
@@ -4164,6 +4311,22 @@ async fn cancel_gpu_download(provider: String) -> Result<(), String> {
 
 #[tauri::command]
 async fn download_gpu_binaries(
+    app_handle: tauri::AppHandle,
+    provider: String,
+) -> Result<(), String> {
+    let res = download_gpu_binaries_inner(app_handle, provider).await;
+    if let Err(ref error) = res {
+        crate::logger::log(
+            "ERROR",
+            "GPU",
+            None,
+            &format!("CUDA download/install failed: {error}"),
+        );
+    }
+    res
+}
+
+async fn download_gpu_binaries_inner(
     app_handle: tauri::AppHandle,
     provider: String,
 ) -> Result<(), String> {
@@ -4278,6 +4441,7 @@ async fn download_gpu_binaries(
                 total: Some(CUDA_ARCHIVE_SIZE),
                 percentage,
                 done: false,
+                status: None,
             },
         );
     }
@@ -4305,6 +4469,18 @@ async fn download_gpu_binaries(
     }
 
     crate::logger::log("INFO", "GPU", None, "Verifying and installing CUDA runtime");
+    let _ = app_handle.emit(
+        "gpu-download-progress",
+        GpuDownloadProgress {
+            provider: provider.clone(),
+            downloaded: CUDA_ARCHIVE_SIZE,
+            total: Some(CUDA_ARCHIVE_SIZE),
+            percentage: 100.0,
+            done: false,
+            status: Some("installing".to_string()),
+        },
+    );
+
     let extraction_dir = staging_dir.join("extract");
     let worker_archive = archive_path.clone();
     let worker_gpu_dir = gpu_dir.clone();
@@ -4342,6 +4518,7 @@ async fn download_gpu_binaries(
             total: Some(CUDA_ARCHIVE_SIZE),
             percentage: 100.0,
             done: true,
+            status: Some("done".to_string()),
         },
     );
     Ok(())
@@ -4694,19 +4871,14 @@ mod tests {
     fn interrupted_backspace_phase_commits_truncated_mirror() {
         let mut typed = "abcdefgh".to_string();
 
-        let failure = diff_and_type_with(
-            &mut typed,
-            "abxyz",
-            false,
-            |_backspaces, suffix| {
-                assert_eq!(suffix, "xyz");
-                Err(keyboard_simulator::TextReplacementError {
-                    message: "interrupted during delete".to_string(),
-                    backspaces_committed: 4,
-                    utf16_units_committed: 0,
-                })
-            },
-        );
+        let failure = diff_and_type_with(&mut typed, "abxyz", false, |_backspaces, suffix| {
+            assert_eq!(suffix, "xyz");
+            Err(keyboard_simulator::TextReplacementError {
+                message: "interrupted during delete".to_string(),
+                backspaces_committed: 4,
+                utf16_units_committed: 0,
+            })
+        });
 
         assert!(failure.is_err());
         assert_eq!(typed, "abcd");
@@ -4908,6 +5080,9 @@ mod tests {
             parakeet_port: std::sync::atomic::AtomicU16::new(3033),
             parakeet_streaming: Mutex::new(None),
             parakeet_watchdog: Mutex::new(None),
+            whisper_lifecycle: Mutex::new(()),
+            whisper_server: Mutex::new(None),
+            whisper_port: std::sync::atomic::AtomicU16::new(0),
         }
     }
 
@@ -4926,7 +5101,10 @@ mod tests {
             !session_still_current(&state, 1),
             "A (gen 1) must be treated as stale once gen 2 is current"
         );
-        assert!(session_still_current(&state, 2), "B (gen 2) is the live session");
+        assert!(
+            session_still_current(&state, 2),
+            "B (gen 2) is the live session"
+        );
 
         // And re-verifying restore_clipboard_guarded returns early without
         // touching the (empty) clipboard for a stale session. Direct restore of

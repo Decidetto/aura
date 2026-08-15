@@ -523,10 +523,9 @@ fn contains_token_sequence(haystack: &[&str], needle: &[&str]) -> bool {
         return false;
     }
     haystack.windows(needle.len()).any(|window| {
-        window
-            .iter()
-            .zip(needle)
-            .all(|(a, b)| normalize_token(a).eq(&normalize_token(b)) && !normalize_token(a).is_empty())
+        window.iter().zip(needle).all(|(a, b)| {
+            normalize_token(a).eq(&normalize_token(b)) && !normalize_token(a).is_empty()
+        })
     })
 }
 

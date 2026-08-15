@@ -100,9 +100,8 @@ fn invoke_bool_callback(
     let Some(callback) = callback else { return };
     let callback = Arc::new(callback);
     let invoke_arc = Arc::clone(&callback);
-    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
-        invoke_arc(is_down)
-    }));
+    let outcome =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || invoke_arc(is_down)));
     if outcome.is_err() {
         on_panic();
     }

@@ -22,6 +22,7 @@ const parseOverlayNotices = () => {
   return vm.runInNewContext("(" + normalized.slice(start, end) + ")");
 };
 
+
 test("Tauri capabilities isolate main and overlay with least privilege", () => {
   assert.equal(existsSync(new URL("../src-tauri/capabilities/default.json", import.meta.url)), false);
 
@@ -80,7 +81,6 @@ test("frontend uses redacted key metadata and write-only provider-key IPC", () =
   assert.doesNotMatch(html, /value="parakeet"[^>]*disabled/);
 });
 
-
 test("settings translations cover every supported locale without fallback gaps", () => {
   const expectedLocales = ["ru", "en", "de", "es", "fr", "it", "zh", "pt", "tr"];
   const dictionaries = parseI18nDictionaries();
@@ -123,11 +123,12 @@ test("settings translations cover every supported locale without fallback gaps",
     }
   }
 
+
   const generalPanel = html.match(/id="panel-general"[\s\S]*?id="panel-speech"/)?.[0] ?? "";
   const aboutPanel = html.match(/id="panel-about"[\s\S]*?<\/section>/)?.[0] ?? "";
   assert.doesNotMatch(generalPanel, /cloud_data_desc|Какие данные использует облачный режим/);
   assert.doesNotMatch(aboutPanel, /cloud_data_desc/);
-  assert.doesNotMatch(read("src/main.js") + html, /�/);
+  assert.doesNotMatch(read("src/main.js") + html, /\uFFFD/);
   assert.match(read("src/main.js"), /getTranslation\("update_current"\)/);
   assert.match(read("src/main.js"), /getTranslation\("update_installing"\)/);
 });
@@ -154,6 +155,13 @@ test("settings UI exposes native accessible controls and responsive motion-safe 
   assert.match(html, /role="tabpanel"/);
   assert.match(html, /<dialog[^>]+id="custom-confirm-modal"/);
   assert.match(html, /aria-live="polite"/);
+  assert.match(html, /id="input-history-search"/);
+  assert.match(html, /id="btn-clear-history-search"/);
+  assert.match(html, /class="history-filter-btn"/);
+  assert.match(main, /inputHistorySearch/);
+  assert.match(main, /btnClearHistorySearch/);
+  assert.match(main, /historyFilterButtons/);
+  assert.match(css, /\.select-panel-item\.is-focused/);
   assert.doesNotMatch(main, /select\.style\.display\s*=\s*"none"/);
   assert.doesNotMatch(main, /initCustomSelects/);
   assert.match(main, /document\.documentElement\.lang/);

@@ -8,7 +8,7 @@ use zeroize::Zeroize;
 use crate::secure_storage;
 
 const ALLOWED_MODES: &[&str] = &["cloud", "local"];
-const ALLOWED_PROVIDERS: &[&str] = &["gemini", "openai", "groq"];
+const ALLOWED_PROVIDERS: &[&str] = &["gemini", "openai", "groq", "huggingface", "custom"];
 const ALLOWED_MODELS: &[&str] = &[
     "tiny",
     "base",
@@ -58,6 +58,12 @@ pub struct Settings {
     pub api_key_openai: String,
     #[serde(default, skip_serializing)]
     pub api_key_groq: String,
+    #[serde(default, skip_serializing)]
+    pub api_key_huggingface: String,
+    #[serde(default, skip_serializing)]
+    pub api_key_custom: String,
+    pub custom_api_url: String,
+    pub custom_model_name: String,
     pub model_name: String,
     pub hotkey: String,
     pub streaming_enabled: bool,
@@ -75,6 +81,8 @@ pub struct Settings {
     pub copy_context_on_start: bool,
     pub local_acceleration: String,
     pub log_speech_text: bool,
+    pub overlay_show_timer: bool,
+    pub whisper_keep_in_memory: bool,
 }
 
 impl Default for Settings {
@@ -86,6 +94,10 @@ impl Default for Settings {
             api_key_gemini: String::new(),
             api_key_openai: String::new(),
             api_key_groq: String::new(),
+            api_key_huggingface: String::new(),
+            api_key_custom: String::new(),
+            custom_api_url: "https://api.deepinfra.com/v1/openai".to_string(),
+            custom_model_name: "openai/whisper-large-v3-turbo".to_string(),
             model_name: "base".to_string(),
             hotkey: "Alt+V".to_string(),
             streaming_enabled: false,
@@ -103,6 +115,8 @@ impl Default for Settings {
             copy_context_on_start: false,
             local_acceleration: "cpu".to_string(),
             log_speech_text: false,
+            overlay_show_timer: true,
+            whisper_keep_in_memory: true,
         }
     }
 }
@@ -113,6 +127,8 @@ impl Settings {
             "gemini" => &self.api_key_gemini,
             "openai" => &self.api_key_openai,
             "groq" => &self.api_key_groq,
+            "huggingface" => &self.api_key_huggingface,
+            "custom" => &self.api_key_custom,
             _ => "",
         }
     }
@@ -184,6 +200,8 @@ pub struct SettingsView {
     pub has_api_key_gemini: bool,
     pub has_api_key_openai: bool,
     pub has_api_key_groq: bool,
+    pub has_api_key_huggingface: bool,
+    pub has_api_key_custom: bool,
 }
 
 impl SettingsView {
@@ -195,11 +213,15 @@ impl SettingsView {
         view.api_key_gemini.zeroize();
         view.api_key_openai.zeroize();
         view.api_key_groq.zeroize();
+        view.api_key_huggingface.zeroize();
+        view.api_key_custom.zeroize();
         Self {
             settings: view,
             has_api_key_gemini: !settings.api_key_gemini.is_empty(),
             has_api_key_openai: !settings.api_key_openai.is_empty(),
             has_api_key_groq: !settings.api_key_groq.is_empty(),
+            has_api_key_huggingface: !settings.api_key_huggingface.is_empty(),
+            has_api_key_custom: !settings.api_key_custom.is_empty(),
         }
     }
 }
@@ -209,6 +231,10 @@ struct ProviderSecrets {
     gemini: String,
     openai: String,
     groq: String,
+    #[serde(default)]
+    huggingface: String,
+    #[serde(default)]
+    custom: String,
 }
 
 impl ProviderSecrets {
@@ -217,6 +243,8 @@ impl ProviderSecrets {
             gemini: settings.api_key_gemini.trim().to_string(),
             openai: settings.api_key_openai.trim().to_string(),
             groq: settings.api_key_groq.trim().to_string(),
+            huggingface: settings.api_key_huggingface.trim().to_string(),
+            custom: settings.api_key_custom.trim().to_string(),
         }
     }
 
@@ -224,11 +252,17 @@ impl ProviderSecrets {
         settings.api_key_gemini = self.gemini;
         settings.api_key_openai = self.openai;
         settings.api_key_groq = self.groq;
+        settings.api_key_huggingface = self.huggingface;
+        settings.api_key_custom = self.custom;
         settings.sync_active_api_key();
     }
 
     fn is_empty(&self) -> bool {
-        self.gemini.is_empty() && self.openai.is_empty() && self.groq.is_empty()
+        self.gemini.is_empty()
+            && self.openai.is_empty()
+            && self.groq.is_empty()
+            && self.huggingface.is_empty()
+            && self.custom.is_empty()
     }
 }
 
@@ -393,7 +427,9 @@ fn load_settings_unlocked<R: tauri::Runtime>(
     let config_contained_plaintext = !settings.api_key.is_empty()
         || !settings.api_key_gemini.is_empty()
         || !settings.api_key_openai.is_empty()
-        || !settings.api_key_groq.is_empty();
+        || !settings.api_key_groq.is_empty()
+        || !settings.api_key_huggingface.is_empty()
+        || !settings.api_key_custom.is_empty();
     let legacy_secrets = ProviderSecrets {
         gemini: if settings.api_key_gemini.is_empty() && settings.api_provider == "gemini" {
             settings.api_key.clone()
@@ -409,6 +445,18 @@ fn load_settings_unlocked<R: tauri::Runtime>(
             settings.api_key.clone()
         } else {
             settings.api_key_groq.clone()
+        },
+        huggingface: if settings.api_key_huggingface.is_empty()
+            && settings.api_provider == "huggingface"
+        {
+            settings.api_key.clone()
+        } else {
+            settings.api_key_huggingface.clone()
+        },
+        custom: if settings.api_key_custom.is_empty() && settings.api_provider == "custom" {
+            settings.api_key.clone()
+        } else {
+            settings.api_key_custom.clone()
         },
     };
 
@@ -446,8 +494,12 @@ pub fn save_settings<R: tauri::Runtime>(
     normalized.api_key_gemini.zeroize();
     normalized.api_key_openai.zeroize();
     normalized.api_key_groq.zeroize();
+    normalized.api_key_huggingface.zeroize();
+    normalized.api_key_custom.zeroize();
     normalized.dictionary = normalized.dictionary.trim().to_string();
     normalized.hotkey = normalized.hotkey.trim().to_string();
+    normalized.custom_api_url = normalized.custom_api_url.trim().to_string();
+    normalized.custom_model_name = normalized.custom_model_name.trim().to_string();
     normalized.validate()?;
     let _guard = lock_settings();
 
@@ -483,6 +535,14 @@ pub fn set_provider_key<R: tauri::Runtime>(
             settings.api_key_groq.zeroize();
             settings.api_key_groq = normalized;
         }
+        "huggingface" => {
+            settings.api_key_huggingface.zeroize();
+            settings.api_key_huggingface = normalized;
+        }
+        "custom" => {
+            settings.api_key_custom.zeroize();
+            settings.api_key_custom = normalized;
+        }
         _ => return Err(format!("Unsupported API provider: {provider}")),
     }
     settings.sync_active_api_key();
@@ -510,12 +570,34 @@ mod tests {
         let settings = Settings {
             api_key: "legacy-secret".to_string(),
             api_key_gemini: "gemini-secret".to_string(),
+            api_key_huggingface: "hf-secret".to_string(),
+            api_key_custom: "custom-secret".to_string(),
             ..Settings::default()
         };
         let json = serde_json::to_string(&SettingsView::from_settings(&settings)).unwrap();
         assert!(!json.contains("legacy-secret"));
         assert!(!json.contains("gemini-secret"));
+        assert!(!json.contains("hf-secret"));
+        assert!(!json.contains("custom-secret"));
         assert!(json.contains("\"has_api_key_gemini\":true"));
+        assert!(json.contains("\"has_api_key_huggingface\":true"));
+        assert!(json.contains("\"has_api_key_custom\":true"));
+    }
+
+    #[test]
+    fn new_providers_active_key_and_validation() {
+        let mut settings = Settings {
+            api_provider: "huggingface".to_string(),
+            api_key_huggingface: "hf_test".to_string(),
+            ..Settings::default()
+        };
+        assert_eq!(settings.active_api_key(), "hf_test");
+        assert!(settings.validate().is_ok());
+
+        settings.api_provider = "custom".to_string();
+        settings.api_key_custom = "custom_token".to_string();
+        assert_eq!(settings.active_api_key(), "custom_token");
+        assert!(settings.validate().is_ok());
     }
 
     #[test]

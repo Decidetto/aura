@@ -17,6 +17,7 @@
     "allow-get-downloaded-models",
     "allow-download-gpu-binaries",
     "allow-delete-gpu-binaries",
+    "allow-cancel-gpu-download",
     "allow-check-gpu-downloaded",
     "allow-get-history",
     "allow-clear-history",
@@ -27,6 +28,10 @@
     "allow-close-window",
     "allow-start-dragging-command",
     "allow-get-diagnostic-report",
-    "allow-log-frontend-event"
+    "allow-get-engine-health",
+    "allow-log-frontend-event",
+    "allow-start-mic-meter",
+    "allow-stop-mic-meter",
+    "allow-reprocess-history-text"
   ]
 }

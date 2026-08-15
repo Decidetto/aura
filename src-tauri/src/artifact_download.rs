@@ -409,7 +409,8 @@ where
         // too tight): 50 KB/s minimum sustained throughput still bounds a
         // dribbling link while letting a real connection finish.
         let budget_secs = (spec.expected_size / 50_000).max(600);
-        let overall_deadline = std::time::Instant::now() + std::time::Duration::from_secs(budget_secs);
+        let overall_deadline =
+            std::time::Instant::now() + std::time::Duration::from_secs(budget_secs);
 
         loop {
             if std::time::Instant::now() >= overall_deadline {
