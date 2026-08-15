@@ -63,7 +63,7 @@ jobs:
       - name: Install and run osv-scanner
         run: |
           go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.3.8
-          & "$(go env GOPATH)/bin/osv-scanner.exe" scan source -r .
+          & "$(go env GOPATH)/bin/osv-scanner.exe" scan source --config=osv-scanner.toml -r .
 
   build:
     needs: verify
