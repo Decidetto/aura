@@ -3,10 +3,20 @@
 All notable changes to Aura are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/), versions follow [SemVer](https://semver.org/).
 
-## [1.0.9] — 2026-08-07
+## [1.0.8] — 2026-08-16
 
-### Changed
-- Bumped application version to 1.0.9 (prepares the groundwork for upcoming stability, reliability and security fixes).
+### Added
+- **GPU Acceleration Architecture (NVIDIA CUDA)**: Added hardware acceleration support for the local Parakeet engine in `src-tauri/src/whisper_runner.rs` and `src-tauri/src/lib.rs`. The runtime dynamically detects CUDA support, validates required system DLLs, provides on-demand background downloading with SHA-256 integrity verification, and automatically falls back to CPU execution if initialization fails or an NVIDIA GPU is unavailable.
+- **Windows DPAPI Credential & History Protection**: Migrated API keys and transcription history storage to native Windows Data Protection API (`CryptProtectData` / `CryptUnprotectData`) with restricted DACLs in `src-tauri/src/secure_storage.rs`, `src-tauri/src/settings_secure.rs`, and `src-tauri/src/history_secure.rs`. File permissions are strictly locked to the current Windows user and SYSTEM, preventing unauthorized access by other processes.
+- **Stable Prefix Locking for Live Streaming**: Implemented stable prefix locking and smart word-level diffing in `src-tauri/src/lib.rs`. Live streaming predictions now preserve committed tokens and incorporate Cyrillic `ё`/`е` tolerance and casing normalization during pauses, eliminating text jitter, typing desync, and duplicate words.
+- **Unified Diagnostics & Anonymized Log Exporter**: Added an asynchronous rolling file logger and diagnostic exporter in `src-tauri/src/logger.rs` and `src-tauri/src/lib.rs`. It enables 1-click troubleshooting report generation with automated regex-based redaction of user speech, API keys, and usernames across all 9 UI locales.
+- **Custom Accessible Dropdown Panels**: Replaced unstylable native browser select elements with animated sliding dropdown panels in `src/main.js` and `src/style.css`. Includes live page scroll tracking, full keyboard navigation (Arrow keys, Enter, Esc), and localized preview captions with engine health indicators.
+
+### Fixed
+- **Resident Sidecar Lifecycle Management & Watchdog**: Hardened the Parakeet WebSocket sidecar daemon in `src-tauri/src/whisper_runner.rs` using Windows Job Objects (`KillOnJobClose`), pipe reader cleanup routines, and an automatic restart watchdog under a re-entrant lifecycle lock to prevent orphaned background processes.
+- **VAD Trailing Frame Zero-Padding**: Added zero-padding for trailing audio frames in `src-tauri/src/vad.rs` to satisfy Silero VAD's fixed 512-sample chunk requirement, ensuring that short final words or endings are never clipped during batch silence trimming.
+- **Authoritative Audio WAV Fallback**: Implemented atomic `.partial` RAII WAV writing in `src-tauri/src/lib.rs`. If a streaming socket disconnects or sidecar becomes unresponsive, the full WAV recording serves as an authoritative fallback to guarantee zero transcription loss.
+- **Dynamic Window-Height History Panel**: Removed the fixed 380px height cap on the history list in `src/style.css` and `src/main.js`. The panel now dynamically adapts to the full window height with smooth internal scrolling and enhanced engine/timing badges.
 
 ## [1.0.6] — 2026-07-11
 

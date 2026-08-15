@@ -3,9 +3,10 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
+use tauri::Emitter;
 
 const OUTPUT_SAMPLE_RATE: u32 = 16_000;
 /// Bounded queue between the audio callback and the record worker. Sized so a
@@ -586,6 +587,191 @@ impl Default for AudioRecorder {
     }
 }
 
+#[derive(Clone, serde::Serialize)]
+pub struct MicMeterPayload {
+    pub volume: f32,
+    pub is_speech: bool,
+}
+
+static ACTIVE_MIC_METER_STOP: OnceLock<Mutex<Option<Arc<AtomicBool>>>> = OnceLock::new();
+
+pub fn is_mic_meter_running() -> bool {
+    let mutex = ACTIVE_MIC_METER_STOP.get_or_init(|| Mutex::new(None));
+    if let Ok(guard) = mutex.lock() {
+        guard.is_some()
+    } else {
+        false
+    }
+}
+
+pub fn stop_mic_meter() {
+    let mutex = ACTIVE_MIC_METER_STOP.get_or_init(|| Mutex::new(None));
+    if let Ok(mut guard) = mutex.lock() {
+        if let Some(stop_flag) = guard.take() {
+            stop_flag.store(true, Ordering::SeqCst);
+        }
+    }
+}
+
+pub fn start_mic_meter<R: tauri::Runtime>(app_handle: tauri::AppHandle<R>) -> Result<(), String> {
+    stop_mic_meter();
+
+    let stop_flag = Arc::new(AtomicBool::new(false));
+    {
+        let mutex = ACTIVE_MIC_METER_STOP.get_or_init(|| Mutex::new(None));
+        let mut guard = mutex
+            .lock()
+            .map_err(|_| "Failed to lock mic meter state".to_string())?;
+        *guard = Some(Arc::clone(&stop_flag));
+    }
+
+    let thread_stop = Arc::clone(&stop_flag);
+    std::thread::Builder::new()
+        .name("aura-mic-meter".to_string())
+        .spawn(move || {
+            let host = cpal::default_host();
+            let device = match host.default_input_device() {
+                Some(d) => d,
+                None => {
+                    let mutex = ACTIVE_MIC_METER_STOP.get_or_init(|| Mutex::new(None));
+                    if let Ok(mut guard) = mutex.lock() {
+                        *guard = None;
+                    }
+                    return;
+                }
+            };
+            let config = match device.default_input_config() {
+                Ok(c) => c,
+                Err(_) => {
+                    let mutex = ACTIVE_MIC_METER_STOP.get_or_init(|| Mutex::new(None));
+                    if let Ok(mut guard) = mutex.lock() {
+                        *guard = None;
+                    }
+                    return;
+                }
+            };
+            let sample_rate = config.sample_rate().0;
+            let channels = config.channels();
+            let sample_format = config.sample_format();
+            let stream_config: cpal::StreamConfig = config.into();
+
+            let (sample_tx, sample_rx) = mpsc::sync_channel::<Vec<f32>>(64);
+            let stream = match sample_format {
+                cpal::SampleFormat::I16 => device.build_input_stream(
+                    &stream_config,
+                    move |data: &[i16], _| {
+                        let samples = data.iter().map(|&s| s as f32 / 32768.0).collect();
+                        let _ = sample_tx.try_send(samples);
+                    },
+                    |_| {},
+                    None,
+                ),
+                cpal::SampleFormat::U16 => device.build_input_stream(
+                    &stream_config,
+                    move |data: &[u16], _| {
+                        let samples = data
+                            .iter()
+                            .map(|&s| (s as f32 - 32768.0) / 32768.0)
+                            .collect();
+                        let _ = sample_tx.try_send(samples);
+                    },
+                    |_| {},
+                    None,
+                ),
+                cpal::SampleFormat::F32 => device.build_input_stream(
+                    &stream_config,
+                    move |data: &[f32], _| {
+                        let samples = data.to_vec();
+                        let _ = sample_tx.try_send(samples);
+                    },
+                    |_| {},
+                    None,
+                ),
+                _ => {
+                    let mutex = ACTIVE_MIC_METER_STOP.get_or_init(|| Mutex::new(None));
+                    if let Ok(mut guard) = mutex.lock() {
+                        *guard = None;
+                    }
+                    return;
+                }
+            };
+
+            let stream = match stream {
+                Ok(s) => s,
+                Err(_) => {
+                    let mutex = ACTIVE_MIC_METER_STOP.get_or_init(|| Mutex::new(None));
+                    if let Ok(mut guard) = mutex.lock() {
+                        *guard = None;
+                    }
+                    return;
+                }
+            };
+
+            if stream.play().is_err() {
+                let mutex = ACTIVE_MIC_METER_STOP.get_or_init(|| Mutex::new(None));
+                if let Ok(mut guard) = mutex.lock() {
+                    *guard = None;
+                }
+                return;
+            }
+
+            let mut resampler = match StreamingResampler::new(channels, sample_rate) {
+                Ok(r) => r,
+                Err(_) => {
+                    let mutex = ACTIVE_MIC_METER_STOP.get_or_init(|| Mutex::new(None));
+                    if let Ok(mut guard) = mutex.lock() {
+                        *guard = None;
+                    }
+                    return;
+                }
+            };
+            let mut vad = crate::vad::StreamingVad::new_16k().ok();
+            let mut last_emit = std::time::Instant::now();
+            let mut accumulated_samples = Vec::with_capacity(1024);
+
+            while !thread_stop.load(Ordering::Relaxed) {
+                match sample_rx.recv_timeout(Duration::from_millis(15)) {
+                    Ok(raw_chunk) => {
+                        let mut resampled_chunk = Vec::new();
+                        resampler.process_interleaved(&raw_chunk, &mut resampled_chunk);
+                        accumulated_samples.extend_from_slice(&resampled_chunk);
+
+                        if (accumulated_samples.len() >= 512
+                            || last_emit.elapsed() >= Duration::from_millis(20))
+                            && !accumulated_samples.is_empty()
+                        {
+                            let sum_sq: f32 = accumulated_samples.iter().map(|&s| s * s).sum();
+                            let rms = (sum_sq / accumulated_samples.len() as f32).sqrt();
+                            let volume = (rms * 3.5).clamp(0.0, 1.0);
+
+                            let is_speech = if let Some(vad_ref) = vad.as_mut() {
+                                vad_ref.push_with_threshold(&accumulated_samples, 0.25)
+                            } else {
+                                volume > 0.05
+                            };
+
+                            let _ = app_handle
+                                .emit("mic-meter-level", MicMeterPayload { volume, is_speech });
+
+                            accumulated_samples.clear();
+                            last_emit = std::time::Instant::now();
+                        }
+                    }
+                    Err(mpsc::RecvTimeoutError::Timeout) => {}
+                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                }
+            }
+
+            let mutex = ACTIVE_MIC_METER_STOP.get_or_init(|| Mutex::new(None));
+            if let Ok(mut guard) = mutex.lock() {
+                *guard = None;
+            }
+        })
+        .map_err(|e| format!("Failed to spawn mic meter thread: {e}"))?;
+
+    Ok(())
+}
+
 fn recorder_worker(
     output_path: PathBuf,
     command_rx: mpsc::Receiver<RecorderCommand>,
@@ -1126,13 +1312,11 @@ mod tests {
         );
 
         let buffer = shared.lock().expect("buffer is recoverable after poison");
-        assert!(
-            buffer
-                .runtime_error
-                .as_deref()
-                .unwrap_or_default()
-                .contains("simulated panic")
-        );
+        assert!(buffer
+            .runtime_error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("simulated panic"));
     }
 
     #[test]

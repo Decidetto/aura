@@ -204,6 +204,7 @@ function playBell(freq, duration, gainStart = 0.07) {
 
 let soundsEnabled = true;
 let soundTheme = "zen";
+let overlayShowTimer = true;
 
 function applyActiveThemeSettings(settings) {
   if (!settings || typeof settings !== "object") {
@@ -212,7 +213,11 @@ function applyActiveThemeSettings(settings) {
   soundsEnabled = settings.overlay_sounds !== false;
   soundTheme = settings.overlay_sound_theme || "zen";
   soundVolume = typeof settings.overlay_sound_volume === "number" ? settings.overlay_sound_volume : 0.8;
-  if (globalGain) {
+  overlayShowTimer = settings.overlay_show_timer !== false;
+  if (!overlayShowTimer && !currentState.startsWith("error")) {
+    statusEl.textContent = "";
+  }
+  if (globalGain && audioCtx) {
     globalGain.gain.setValueAtTime(soundVolume, audioCtx.currentTime);
   }
 }
@@ -220,6 +225,15 @@ function applyActiveThemeSettings(settings) {
 listen("overlay-preferences", (event) => {
   applyActiveThemeSettings(event.payload);
 });
+
+if (window.__TAURI__?.core?.invoke) {
+  window.__TAURI__.core.invoke("get_settings").then((settings) => {
+    if (settings) {
+      applyActiveThemeSettings(settings);
+    }
+  }).catch((err) => console.error("Overlay failed to load settings:", err));
+}
+
 function playThemeStart() {
   if (!soundsEnabled) return;
   if (soundTheme === "rhodes") {
@@ -289,7 +303,6 @@ function playThemeError() {
   }
 }
 
-
 // Track current and target heights for smooth linear interpolation (lerp)
 const barStates = Array.from(bars).map(() => ({
   currentHeight: 6.0,
@@ -315,6 +328,10 @@ function setBarColor(color) {
 // Recording timer shown under the pill
 function updateTimer() {
   if (currentState === "recording" && recordStart) {
+    if (!overlayShowTimer) {
+      statusEl.textContent = "";
+      return;
+    }
     const secs = Math.floor((Date.now() - recordStart) / 1000);
     const m = Math.floor(secs / 60);
     const s = String(secs % 60).padStart(2, "0");
@@ -410,6 +427,30 @@ const noticeTranslations = {
     zh: "最终文本已复制",
     ja: "最終テキストをコピーしました",
     tr: "Son metin kopyalandı"
+  },
+  "loading-model": {
+    ru: "Загрузка модели в память…",
+    en: "Loading model into memory…",
+    de: "Modell wird in den Speicher geladen…",
+    fr: "Chargement du modèle en mémoire…",
+    it: "Caricamento del modello in memoria…",
+    es: "Cargando modelo en memoria…",
+    pt: "Carregando modelo na memória…",
+    zh: "正在将模型加载到内存中…",
+    ja: "モデルをメモリに読み込んでいます…",
+    tr: "Model belleğe yükleniyor…"
+  },
+  "warming-model": {
+    ru: "Инициализация движка…",
+    en: "Initializing engine…",
+    de: "Engine wird initialisiert…",
+    fr: "Initialisation du moteur…",
+    it: "Inizializzazione del motore…",
+    es: "Inicializando motor…",
+    pt: "Inicializando o motor…",
+    zh: "正在初始化引擎…",
+    ja: "エンジンを初期化しています…",
+    tr: "Motor başlatılıyor…"
   }
 };
 
@@ -598,7 +639,7 @@ listen("recording-state", (event) => {
 
   if (currentState === "recording") {
     recordStart = Date.now();
-    statusEl.textContent = "0:00";
+    statusEl.textContent = overlayShowTimer ? "0:00" : "";
     statusEl.classList.remove("error");
     setBarColor("#FE4200");
     resetBars();
@@ -609,14 +650,14 @@ listen("recording-state", (event) => {
   } else if (currentState === "processing") {
     angle = 0;
     const uiLang = localStorage.getItem("aura_ui_lang") || "ru";
-    statusEl.textContent = processingTranslations[uiLang] || processingTranslations.en;
+    statusEl.textContent = overlayShowTimer ? (processingTranslations[uiLang] || processingTranslations.en) : "";
     statusEl.classList.remove("error");
   } else if (currentState.startsWith("notice:")) {
     // Non-alarming transient message (e.g. cloud->local fallback); no error sound.
     const notice = currentState.substring("notice:".length);
     const uiLang = localStorage.getItem("aura_ui_lang") || "ru";
     const translations = noticeTranslations[notice];
-    statusEl.textContent = translations?.[uiLang] || translations?.en || notice;
+    statusEl.textContent = overlayShowTimer ? (translations?.[uiLang] || translations?.en || notice) : "";
     statusEl.classList.remove("error");
     setBarColor("#FE4200");
     pill.classList.add("visible");

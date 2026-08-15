@@ -3,7 +3,7 @@ use voice_activity_detector::VoiceActivityDetector;
 const VAD_SAMPLE_RATE: i64 = 16_000;
 const VAD_CHUNK_SIZE: usize = 512;
 const SPEECH_THRESHOLD: f32 = 0.4;
-const ENDPOINT_TRAILING_SILENCE_FRAMES: usize = 20;
+const ENDPOINT_TRAILING_SILENCE_FRAMES: usize = 14;
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct VadPushResult {
@@ -89,6 +89,23 @@ impl StreamingVad {
 
     pub fn push(&mut self, samples: &[f32]) -> bool {
         self.push_with_endpoints(samples).speech_detected
+    }
+
+    pub fn push_with_threshold(&mut self, samples: &[f32], threshold: f32) -> bool {
+        self.pending.extend(
+            samples
+                .iter()
+                .map(|sample| if sample.is_finite() { *sample } else { 0.0 }),
+        );
+        let complete_len = self.pending.len() / VAD_CHUNK_SIZE * VAD_CHUNK_SIZE;
+        let mut speech_detected = false;
+        for frame in self.pending[..complete_len].chunks_exact(VAD_CHUNK_SIZE) {
+            let is_speech = self.detector.predict(frame.iter().copied()) > threshold;
+            speech_detected |= is_speech;
+            let _ = self.endpoint_tracker.observe(is_speech);
+        }
+        self.pending.drain(..complete_len);
+        speech_detected
     }
 
     pub fn push_with_endpoints(&mut self, samples: &[f32]) -> VadPushResult {

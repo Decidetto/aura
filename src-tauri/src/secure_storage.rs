@@ -48,7 +48,10 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
                 "WARN",
                 "Security",
                 None,
-                &format!("Could not restrict ACL on '{}': {error}", temp_path.display()),
+                &format!(
+                    "Could not restrict ACL on '{}': {error}",
+                    temp_path.display()
+                ),
             );
         }
         replace_file(&temp_path, path)
@@ -66,7 +69,12 @@ fn owned_sid_copy(sid: windows_sys::Win32::Foundation::PSID) -> Result<Vec<u8>, 
     unsafe {
         let len = GetLengthSid(sid);
         let mut owned = vec![0u8; len as usize];
-        if CopySid(len, owned.as_mut_ptr() as windows_sys::Win32::Foundation::PSID, sid) == 0 {
+        if CopySid(
+            len,
+            owned.as_mut_ptr() as windows_sys::Win32::Foundation::PSID,
+            sid,
+        ) == 0
+        {
             return Err(format!(
                 "CopySid failed: {}",
                 std::io::Error::last_os_error()
@@ -77,7 +85,9 @@ fn owned_sid_copy(sid: windows_sys::Win32::Foundation::PSID) -> Result<Vec<u8>, 
 }
 
 #[cfg(target_os = "windows")]
-fn well_known_sid_bytes(kind: windows_sys::Win32::Security::WELL_KNOWN_SID_TYPE) -> Result<Vec<u8>, String> {
+fn well_known_sid_bytes(
+    kind: windows_sys::Win32::Security::WELL_KNOWN_SID_TYPE,
+) -> Result<Vec<u8>, String> {
     use windows_sys::Win32::Security::CreateWellKnownSid;
     unsafe {
         let mut len: u32 = 0;
@@ -108,10 +118,12 @@ fn well_known_sid_bytes(kind: windows_sys::Win32::Security::WELL_KNOWN_SID_TYPE)
 pub fn apply_restrictive_acl(path: &Path) -> Result<(), String> {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Foundation::LocalFree;
-    use windows_sys::Win32::Security::Authorization::{SetEntriesInAclW, SetNamedSecurityInfoW, SE_FILE_OBJECT};
+    use windows_sys::Win32::Security::Authorization::{
+        SetEntriesInAclW, SetNamedSecurityInfoW, SE_FILE_OBJECT,
+    };
     use windows_sys::Win32::Security::{
-        GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER, WinLocalSystemSid,
-        DACL_SECURITY_INFORMATION, PROTECTED_DACL_SECURITY_INFORMATION,
+        GetTokenInformation, TokenUser, WinLocalSystemSid, DACL_SECURITY_INFORMATION,
+        PROTECTED_DACL_SECURITY_INFORMATION, TOKEN_QUERY, TOKEN_USER,
     };
     use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
@@ -124,13 +136,7 @@ pub fn apply_restrictive_acl(path: &Path) -> Result<(), String> {
             ));
         }
         let mut needed: u32 = 0;
-        let _ = GetTokenInformation(
-            token,
-            TokenUser,
-            std::ptr::null_mut(),
-            0,
-            &mut needed,
-        );
+        let _ = GetTokenInformation(token, TokenUser, std::ptr::null_mut(), 0, &mut needed);
         let mut buffer = vec![0u8; needed as usize];
         let ok = GetTokenInformation(
             token,
@@ -146,12 +152,17 @@ pub fn apply_restrictive_acl(path: &Path) -> Result<(), String> {
                 std::io::Error::last_os_error()
             ));
         }
-        std::ptr::read(buffer.as_ptr() as *const TOKEN_USER).User.Sid
+        std::ptr::read(buffer.as_ptr() as *const TOKEN_USER)
+            .User
+            .Sid
     };
     let user_sid = owned_sid_copy(user_sid)?;
     let system_sid = well_known_sid_bytes(WinLocalSystemSid)?;
 
-    let entries = [explicit_grant_ace(&user_sid), explicit_grant_ace(&system_sid)];
+    let entries = [
+        explicit_grant_ace(&user_sid),
+        explicit_grant_ace(&system_sid),
+    ];
     let mut new_acl: *mut windows_sys::Win32::Security::ACL = std::ptr::null_mut();
     let acl_result = unsafe {
         SetEntriesInAclW(
@@ -162,9 +173,7 @@ pub fn apply_restrictive_acl(path: &Path) -> Result<(), String> {
         )
     };
     if acl_result != 0 {
-        return Err(format!(
-            "SetEntriesInAclW failed with error {acl_result}"
-        ));
+        return Err(format!("SetEntriesInAclW failed with error {acl_result}"));
     }
 
     let path_wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
@@ -193,8 +202,12 @@ pub fn apply_restrictive_acl(path: &Path) -> Result<(), String> {
 }
 
 #[cfg(target_os = "windows")]
-fn explicit_grant_ace(sid: &[u8]) -> windows_sys::Win32::Security::Authorization::EXPLICIT_ACCESS_W {
-    use windows_sys::Win32::Security::Authorization::{EXPLICIT_ACCESS_W, GRANT_ACCESS, TRUSTEE_IS_SID, TRUSTEE_W};
+fn explicit_grant_ace(
+    sid: &[u8],
+) -> windows_sys::Win32::Security::Authorization::EXPLICIT_ACCESS_W {
+    use windows_sys::Win32::Security::Authorization::{
+        EXPLICIT_ACCESS_W, GRANT_ACCESS, TRUSTEE_IS_SID, TRUSTEE_W,
+    };
     EXPLICIT_ACCESS_W {
         grfAccessPermissions: 0x1F_01FF, // FILE_ALL_ACCESS
         grfAccessMode: GRANT_ACCESS,
@@ -462,8 +475,7 @@ mod tests {
         use std::os::windows::ffi::OsStrExt;
         use windows_sys::Win32::Security::Authorization::{GetNamedSecurityInfoW, SE_FILE_OBJECT};
         use windows_sys::Win32::Security::{
-            GetAclInformation, AclSizeInformation, ACL_SIZE_INFORMATION,
-            DACL_SECURITY_INFORMATION,
+            AclSizeInformation, GetAclInformation, ACL_SIZE_INFORMATION, DACL_SECURITY_INFORMATION,
         };
         unsafe {
             let path_wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();

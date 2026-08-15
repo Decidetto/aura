@@ -51,8 +51,8 @@ fn partial_keyup_recovery_index(inserted: u32, expected: u32) -> Option<usize> {
 #[cfg(target_os = "windows")]
 mod windows_impl {
     use super::{
-        partial_keyup_recovery_index, replacement_dispatch_metrics, TextReplacementError,
-        ReplacementDispatchMetrics, REPLACEMENT_BATCH_PAUSE_MS, REPLACEMENT_BATCH_UNITS,
+        partial_keyup_recovery_index, replacement_dispatch_metrics, ReplacementDispatchMetrics,
+        TextReplacementError, REPLACEMENT_BATCH_PAUSE_MS, REPLACEMENT_BATCH_UNITS,
     };
     use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
         GetAsyncKeyState, SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
@@ -122,7 +122,10 @@ mod windows_impl {
         }
     }
 
-    fn dispatch_backspace_batches<F>(count: usize, should_stop: &F) -> Result<usize, (usize, String)>
+    fn dispatch_backspace_batches<F>(
+        count: usize,
+        should_stop: &F,
+    ) -> Result<usize, (usize, String)>
     where
         F: Fn() -> bool,
     {
@@ -428,7 +431,7 @@ mod windows_impl {
     pub fn type_string(text: &str) {
         let released = release_modifiers();
         unsafe {
-            for ch in text.chars() {
+            for (index, ch) in text.chars().enumerate() {
                 let mut buf = [0; 2];
                 let utf16_chars = ch.encode_utf16(&mut buf);
                 for &mut val in utf16_chars {
@@ -453,7 +456,8 @@ mod windows_impl {
                     };
 
                     SendInput(2, inputs.as_mut_ptr(), std::mem::size_of::<INPUT>() as i32);
-                    std::thread::sleep(std::time::Duration::from_millis(1));
+                    let delay = if (index + 1) % 15 == 0 { 10 } else { 1 };
+                    std::thread::sleep(std::time::Duration::from_millis(delay));
                 }
             }
         }
@@ -463,7 +467,7 @@ mod windows_impl {
     pub fn type_backspaces(count: usize) {
         let released = release_modifiers();
         unsafe {
-            for _ in 0..count {
+            for index in 0..count {
                 let mut inputs = [std::mem::zeroed::<INPUT>(); 2];
 
                 inputs[0].r#type = INPUT_KEYBOARD;
@@ -485,7 +489,8 @@ mod windows_impl {
                 };
 
                 SendInput(2, inputs.as_mut_ptr(), std::mem::size_of::<INPUT>() as i32);
-                std::thread::sleep(std::time::Duration::from_millis(3));
+                let delay = if (index + 1) % 10 == 0 { 15 } else { 3 };
+                std::thread::sleep(std::time::Duration::from_millis(delay));
             }
         }
         restore_modifiers(&released);
@@ -516,20 +521,21 @@ mod windows_impl {
             if backspace_count > 0 && !utf16_units.is_empty() {
                 if should_stop() {
                     return Err(TextReplacementError {
-                        message:
-                            "keyboard replacement interrupted between delete and insert".to_string(),
+                        message: "keyboard replacement interrupted between delete and insert"
+                            .to_string(),
                         backspaces_committed: backspace_count,
                         utf16_units_committed: 0,
                     });
                 }
                 std::thread::sleep(std::time::Duration::from_millis(REPLACEMENT_BATCH_PAUSE_MS));
             }
-            let unicode_batches = dispatch_unicode_batches(&utf16_units, &should_stop)
-                .map_err(|(committed, message)| TextReplacementError {
+            let unicode_batches = dispatch_unicode_batches(&utf16_units, &should_stop).map_err(
+                |(committed, message)| TextReplacementError {
                     message,
                     backspaces_committed: backspace_count,
                     utf16_units_committed: committed,
-                })?;
+                },
+            )?;
             debug_assert_eq!(metrics.batches, backspace_batches + unicode_batches);
             Ok(metrics)
         })();
@@ -543,7 +549,7 @@ mod windows_impl {
 // ============================================================================
 #[cfg(target_os = "macos")]
 mod macos_impl {
-    use super::{replacement_dispatch_metrics, TextReplacementError, ReplacementDispatchMetrics};
+    use super::{replacement_dispatch_metrics, ReplacementDispatchMetrics, TextReplacementError};
     use objc::{msg_send, sel, sel_impl};
     use std::ffi::c_void;
 
@@ -841,11 +847,8 @@ mod macos_impl {
 
         for (index, ch) in new_text.chars().enumerate() {
             if should_stop() {
-                let utf16_units_committed = new_text
-                    .chars()
-                    .take(index)
-                    .map(|c| c.len_utf16())
-                    .sum();
+                let utf16_units_committed =
+                    new_text.chars().take(index).map(|c| c.len_utf16()).sum();
                 return Err(TextReplacementError {
                     message: "keyboard replacement interrupted before Unicode event".to_string(),
                     backspaces_committed: backspace_count,
@@ -857,11 +860,8 @@ mod macos_impl {
             if !post_keyboard_event(&source, 0, true, 0, Some(utf16))
                 || !post_keyboard_event(&source, 0, false, 0, Some(utf16))
             {
-                let utf16_units_committed = new_text
-                    .chars()
-                    .take(index)
-                    .map(|c| c.len_utf16())
-                    .sum();
+                let utf16_units_committed =
+                    new_text.chars().take(index).map(|c| c.len_utf16()).sum();
                 return Err(TextReplacementError {
                     message: "Failed to create macOS Unicode event".to_string(),
                     backspaces_committed: backspace_count,
