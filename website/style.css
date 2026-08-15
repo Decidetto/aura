@@ -2045,6 +2045,24 @@ kbd.shortcut-key {
   color: var(--text-primary);
 }
 
+.modal-meta-checksum {
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  word-break: break-all;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+}
+
+.modal-meta-checksum code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
 .modal-actions {
   display: flex;
   gap: 12px;
