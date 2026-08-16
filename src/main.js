@@ -2572,6 +2572,7 @@ async function downloadModelCard(model) {
       // Hide actions, show progress
       if (actionEl) actionEl.style.display = "none";
       if (progressEl) {
+        progressEl.classList.remove("installing");
         progressEl.style.display = "flex";
         const oldBtn = progressEl.querySelector(".btn-cancel-download");
         if (oldBtn) oldBtn.remove();
@@ -2614,6 +2615,7 @@ async function downloadModelCard(model) {
     } finally {
       inFlightModelDownloads.delete(model);
       if (progressEl) {
+        progressEl.classList.remove("installing");
         const cancelBtn = progressEl.querySelector(".btn-cancel-download");
         if (cancelBtn) cancelBtn.remove();
         progressEl.style.display = "none";
@@ -2663,7 +2665,7 @@ showStatus(getTranslation("model_deleted_success"));
     if (!payload) return;
 
     const model = payload.model;
-    const percent = Math.round(payload.percentage);
+    const percent = typeof payload.percentage === "number" ? Math.round(payload.percentage) : 0;
     
     const fillEl = document.getElementById(`fill-${model}`);
     const pctEl = document.getElementById(`pct-${model}`);
@@ -2671,13 +2673,22 @@ showStatus(getTranslation("model_deleted_success"));
     const actionEl = document.getElementById(`action-${model}`);
     
     if (fillEl && pctEl) {
-      fillEl.style.width = `${percent}%`;
-      pctEl.textContent = `${percent}%`;
+      if (payload.status === "installing" || (percent >= 100 && !payload.done)) {
+        if (progressEl) progressEl.classList.add("installing");
+        fillEl.style.width = "100%";
+        const installText = getTranslation("gpu_status_installing") || "Проверка и установка...";
+        pctEl.innerHTML = `<span class="spinner-inline" aria-hidden="true"></span> ${installText}`;
+      } else {
+        if (progressEl) progressEl.classList.remove("installing");
+        fillEl.style.width = `${percent}%`;
+        pctEl.textContent = `${percent}%`;
+      }
     }
 
     if (payload.done) {
       showStatus(getTranslation("model_downloaded_success_pattern", { model }));
       if (progressEl) {
+        progressEl.classList.remove("installing");
         const cancelBtn = progressEl.querySelector(".btn-cancel-download");
         if (cancelBtn) cancelBtn.remove();
         progressEl.style.display = "none";

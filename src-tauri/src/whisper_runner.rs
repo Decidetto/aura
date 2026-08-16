@@ -161,6 +161,7 @@ pub struct DownloadProgress {
     pub total: Option<u64>,
     pub percentage: f64,
     pub done: bool,
+    pub status: Option<String>,
 }
 
 /// Helper to search recursively for the sidecar file if not in direct paths
@@ -530,14 +531,26 @@ pub async fn download_model<R: Runtime>(
         crate::artifact_download::DEFAULT_STALL_TIMEOUT,
         || is_cancel_requested(model_name),
         |progress| {
+            let is_verifying = progress.downloaded >= spec.expected_size;
+            let status = if is_verifying {
+                Some("installing".to_string())
+            } else {
+                None
+            };
+            let percentage = if is_verifying {
+                100.0
+            } else {
+                (progress.downloaded as f64 / spec.expected_size as f64 * 100.0).min(99.9)
+            };
             let _ = app_handle.emit(
                 "model-download-progress",
                 DownloadProgress {
                     model: model_name.to_string(),
                     downloaded: progress.downloaded,
                     total: Some(spec.expected_size),
-                    percentage: progress.downloaded as f64 / progress.total as f64 * 100.0,
+                    percentage,
                     done: false,
+                    status,
                 },
             );
         },
@@ -552,6 +565,7 @@ pub async fn download_model<R: Runtime>(
             total: Some(spec.expected_size),
             percentage: 100.0,
             done: true,
+            status: Some("done".to_string()),
         },
     );
     Ok(outcome.path)
@@ -863,14 +877,26 @@ pub async fn download_parakeet_model<R: Runtime>(
             || is_cancel_requested("parakeet-v3"),
             |progress| {
                 let file_downloaded = downloaded + progress.downloaded;
+                let is_verifying = file_downloaded >= total_size;
+                let status = if is_verifying {
+                    Some("installing".to_string())
+                } else {
+                    None
+                };
+                let percentage = if is_verifying {
+                    100.0
+                } else {
+                    (file_downloaded as f64 / total_size as f64 * 100.0).min(99.9)
+                };
                 let _ = app_handle.emit(
                     "model-download-progress",
                     DownloadProgress {
                         model: "parakeet-v3".to_string(),
                         downloaded: file_downloaded,
                         total: Some(total_size),
-                        percentage: file_downloaded as f64 / total_size as f64 * 100.0,
+                        percentage,
                         done: false,
+                        status,
                     },
                 );
             },
@@ -887,6 +913,7 @@ pub async fn download_parakeet_model<R: Runtime>(
             total: Some(total_size),
             percentage: 100.0,
             done: true,
+            status: Some("done".to_string()),
         },
     );
     Ok(parakeet_dir)
@@ -2864,6 +2891,12 @@ async fn download_punctuation_model_attempt<R: Runtime>(
             .min((PUNCTUATION_ARCHIVE_SIZE - downloaded) as usize);
         let payload = &chunk[..take];
         downloaded = downloaded.saturating_add(take as u64);
+        let is_verifying = downloaded >= PUNCTUATION_ARCHIVE_SIZE;
+        let status = if is_verifying {
+            Some("installing".to_string())
+        } else {
+            None
+        };
         let _ = app_handle.emit(
             "model-download-progress",
             DownloadProgress {
@@ -2872,6 +2905,7 @@ async fn download_punctuation_model_attempt<R: Runtime>(
                 total: Some(PUNCTUATION_ARCHIVE_SIZE),
                 percentage: (downloaded as f64 / PUNCTUATION_ARCHIVE_SIZE as f64) * 100.0,
                 done: false,
+                status,
             },
         );
         hasher.update(payload);
@@ -2899,6 +2933,18 @@ async fn download_punctuation_model_attempt<R: Runtime>(
         ));
     }
 
+    let _ = app_handle.emit(
+        "model-download-progress",
+        DownloadProgress {
+            model: "punctuation".to_string(),
+            downloaded: PUNCTUATION_ARCHIVE_SIZE,
+            total: Some(PUNCTUATION_ARCHIVE_SIZE),
+            percentage: 100.0,
+            done: false,
+            status: Some("installing".to_string()),
+        },
+    );
+
     let worker_archive = archive_path.clone();
     let worker_staging = staging_dir.clone();
     let worker_destination = punc_dir.clone();
@@ -2922,6 +2968,7 @@ async fn download_punctuation_model_attempt<R: Runtime>(
             total: Some(PUNCTUATION_ARCHIVE_SIZE),
             percentage: 100.0,
             done: true,
+            status: Some("done".to_string()),
         },
     );
     Ok(())
