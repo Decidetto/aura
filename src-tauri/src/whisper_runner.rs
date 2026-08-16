@@ -657,8 +657,18 @@ pub fn run_local_whisper<R: Runtime>(
         args.push(dict.to_string());
     }
 
+    let mut working_dir = short_dlls_dir.to_path_buf();
+    if settings.local_acceleration == "cuda" {
+        let cuda_bin = app_local_data.join("binaries").join("cuda").join("bin");
+        if cuda_bin.join("ggml-cuda.dll").exists() {
+            if let Ok(short_cuda_bin) = get_short_path(&cuda_bin) {
+                working_dir = short_cuda_bin;
+            }
+        }
+    }
+
     let mut cmd = Command::new(&short_sidecar_path);
-    cmd.current_dir(&short_dlls_dir);
+    cmd.current_dir(&working_dir);
     cmd.args(&args);
 
     #[cfg(target_os = "windows")]
@@ -2225,8 +2235,18 @@ fn start_whisper_server_unlocked<R: Runtime>(
     }
 
     let port = get_free_port()?;
+    let mut working_dir = short_dlls_dir.to_path_buf();
+    if current_accel == "cuda" {
+        let cuda_bin = app_local_data.join("binaries").join("cuda").join("bin");
+        if cuda_bin.join("ggml-cuda.dll").exists() {
+            if let Ok(short_cuda_bin) = get_short_path(&cuda_bin) {
+                working_dir = short_cuda_bin;
+            }
+        }
+    }
+
     let mut cmd = Command::new(&short_server_path);
-    cmd.current_dir(&short_dlls_dir);
+    cmd.current_dir(&working_dir);
     let mut args = vec![
         "-m".to_string(),
         short_model_path.to_string_lossy().to_string(),

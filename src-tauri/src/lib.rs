@@ -4057,6 +4057,12 @@ const CUDA_ARCHIVE_SHA256: &str =
     "9cc16169fb073ab0acd304ae144ccad21af03e8360921a12285105599f0f692a";
 const CUDA_ARCHIVE_ROOT: &str = "sherpa-onnx-v1.13.4-win-x64-cuda";
 
+const WHISPER_CUDA_ARCHIVE_URL: &str = "https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.1/whisper-cublas-11.8.0-bin-x64.zip";
+const WHISPER_CUDA_ARCHIVE_SIZE: u64 = 278_557_654;
+const WHISPER_CUDA_ARCHIVE_SHA256: &str =
+    "aecdce0e4d4bb758a7c72a31f3f9f19a7b6d861405fd2da743cd86398633c963";
+const TOTAL_CUDA_ARCHIVE_SIZE: u64 = CUDA_ARCHIVE_SIZE + WHISPER_CUDA_ARCHIVE_SIZE;
+
 fn lock_active_gpu_downloads() -> std::sync::MutexGuard<'static, std::collections::HashSet<String>>
 {
     match ACTIVE_GPU_DOWNLOADS.lock() {
@@ -4151,7 +4157,7 @@ fn gpu_bin_is_complete(bin_dir: &std::path::Path, provider: &str) -> bool {
     };
     let mut required = vec![exe_name, "onnxruntime.dll"];
     if cfg!(target_os = "windows") {
-        required.extend(["onnxruntime_providers_cuda.dll"]);
+        required.extend(["onnxruntime_providers_cuda.dll", "ggml-cuda.dll"]);
     }
     required.into_iter().all(|name| {
         bin_dir
@@ -4163,13 +4169,16 @@ fn gpu_bin_is_complete(bin_dir: &std::path::Path, provider: &str) -> bool {
 }
 
 fn install_cuda_archive(
-    archive_path: &std::path::Path,
+    parakeet_archive_path: &std::path::Path,
+    whisper_archive_path: &std::path::Path,
     extraction_dir: &std::path::Path,
     gpu_dir: &std::path::Path,
 ) -> Result<(), String> {
     std::fs::create_dir_all(extraction_dir)
         .map_err(|error| format!("Failed to create extraction directory: {error}"))?;
-    let archive_file = std::fs::File::open(archive_path)
+
+    // 1. Unpack Sherpa-ONNX Parakeet CUDA bundle
+    let archive_file = std::fs::File::open(parakeet_archive_path)
         .map_err(|error| format!("Failed to open verified CUDA archive: {error}"))?;
     let decoder = bzip2::read::BzDecoder::new(archive_file);
     let mut archive = tar::Archive::new(decoder);
@@ -4178,6 +4187,38 @@ fn install_cuda_archive(
         .map_err(|error| format!("Failed to extract CUDA archive safely: {error}"))?;
 
     let source_bin = extraction_dir.join(CUDA_ARCHIVE_ROOT).join("bin");
+
+    // 2. Extract Whisper cuBLAS components (ggml-cuda.dll and server/dlls)
+    let whisper_zip_file = std::fs::File::open(whisper_archive_path)
+        .map_err(|error| format!("Failed to open verified Whisper CUDA archive: {error}"))?;
+    let mut zip_archive = zip::ZipArchive::new(whisper_zip_file)
+        .map_err(|error| format!("Failed to read Whisper CUDA zip archive: {error}"))?;
+
+    for i in 0..zip_archive.len() {
+        let mut file = zip_archive
+            .by_index(i)
+            .map_err(|error| format!("Failed to read zip entry {i}: {error}"))?;
+        let name = match file.enclosed_name() {
+            Some(path) => path.to_owned(),
+            None => continue,
+        };
+        let file_name = match name.file_name().and_then(|n| n.to_str()) {
+            Some(n) => n.to_string(),
+            None => continue,
+        };
+        if file.is_file() && (file_name.ends_with(".dll") || file_name == "whisper-server.exe") {
+            let outpath = source_bin.join(&file_name);
+            let mut outfile = std::fs::File::create(&outpath).map_err(|error| {
+                format!(
+                    "Failed to create extracted file {}: {error}",
+                    outpath.display()
+                )
+            })?;
+            std::io::copy(&mut file, &mut outfile)
+                .map_err(|error| format!("Failed to extract {}: {error}", outpath.display()))?;
+        }
+    }
+
     if !gpu_bin_is_complete(&source_bin, "cuda") {
         return Err(
             "Verified CUDA archive does not contain the required runtime files".to_string(),
@@ -4228,7 +4269,7 @@ fn copy_supplemental_cuda_dlls(target_bin: &std::path::Path) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name.ends_with(".dll") {
+                    if name.ends_with(".dll") || name.ends_with(".exe") {
                         let dest = target_bin.join(name);
                         if !dest.exists() {
                             let _ = std::fs::copy(&path, &dest);
@@ -4277,6 +4318,7 @@ async fn delete_gpu_binaries(app_handle: tauri::AppHandle, provider: String) -> 
     tauri::async_runtime::spawn_blocking(move || {
         // Process termination and recursive deletion can block on Windows/antivirus.
         whisper_runner::stop_parakeet_server(&worker_handle);
+        whisper_runner::stop_whisper_server(&worker_handle);
         if provider_dir.exists() {
             std::fs::remove_dir_all(&provider_dir)
                 .map_err(|e| format!("Failed to delete binaries: {}", e))?;
@@ -4373,15 +4415,18 @@ async fn download_gpu_binaries_inner(
         path: staging_dir.clone(),
         cleanup_on_drop: true,
     };
-    let archive_path = staging_dir.join("runtime.tar.bz2");
+    let parakeet_archive_path = staging_dir.join("sherpa-runtime.tar.bz2");
+    let whisper_archive_path = staging_dir.join("whisper-cublas.zip");
 
+    let client = crate::ai_client::build_download_client();
+
+    // 1. Download Parakeet Sherpa-ONNX CUDA bundle
     crate::logger::log(
         "INFO",
         "GPU",
         None,
         "Downloading pinned Sherpa ONNX CUDA runtime",
     );
-    let client = crate::ai_client::build_download_client();
     let mut response = client
         .get(CUDA_ARCHIVE_URL)
         .send()
@@ -4406,7 +4451,7 @@ async fn download_gpu_binaries_inner(
     let mut file = tokio::fs::OpenOptions::new()
         .create_new(true)
         .write(true)
-        .open(&archive_path)
+        .open(&parakeet_archive_path)
         .await
         .map_err(|e| format!("Failed to create temporary CUDA archive: {e}"))?;
     let mut hasher = Sha256::new();
@@ -4432,13 +4477,13 @@ async fn download_gpu_binaries_inner(
         file.write_all(&chunk)
             .await
             .map_err(|e| format!("Failed to write CUDA archive: {e}"))?;
-        let percentage = (total_downloaded as f64 / CUDA_ARCHIVE_SIZE as f64 * 100.0).min(99.9);
+        let percentage = (total_downloaded as f64 / TOTAL_CUDA_ARCHIVE_SIZE as f64 * 100.0).min(99.9);
         let _ = app_handle.emit(
             "gpu-download-progress",
             GpuDownloadProgress {
                 provider: provider.clone(),
                 downloaded: total_downloaded,
-                total: Some(CUDA_ARCHIVE_SIZE),
+                total: Some(TOTAL_CUDA_ARCHIVE_SIZE),
                 percentage,
                 done: false,
                 status: None,
@@ -4464,17 +4509,107 @@ async fn download_gpu_binaries_inner(
             "CUDA archive integrity check failed: expected {CUDA_ARCHIVE_SHA256}, got {actual_hash}"
         ));
     }
+
+    // 2. Download Whisper cuBLAS runtime bundle
+    crate::logger::log(
+        "INFO",
+        "GPU",
+        None,
+        "Downloading pinned Whisper cuBLAS runtime",
+    );
+    let mut whisper_response = client
+        .get(WHISPER_CUDA_ARCHIVE_URL)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch Whisper CUDA runtime: {e}"))?;
+    if !whisper_response.status().is_success() {
+        return Err(format!(
+            "Whisper CUDA runtime server returned HTTP status {}",
+            whisper_response.status()
+        ));
+    }
+    if let Some(advertised_size) = whisper_response.content_length() {
+        if advertised_size != WHISPER_CUDA_ARCHIVE_SIZE {
+            return Err(format!(
+                "Whisper CUDA runtime size mismatch before download: expected {WHISPER_CUDA_ARCHIVE_SIZE}, server advertised {advertised_size}"
+            ));
+        }
+    }
+
+    let mut whisper_file = tokio::fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&whisper_archive_path)
+        .await
+        .map_err(|e| format!("Failed to create temporary Whisper CUDA archive: {e}"))?;
+    let mut whisper_hasher = Sha256::new();
+    let mut whisper_downloaded = 0u64;
+    loop {
+        let chunk = tokio::time::timeout(std::time::Duration::from_secs(30), whisper_response.chunk())
+            .await
+            .map_err(|_| "Whisper CUDA download stalled for more than 30 seconds".to_string())?
+            .map_err(|e| format!("Failed while reading Whisper CUDA download: {e}"))?;
+        let Some(chunk) = chunk else {
+            break;
+        };
+        if whisper_runner::is_cancel_requested(&cancel_key) {
+            return Err("Download cancelled".to_string());
+        }
+        whisper_downloaded = whisper_downloaded
+            .checked_add(chunk.len() as u64)
+            .ok_or_else(|| "Whisper CUDA download byte count overflow".to_string())?;
+        if whisper_downloaded > WHISPER_CUDA_ARCHIVE_SIZE {
+            return Err("Whisper CUDA download exceeded its pinned size".to_string());
+        }
+        whisper_hasher.update(&chunk);
+        whisper_file.write_all(&chunk)
+            .await
+            .map_err(|e| format!("Failed to write Whisper CUDA archive: {e}"))?;
+        let combined_downloaded = total_downloaded + whisper_downloaded;
+        let percentage = (combined_downloaded as f64 / TOTAL_CUDA_ARCHIVE_SIZE as f64 * 100.0).min(99.9);
+        let _ = app_handle.emit(
+            "gpu-download-progress",
+            GpuDownloadProgress {
+                provider: provider.clone(),
+                downloaded: combined_downloaded,
+                total: Some(TOTAL_CUDA_ARCHIVE_SIZE),
+                percentage,
+                done: false,
+                status: None,
+            },
+        );
+    }
+    whisper_file.flush()
+        .await
+        .map_err(|e| format!("Failed to flush Whisper CUDA archive: {e}"))?;
+    whisper_file.sync_all()
+        .await
+        .map_err(|e| format!("Failed to persist Whisper CUDA archive: {e}"))?;
+    drop(whisper_file);
+
+    if whisper_downloaded != WHISPER_CUDA_ARCHIVE_SIZE {
+        return Err(format!(
+            "Incomplete Whisper CUDA download: expected {WHISPER_CUDA_ARCHIVE_SIZE} bytes, received {whisper_downloaded}"
+        ));
+    }
+    let actual_whisper_hash = format!("{:x}", whisper_hasher.finalize());
+    if actual_whisper_hash != WHISPER_CUDA_ARCHIVE_SHA256 {
+        return Err(format!(
+            "Whisper CUDA archive integrity check failed: expected {WHISPER_CUDA_ARCHIVE_SHA256}, got {actual_whisper_hash}"
+        ));
+    }
+
     if whisper_runner::is_cancel_requested(&cancel_key) {
         return Err("Download cancelled".to_string());
     }
 
-    crate::logger::log("INFO", "GPU", None, "Verifying and installing CUDA runtime");
+    crate::logger::log("INFO", "GPU", None, "Verifying and installing complete CUDA runtime");
     let _ = app_handle.emit(
         "gpu-download-progress",
         GpuDownloadProgress {
             provider: provider.clone(),
-            downloaded: CUDA_ARCHIVE_SIZE,
-            total: Some(CUDA_ARCHIVE_SIZE),
+            downloaded: TOTAL_CUDA_ARCHIVE_SIZE,
+            total: Some(TOTAL_CUDA_ARCHIVE_SIZE),
             percentage: 100.0,
             done: false,
             status: Some("installing".to_string()),
@@ -4482,12 +4617,14 @@ async fn download_gpu_binaries_inner(
     );
 
     let extraction_dir = staging_dir.join("extract");
-    let worker_archive = archive_path.clone();
+    let worker_parakeet = parakeet_archive_path.clone();
+    let worker_whisper = whisper_archive_path.clone();
     let worker_gpu_dir = gpu_dir.clone();
     let worker_handle = app_handle.clone();
     tauri::async_runtime::spawn_blocking(move || {
         whisper_runner::stop_parakeet_server(&worker_handle);
-        install_cuda_archive(&worker_archive, &extraction_dir, &worker_gpu_dir)
+        whisper_runner::stop_whisper_server(&worker_handle);
+        install_cuda_archive(&worker_parakeet, &worker_whisper, &extraction_dir, &worker_gpu_dir)
     })
     .await
     .map_err(|error| format!("CUDA install worker failed: {error}"))??;
@@ -4514,8 +4651,8 @@ async fn download_gpu_binaries_inner(
         "gpu-download-progress",
         GpuDownloadProgress {
             provider: provider.clone(),
-            downloaded: CUDA_ARCHIVE_SIZE,
-            total: Some(CUDA_ARCHIVE_SIZE),
+            downloaded: TOTAL_CUDA_ARCHIVE_SIZE,
+            total: Some(TOTAL_CUDA_ARCHIVE_SIZE),
             percentage: 100.0,
             done: true,
             status: Some("done".to_string()),
