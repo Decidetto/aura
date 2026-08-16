@@ -2,7 +2,7 @@
   <img src="docs/logo.svg?v=5" width="120" height="120" alt="Aura Logo" />
 </p>
 
-<h1 align="center"><a href="https://aura-beryl-five.vercel.app/" style="text-decoration: none; color: inherit;">Aura — Voice Dictation for Windows</a></h1>
+<h1 align="center"><a href="https://aura-beryl-five.vercel.app/" style="text-decoration: none; color: inherit;">Aura — Voice Typing for Windows</a></h1>
 <p align="center">
   <a href="https://aura-beryl-five.vercel.app/"><b>🌐 Official Website: aura-beryl-five.vercel.app</b></a>
 </p>
@@ -14,11 +14,9 @@
   <a href="https://aura-beryl-five.vercel.app/"><img src="https://img.shields.io/badge/website-live-brightgreen.svg" alt="Website" /></a>
 </p>
 
-Hold a hotkey, speak, release — Aura transcribes your speech, cleans it up (punctuation, filler words) and types it into **any** Windows application. Works with cloud AI (Gemini / OpenAI / Groq) or fully offline with local Whisper / NVIDIA Parakeet.
+Press and hold the hotkey, speak, and release — Aura instantly transcribes your speech and types the text right under your cursor in **any** Windows application. Works completely offline and privately using local AI models (Whisper, NVIDIA Parakeet with CUDA GPU acceleration) or via cloud providers (Gemini, Groq, OpenAI, Hugging Face, Custom API).
 
-Think of it as a **free, open-source alternative to Wispr Flow** — not just a transcriber, but a dictation *and editing* assistant: it polishes what you say and can even rewrite selected text on voice command.
-
-**100% Free & Open Source** — Aura is completely free, with no ads, paid subscriptions, trial periods, or hidden limits.
+**100% Free & Open Source (AGPL-3.0)** — no subscriptions, paywalls, telemetry, or advertisements.
 
 > 🇷🇺 [Документация на русском](README.ru.md)
 
@@ -29,98 +27,96 @@ Think of it as a **free, open-source alternative to Wispr Flow** — not just a 
 
 ## Features
 
-- **Global hotkey dictation** — hold to talk, or short-tap to latch recording (toggle mode); `Esc` cancels.
-- **Two engines**:
-  - **Cloud** — Gemini, OpenAI (Whisper + GPT) or Groq (Whisper + Llama), with per-provider API keys.
-  - **Local** — whisper.cpp sidecar or NVIDIA Parakeet (via sherpa-onnx), 100% offline and private; models downloaded from the settings UI.
-- **GPU acceleration** — optional NVIDIA CUDA hardware acceleration for Parakeet with automatic CPU fallback.
-- **AI cleanup** — removes filler words, fixes punctuation and grammar, never answers your questions — only transcribes them.
-- **Live streaming mode** (experimental) — stable prefix locking with smart word-level diffing as you speak.
-- **Unified diagnostics** — 1-click anonymized report generation for easy troubleshooting.
-- **Transcription history** — the last 50 dictations with one-click copy.
-- **Custom dictionary** — bias recognition towards your names and terms.
-- **11 language options** — auto-detect, keyboard-layout detection, or a fixed language (ru, en, de, es, fr, it, zh, pt, tr).
-- **Voice punctuation commands** (optional) — “comma”, “period”, “new line” → `,`, `.`, newline.
-- **Polished overlay** — live waveform, recording timer, error states and optional sound themes (zen / rhodes / sci-fi / classic).
-- **Quality of life** — custom dropdown menus, autostart with Windows, tray icon, single-instance guard, focus guard (never types into the wrong window).
+- **Global hotkey dictation** — hold to talk (`Alt+V`), or short-tap to latch recording (toggle mode); `Esc` cancels.
+- **Two recognition modes**:
+  - **Local (100% offline & private)** — whisper.cpp sidecar (CPU) or NVIDIA Parakeet TDT v3 (sherpa-onnx). Audio never leaves your computer; models are downloaded in a single click directly from settings.
+  - **Cloud** — Google Gemini, Groq, OpenAI, Hugging Face, or your custom OpenAI-compatible server.
+- **NVIDIA CUDA GPU acceleration** — hardware GPU acceleration for Parakeet models with on-demand runtime downloading and automatic CPU fallback.
+- **Real-time streaming input** — smooth word-level streaming into active fields without flickering or text duplicates.
+- **Focus Guard** — ensures transcribed text is never typed into the wrong window if focus shifts.
+- **Transcription history** — last 50 dictations with a live search bar, source filters (`All` / `Local` / `Cloud`), and one-click copy.
+- **Custom dictionary** — bias recognition towards your names, brands, and technical terms.
+- **11 language options** — auto-detect, keyboard-layout detection, or fixed selection (ru, en, de, es, fr, it, zh, pt, tr).
+- **Polished overlay** — microphone VU meter, recording timer, sound themes (Zen, Rhodes, Sci-Fi, Classic), and display customization.
+- **Quality of life & security** — autostart with Windows, system tray menu, Windows DPAPI credential encryption, and one-click diagnostic reports.
 
 ## How Aura compares
 
-Aura sits between minimalist local transcribers and paid AI dictation tools. If you just want raw offline transcription, [Handy](https://handy.computer/) is excellent and cross-platform. Aura's focus is the **AI editing layer on top** — and it's free.
+Aura combines the speed and privacy of local neural networks with the flexibility of cloud AI providers.
 
-| | **Aura** | **Handy** | **Wispr Flow** |
+| Feature | **Aura** | **Handy** | **Wispr Flow** |
 |---|---|---|---|
-| Price | Free & open source | Free & open source | Paid (subscription) |
-| Platforms | Windows | Windows / macOS / Linux | Windows / macOS |
-| Local engine (private) | ✅ Whisper / Parakeet | ✅ Whisper / Parakeet | ❌ cloud only |
-| Cloud engine (no GPU needed) | ✅ Gemini / OpenAI / Groq | ❌ | ✅ |
-| AI cleanup (filler removal, grammar) | ✅ | ➖ basic punctuation only | ✅ |
-| Edit selected text by voice | ✅ | ❌ | ✅ |
-| Voice punctuation commands | ✅ | ❌ | ➖ |
-| Transcription history | ✅ | ❌ | ✅ |
-| Custom dictionary | ✅ | ❌ | ✅ |
+| **Price** | **Free (AGPL-3.0)** | Free (Open Source) | Paid (subscription) |
+| **Platforms** | Windows *(macOS in progress)* | Windows / macOS / Linux | Windows / macOS |
+| **Local Models (Offline)** | **✅ Whisper & Parakeet (CUDA GPU / CPU)** | ✅ Whisper / Parakeet | ❌ Cloud only |
+| **Cloud Providers** | **✅ Gemini, Groq, OpenAI, HF, Custom** | ❌ | ✅ Proprietary cloud |
+| **Real-time Streaming Input** | **✅** | ❌ | ✅ |
+| **Focus Guard Protection** | **✅** | ❌ | ➖ |
+| **Data Encryption (DPAPI)** | **✅** | ❌ | ➖ |
+| **Custom Term Dictionary** | **✅** | ❌ | ✅ |
+| **History with Search & Filters** | **✅** | ❌ | ✅ |
 
-> Honest trade-offs: Aura is Windows-only for now, and its cloud mode sends audio to the provider you pick (local mode does not). Handy is more mature and cross-platform. Wispr Flow is the most polished but paid and cloud-only.
+> Honest trade-offs: Official builds currently target Windows 10 & 11 (macOS port is compiling in CI). Handy is a mature cross-platform choice for raw offline dictation. Wispr Flow offers a polished UI, but operates strictly via a paid subscription and proprietary cloud.
 
 ## Installation
 
-Download the latest installer from [Releases](https://github.com/malashkadev/aura/releases) and run it. You can explore the interactive settings mockup and watch the live demo on our [Official Website](https://aura-beryl-five.vercel.app/).
+Download the installer from [Releases](https://github.com/malashkadev/aura/releases) and run it. You can explore the interactive settings mockup and live demo on our [Official Website](https://aura-beryl-five.vercel.app/).
 
-For cloud mode you will need an API key — the free [Groq](https://console.groq.com/) tier works great. For local mode just download a Whisper or Parakeet model from the settings (base is a good start for Whisper).
+For local mode, download a model from the "Speech" tab in Settings (the `Base` model is a great starting point for fast CPU inference). For cloud mode, provide an API key for your chosen provider (Groq and Google Gemini offer free tiers).
 
-> **First launch — "Windows protected your PC"?** The installer isn't code-signed yet (a certificate costs a few hundred dollars a year), so Windows SmartScreen shows a warning for new open-source apps. Click **More info → Run anyway**. The source is fully open if you'd rather build it yourself.
+> **First launch — "Windows protected your PC"?** The installer is not signed with an expensive commercial Authenticode certificate yet, so Windows SmartScreen warns about new open-source binaries. Click **More info → Run anyway**. The codebase is fully open-source for independent audit and self-compilation.
 
 ## Usage
 
 | Action | Default |
 |---|---|
-| Start recording | hold `Alt+V` |
-| Finish and paste | release the hotkey |
-| Latch recording (toggle mode, optional) | short tap `Alt+V` |
+| Start recording | hold `Alt + V` |
+| Finish and type text | release the hotkey |
+| Latch recording (toggle mode) | short tap `Alt + V` |
 | Cancel recording | `Esc` |
 
-The hotkey, language, engine and everything else is configurable from the settings window (tray icon → "Open Settings").
+The hotkey, language, recognition engine, and overlay settings are configurable via Settings (tray icon → "Open Settings").
 
 ## Building from source
 
-Prerequisites: [Rust](https://rustup.rs/) (stable), [Node.js](https://nodejs.org/) 18+, WebView2 (preinstalled on Windows 11).
+Prerequisites: [Rust](https://rustup.rs/) (stable), [Node.js](https://nodejs.org/) 18+, WebView2 (preinstalled on Windows 10/11).
 
 ```bash
 git clone https://github.com/malashkadev/aura.git
 cd aura
 npm install
-npm run dev     # development
+npm run dev     # development mode
 npm run build   # NSIS/MSI installer in src-tauri/target/release/bundle/
 ```
 
-The whisper.cpp sidecar binaries ship in `src-tauri/binaries/`. To update them to a newer whisper.cpp release, run `python install_whisper.py`.
+Whisper.cpp sidecar binaries live in `src-tauri/binaries/`. To update them to a newer release, run `python install_whisper.py`.
 
-Run the test suite:
+Run test suite:
 
 ```bash
 cd src-tauri
 cargo test
 ```
 
-## Privacy
+## Privacy & Security
 
-- **Local mode** never sends anything anywhere — audio is processed locally on your machine.
-- **Cloud mode** sends recorded audio directly to your chosen provider over TLS. Nothing else is collected; there is no telemetry.
-- **Secure local storage** — API keys and transcription history are encrypted on your machine using **Windows DPAPI** (`CryptProtectData`) with file permissions restricted strictly to the current user and SYSTEM.
+- **Local mode** runs entirely offline on your machine (CPU / GPU) and never transmits audio over the network.
+- **Cloud mode** sends audio recordings, generated transcripts, selected text (only when selection editing is active), and custom dictionary terms directly to your chosen provider over TLS with zero telemetry.
+- **Secure local storage** — API keys and transcription history are encrypted using **Windows DPAPI** (`CryptProtectData`) with file access restricted to the current user and SYSTEM via ACL.
+- **Update checks** run only on demand or when explicitly enabled in settings.
 
 ## Recently added
 
-- **NVIDIA CUDA GPU acceleration** — offload local Parakeet transcription to NVIDIA GPUs with on-demand runtime downloading and auto CPU fallback.
-- **Stable live streaming** — prefix locking and smart word diffing prevent flickering and duplicates during real-time speech.
-- **Windows DPAPI encryption** — protected credentials and history with strict ACL isolation.
-- **Custom accessible dropdowns** — sleek animated dropdown panels matching the UI with full keyboard navigation and scroll tracking.
-- **Silero VAD & audio hardening** — zero-padded frame alignment and robust WAV fallback for zero data loss.
+- **NVIDIA CUDA GPU Acceleration** — offload local Parakeet model inference to NVIDIA GPUs with on-demand runtime downloading and auto CPU fallback.
+- **5-Tab Settings Interface** — organized settings categories (General, Speech, Hotkeys, History, About).
+- **History Search & Source Filters** — live text search across previous dictations with Local / Cloud filtering.
+- **Windows DPAPI Encryption** — protected credentials and history with strict ACL isolation.
+- **Streaming Input & Focus Guard** — smooth text streaming without flickering and protection against typing into background windows.
+- **Custom Accessible Dropdowns** — animated selector menus with keyboard navigation and scroll tracking.
 
 ## Roadmap
 
-Planned, in rough priority order. Ideas and contributions are welcome — open an issue!
-
-- **macOS support** — the native port (global hotkeys via `CGEventTap`, CoreAudio capture) now lives in the main codebase and **compiles in CI**. Still needs a macOS speech-recognition sidecar, `.app` bundling, the Accessibility-permission flow and testing on real hardware before it's usable.
+- **macOS support** — native port (global hotkeys via `CGEventTap`, CoreAudio capture) is in the codebase and **compiles in CI**. Remaining items: macOS whisper binary, `.app` bundle, Accessibility-permission flow, and hardware testing.
 
 ## License
 
