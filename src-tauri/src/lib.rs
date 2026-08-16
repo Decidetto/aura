@@ -4477,7 +4477,8 @@ async fn download_gpu_binaries_inner(
         file.write_all(&chunk)
             .await
             .map_err(|e| format!("Failed to write CUDA archive: {e}"))?;
-        let percentage = (total_downloaded as f64 / TOTAL_CUDA_ARCHIVE_SIZE as f64 * 100.0).min(99.9);
+        let percentage =
+            (total_downloaded as f64 / TOTAL_CUDA_ARCHIVE_SIZE as f64 * 100.0).min(99.9);
         let _ = app_handle.emit(
             "gpu-download-progress",
             GpuDownloadProgress {
@@ -4545,10 +4546,11 @@ async fn download_gpu_binaries_inner(
     let mut whisper_hasher = Sha256::new();
     let mut whisper_downloaded = 0u64;
     loop {
-        let chunk = tokio::time::timeout(std::time::Duration::from_secs(30), whisper_response.chunk())
-            .await
-            .map_err(|_| "Whisper CUDA download stalled for more than 30 seconds".to_string())?
-            .map_err(|e| format!("Failed while reading Whisper CUDA download: {e}"))?;
+        let chunk =
+            tokio::time::timeout(std::time::Duration::from_secs(30), whisper_response.chunk())
+                .await
+                .map_err(|_| "Whisper CUDA download stalled for more than 30 seconds".to_string())?
+                .map_err(|e| format!("Failed while reading Whisper CUDA download: {e}"))?;
         let Some(chunk) = chunk else {
             break;
         };
@@ -4562,11 +4564,13 @@ async fn download_gpu_binaries_inner(
             return Err("Whisper CUDA download exceeded its pinned size".to_string());
         }
         whisper_hasher.update(&chunk);
-        whisper_file.write_all(&chunk)
+        whisper_file
+            .write_all(&chunk)
             .await
             .map_err(|e| format!("Failed to write Whisper CUDA archive: {e}"))?;
         let combined_downloaded = total_downloaded + whisper_downloaded;
-        let percentage = (combined_downloaded as f64 / TOTAL_CUDA_ARCHIVE_SIZE as f64 * 100.0).min(99.9);
+        let percentage =
+            (combined_downloaded as f64 / TOTAL_CUDA_ARCHIVE_SIZE as f64 * 100.0).min(99.9);
         let _ = app_handle.emit(
             "gpu-download-progress",
             GpuDownloadProgress {
@@ -4579,10 +4583,12 @@ async fn download_gpu_binaries_inner(
             },
         );
     }
-    whisper_file.flush()
+    whisper_file
+        .flush()
         .await
         .map_err(|e| format!("Failed to flush Whisper CUDA archive: {e}"))?;
-    whisper_file.sync_all()
+    whisper_file
+        .sync_all()
         .await
         .map_err(|e| format!("Failed to persist Whisper CUDA archive: {e}"))?;
     drop(whisper_file);
@@ -4603,7 +4609,12 @@ async fn download_gpu_binaries_inner(
         return Err("Download cancelled".to_string());
     }
 
-    crate::logger::log("INFO", "GPU", None, "Verifying and installing complete CUDA runtime");
+    crate::logger::log(
+        "INFO",
+        "GPU",
+        None,
+        "Verifying and installing complete CUDA runtime",
+    );
     let _ = app_handle.emit(
         "gpu-download-progress",
         GpuDownloadProgress {
@@ -4624,7 +4635,12 @@ async fn download_gpu_binaries_inner(
     tauri::async_runtime::spawn_blocking(move || {
         whisper_runner::stop_parakeet_server(&worker_handle);
         whisper_runner::stop_whisper_server(&worker_handle);
-        install_cuda_archive(&worker_parakeet, &worker_whisper, &extraction_dir, &worker_gpu_dir)
+        install_cuda_archive(
+            &worker_parakeet,
+            &worker_whisper,
+            &extraction_dir,
+            &worker_gpu_dir,
+        )
     })
     .await
     .map_err(|error| format!("CUDA install worker failed: {error}"))??;
