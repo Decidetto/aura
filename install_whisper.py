@@ -26,13 +26,19 @@ try:
                     if not name:
                         continue
                     
-                    # We need whisper-cli.exe and all DLLs
+                    # We need whisper-cli.exe, whisper-server.exe, and all DLLs
                     if name == "whisper-cli.exe":
                         dest_name = "whisper-sidecar-x86_64-pc-windows-msvc.exe"
                         dest_path = os.path.join(target_dir, dest_name)
                         with z.open(info) as src, open(dest_path, "wb") as dest:
                             shutil.copyfileobj(src, dest)
                         print("Extracted sidecar exe:", dest_name)
+                    elif name == "whisper-server.exe":
+                        dest_name = "whisper-server-x86_64-pc-windows-msvc.exe"
+                        dest_path = os.path.join(target_dir, dest_name)
+                        with z.open(info) as src, open(dest_path, "wb") as dest:
+                            shutil.copyfileobj(src, dest)
+                        print("Extracted server exe:", dest_name)
                     elif name.endswith(".dll"):
                         dest_path = os.path.join(target_dir, name)
                         with z.open(info) as src, open(dest_path, "wb") as dest:
