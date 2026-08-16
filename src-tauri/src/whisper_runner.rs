@@ -2127,7 +2127,16 @@ pub fn find_whisper_server<R: Runtime>(
         return Ok(path.clone());
     }
 
-    find_sidecar(app_handle)
+    for name in &target_names {
+        if let Some(path) = find_file_recursive(&resource_dir, name) {
+            return Ok(path);
+        }
+    }
+
+    Err(format!(
+        "Whisper server executable was not found in resource dir ({:?}).",
+        resource_dir
+    ))
 }
 
 pub fn start_whisper_server<R: Runtime>(
@@ -2402,13 +2411,17 @@ pub fn ensure_whisper_server_state<R: Runtime>(
         let model = settings.model_name.clone();
         let app_handle_clone = app_handle.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            if let Err(e) = start_whisper_server(&app_handle_clone, &model) {
-                crate::logger::log(
-                    "WARN",
-                    "Sidecar",
-                    None,
-                    &format!("Could not prewarm resident Whisper server for '{model}': {e}"),
-                );
+            if find_whisper_server(&app_handle_clone).is_ok() {
+                if let Err(e) = start_whisper_server(&app_handle_clone, &model) {
+                    crate::logger::log(
+                        "WARN",
+                        "Sidecar",
+                        None,
+                        &format!("Could not prewarm resident Whisper server for '{model}': {e}"),
+                    );
+                }
+            } else {
+                prewarm_local_model_background(&app_handle_clone, &model);
             }
         });
     } else {
