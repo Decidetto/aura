@@ -71,6 +71,7 @@
     ],
     "externalBin": [
       "binaries/whisper-sidecar",
+      "binaries/whisper-server",
       "binaries/sherpa-onnx-offline"
     ]
   }
