@@ -262,7 +262,9 @@ fn engine_status<R: tauri::Runtime>(
 ) -> String {
     if local_engine == "whisper" {
         return match crate::whisper_runner::whisper_server_status(app_handle) {
-            Some((provider, port)) => format!("Resident Server (provider: {provider}, port: {port})"),
+            Some((provider, port)) => {
+                format!("Resident Server (provider: {provider}, port: {port})")
+            }
             None => "In-process (whisper)".to_string(),
         };
     }
