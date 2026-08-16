@@ -98,5 +98,5 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "Aura v__VERSION__"
           generateReleaseNotes: true
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
