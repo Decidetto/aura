@@ -994,20 +994,36 @@
           <span class="download-modal-spec-label" data-i18n="modal_dl_req_label">Compatibility</span>
           <span class="download-modal-spec-val" data-i18n="modal_dl_req_val">Windows 10 / 11 (64-bit)</span>
         </div>
-        <div class="download-modal-spec-row">
-          <span class="download-modal-spec-label">SHA-256</span>
-          <span class="download-modal-spec-val" style="font-family: monospace; font-size: 0.72rem; word-break: break-all;">D978DD7D20A856A0689F9C5D6E2D44C88DD09475BC3C6FBBD50EA59801F1D667</span>
-        </div>
       </div>
 
-      <div class="download-modal-tip-box">
-        <svg class="download-modal-tip-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="16" x2="12" y2="12"></line>
-          <line x1="12" y1="8" x2="12.01" y2="8"></line>
-        </svg>
-        <div class="download-modal-tip-text" data-i18n="modal_dl_tip">
-          Installation takes less than a minute. Open-source release (not digitally signed with an Authenticode certificate). In cloud mode, audio, transcript, selected text, and custom dictionary entries are sent directly to your chosen provider over TLS; optional update check runs only on demand or when enabled.
+      <!-- Dedicated Clean Integrity / Checksum Block -->
+      <div class="download-modal-checksum-box">
+        <div class="download-modal-checksum-header">
+          <span class="download-modal-checksum-title">SHA-256 Checksum</span>
+          <span class="download-modal-checksum-badge">SHA-256</span>
+        </div>
+        <code class="download-modal-checksum-code" title="SHA-256">D978DD7D20A856A0689F9C5D6E2D44C88DD09475BC3C6FBBD50EA59801F1D667</code>
+      </div>
+
+      <!-- Structured, Scannable Privacy & Transparency Note -->
+      <div class="download-modal-notice-card">
+        <div class="download-modal-notice-item">
+          <svg class="notice-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <div class="notice-text">
+            <strong>Open-Source:</strong> Free software (not digitally signed with an Authenticode certificate).
+          </div>
+        </div>
+        <div class="download-modal-notice-item">
+          <svg class="notice-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <div class="notice-text">
+            <strong>Privacy & Data Flow:</strong> In cloud mode, audio, transcript, selected text, and custom dictionary entries are sent directly to your chosen provider over TLS.
+          </div>
+        </div>
+        <div class="download-modal-notice-item">
+          <svg class="notice-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <div class="notice-text">
+            <strong>Updates:</strong> Optional update check runs only on demand or when enabled.
+          </div>
         </div>
       </div>
 

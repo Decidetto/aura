@@ -3576,11 +3576,11 @@ body.modal-open {
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 12px;
-  padding: 12px 14px;
-  margin-bottom: 1.15rem;
+  padding: 10px 14px;
+  margin-bottom: 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .download-modal-spec-row {
@@ -3593,12 +3593,13 @@ body.modal-open {
 
 .download-modal-spec-row + .download-modal-spec-row {
   border-top: 1px solid rgba(255, 255, 255, 0.04);
-  padding-top: 6px;
+  padding-top: 5px;
 }
 
 .download-modal-spec-label {
   color: var(--text-muted);
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .download-modal-spec-val {
@@ -3613,27 +3614,91 @@ body.modal-open {
   color: #ff9466;
 }
 
-.download-modal-tip-box {
+/* Dedicated Clean Integrity / Checksum Block */
+.download-modal-checksum-box {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 0.85rem;
+}
+
+.download-modal-checksum-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.download-modal-checksum-title {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.download-modal-checksum-badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(255, 66, 0, 0.1);
+  border: 1px solid rgba(255, 66, 0, 0.22);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.download-modal-checksum-code {
+  display: block;
+  font-family: var(--font-mono, "SF Mono", Consolas, monospace);
+  font-size: 0.7rem;
+  color: #c4c4cc;
+  line-height: 1.35;
+  word-break: break-all;
+  letter-spacing: 0.02em;
+  user-select: all;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 5px 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Structured Scannable Privacy & Transparency Note */
+.download-modal-notice-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: 1.25rem;
+}
+
+.download-modal-notice-item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  margin-bottom: 1.4rem;
+  gap: 8px;
+  font-size: 0.77rem;
+  line-height: 1.38;
+  color: var(--text-secondary);
 }
 
-.download-modal-tip-icon {
+.download-modal-notice-item .notice-icon {
   color: var(--accent);
   flex-shrink: 0;
-  margin-top: 1px;
+  margin-top: 2px;
+  opacity: 0.85;
 }
 
-.download-modal-tip-text {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  line-height: 1.45;
+.download-modal-notice-item .notice-text {
+  flex: 1;
+}
+
+.download-modal-notice-item .notice-text strong {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .download-modal-actions {
