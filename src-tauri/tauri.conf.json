@@ -78,8 +78,6 @@
       "nsis": {
         "sidebarImage": "icons/nsis-sidebar.bmp",
         "installerIcon": "icons/icon.ico",
-        "installerHooks": "hooks.nsh",
-        "template": "installer.nsi",
         "languages": ["Russian", "English"],
         "displayLanguageSelector": true,
         "customLanguageFiles": {
