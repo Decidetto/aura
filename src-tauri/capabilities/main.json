@@ -10,6 +10,7 @@
     "allow-install-app-update",
     "allow-get-settings",
     "allow-set-settings",
+    "allow-set-ui-language",
     "allow-set-provider-key",
     "allow-download-model-command",
     "allow-cancel-model-download",

@@ -2561,6 +2561,7 @@ modelCards.forEach(card => {
 
       const settings = {
         transcription_mode: radioLocal.checked ? "local" : "cloud",
+        ui_language: currentLanguage,
         api_provider: selectProvider.value,
         custom_api_url: (() => {
           const el = document.getElementById("input-custom-url");
@@ -3669,6 +3670,18 @@ if (e.button === 0 && !e.target.closest(".window-control-btn") && !e.target.clos
   }
   // Initialize UI language and Settings
   (async () => {
+    const supportedLangs = ["ru", "en", "de", "es", "fr", "it", "zh", "pt", "tr"];
+    let legacyUiLang = localStorage.getItem("aura_ui_lang");
+    if (legacyUiLang === null) {
+      legacyUiLang = localStorage.getItem("ui-language");
+    }
+    if (!supportedLangs.includes(legacyUiLang)) {
+      legacyUiLang = null;
+    }
+    const browserUiLang = navigator.language.toLowerCase().split(/[-_]/)[0];
+    const provisionalUiLang = legacyUiLang || (supportedLangs.includes(browserUiLang) ? browserUiLang : "en");
+    applyLanguage(provisionalUiLang);
+
     let settings = null;
     try {
       settings = await invoke("get_settings");
@@ -3676,18 +3689,14 @@ if (e.button === 0 && !e.target.closest(".window-control-btn") && !e.target.clos
       console.error(err);
     }
 
-    let savedUiLang = localStorage.getItem("aura_ui_lang");
-    if (savedUiLang === null) {
-      savedUiLang = localStorage.getItem("ui-language");
-    }
-
-    const supportedLangs = ["ru", "en", "de", "es", "fr", "it", "zh", "pt", "tr"];
-    if (savedUiLang === null || !supportedLangs.includes(savedUiLang)) {
-      if (settings && settings.language && supportedLangs.includes(settings.language)) {
-        savedUiLang = settings.language;
-      } else {
-        savedUiLang = "ru";
-      }
+    const backendUiLang = supportedLangs.includes(settings?.ui_language) ? settings.ui_language : null;
+    const savedUiLang = legacyUiLang || backendUiLang || provisionalUiLang;
+    localStorage.setItem("aura_ui_lang", savedUiLang);
+    localStorage.setItem("ui-language", savedUiLang);
+    if (settings && settings.ui_language !== savedUiLang) {
+      invoke("set_ui_language", { uiLanguage: savedUiLang }).catch(error => {
+        console.error("Failed to migrate interface language", error);
+      });
     }
 
     // UI Language Selector Setup
@@ -3695,11 +3704,16 @@ if (e.button === 0 && !e.target.closest(".window-control-btn") && !e.target.clos
     if (selectUiLang) {
       selectUiLang.value = savedUiLang;
       
-      selectUiLang.addEventListener("change", (e) => {
+      selectUiLang.addEventListener("change", async (e) => {
         const selectedLang = e.target.value;
         localStorage.setItem("aura_ui_lang", selectedLang);
         localStorage.setItem("ui-language", selectedLang);
         applyLanguage(selectedLang);
+        try {
+          await invoke("set_ui_language", { uiLanguage: selectedLang });
+        } catch (error) {
+          console.error("Failed to persist interface language", error);
+        }
       });
     }
     

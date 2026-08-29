@@ -177,7 +177,97 @@ async fn set_settings(
         whisper_runner::ensure_parakeet_server_state(&sidecar_handle, &sidecar_settings);
         whisper_runner::ensure_whisper_server_state(&sidecar_handle, &sidecar_settings);
     });
+    let _ = app_handle.emit("settings-changed", ());
     Ok(())
+}
+
+#[tauri::command]
+async fn set_ui_language(app_handle: tauri::AppHandle, ui_language: String) -> Result<(), String> {
+    let save_handle = app_handle.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        settings::set_ui_language(&save_handle, &ui_language)
+    })
+    .await
+    .map_err(|error| format!("Interface language storage worker failed: {error}"))??;
+    let _ = app_handle.emit("settings-changed", ());
+    Ok(())
+}
+
+#[derive(Clone, Copy)]
+struct TrayTranslations {
+    show: &'static str,
+    recognition_mode: &'static str,
+    cloud: &'static str,
+    local: &'static str,
+    quit: &'static str,
+}
+
+fn tray_translations(language: &str) -> TrayTranslations {
+    match language {
+        "ru" => TrayTranslations {
+            show: "Открыть настройки",
+            recognition_mode: "Способ распознавания",
+            cloud: "Облачный ИИ",
+            local: "Локальный ИИ (Whisper / Parakeet)",
+            quit: "Выход",
+        },
+        "de" => TrayTranslations {
+            show: "Einstellungen öffnen",
+            recognition_mode: "Erkennungsmodus",
+            cloud: "Cloud-KI",
+            local: "Lokale KI (Whisper / Parakeet)",
+            quit: "Beenden",
+        },
+        "es" => TrayTranslations {
+            show: "Abrir ajustes",
+            recognition_mode: "Modo de reconocimiento",
+            cloud: "IA en la nube",
+            local: "IA local (Whisper / Parakeet)",
+            quit: "Salir",
+        },
+        "fr" => TrayTranslations {
+            show: "Ouvrir les paramètres",
+            recognition_mode: "Mode de reconnaissance",
+            cloud: "IA cloud",
+            local: "IA locale (Whisper / Parakeet)",
+            quit: "Quitter",
+        },
+        "it" => TrayTranslations {
+            show: "Apri impostazioni",
+            recognition_mode: "Modalità di riconoscimento",
+            cloud: "IA cloud",
+            local: "IA locale (Whisper / Parakeet)",
+            quit: "Esci",
+        },
+        "zh" => TrayTranslations {
+            show: "打开设置",
+            recognition_mode: "识别模式",
+            cloud: "云端 AI",
+            local: "本地 AI (Whisper / Parakeet)",
+            quit: "退出",
+        },
+        "pt" => TrayTranslations {
+            show: "Abrir configurações",
+            recognition_mode: "Modo de reconhecimento",
+            cloud: "IA na nuvem",
+            local: "IA local (Whisper / Parakeet)",
+            quit: "Sair",
+        },
+        "tr" => TrayTranslations {
+            show: "Ayarları aç",
+            recognition_mode: "Tanıma modu",
+            cloud: "Bulut AI",
+            local: "Yerel AI (Whisper / Parakeet)",
+            quit: "Çıkış",
+        },
+        _ => TrayTranslations {
+            show: "Open settings",
+            recognition_mode: "Recognition mode",
+            cloud: "Cloud AI",
+            local: "Local AI (Whisper / Parakeet)",
+            quit: "Quit",
+        },
+    }
 }
 
 fn canonical_model_name(model_name: &str) -> Result<String, String> {
@@ -3733,16 +3823,17 @@ pub fn run() {
             }
 
             // 2. Build system tray menu
-            let show_i = MenuItem::with_id(app, "show", "Открыть настройки", true, None::<&str>)?;
+            let tray_text = tray_translations(&startup_settings.ui_language);
+            let show_i = MenuItem::with_id(app, "show", tray_text.show, true, None::<&str>)?;
             let sep1 = PredefinedMenuItem::separator(app)?;
 
             let is_cloud = startup_settings.transcription_mode == "cloud";
-            let mode_cloud_i = CheckMenuItem::with_id(app, "tray_mode_cloud", "Облачный ИИ", true, is_cloud, None::<&str>)?;
-            let mode_local_i = CheckMenuItem::with_id(app, "tray_mode_local", "Локальный ИИ (Whisper / Parakeet)", true, !is_cloud, None::<&str>)?;
-            let mode_sub = Submenu::with_items(app, "Способ распознавания", true, &[&mode_cloud_i, &mode_local_i])?;
+            let mode_cloud_i = CheckMenuItem::with_id(app, "tray_mode_cloud", tray_text.cloud, true, is_cloud, None::<&str>)?;
+            let mode_local_i = CheckMenuItem::with_id(app, "tray_mode_local", tray_text.local, true, !is_cloud, None::<&str>)?;
+            let mode_sub = Submenu::with_items(app, tray_text.recognition_mode, true, &[&mode_cloud_i, &mode_local_i])?;
 
             let sep2 = PredefinedMenuItem::separator(app)?;
-            let quit_i = MenuItem::with_id(app, "quit", "Выход", true, None::<&str>)?;
+            let quit_i = MenuItem::with_id(app, "quit", tray_text.quit, true, None::<&str>)?;
 
             let menu = Menu::with_items(app, &[
                 &show_i,
@@ -3814,12 +3905,21 @@ pub fn run() {
 
             let mode_cloud_sync = mode_cloud_i.clone();
             let mode_local_sync = mode_local_i.clone();
+            let show_sync = show_i.clone();
+            let mode_sub_sync = mode_sub.clone();
+            let quit_sync = quit_i.clone();
             let app_for_sync = app_handle.clone();
             app.listen("settings-changed", move |_| {
                 if let Ok(s) = settings::load_settings(&app_for_sync) {
                     let is_c = s.transcription_mode == "cloud";
                     let _ = mode_cloud_sync.set_checked(is_c);
                     let _ = mode_local_sync.set_checked(!is_c);
+                    let text = tray_translations(&s.ui_language);
+                    let _ = show_sync.set_text(text.show);
+                    let _ = mode_sub_sync.set_text(text.recognition_mode);
+                    let _ = mode_cloud_sync.set_text(text.cloud);
+                    let _ = mode_local_sync.set_text(text.local);
+                    let _ = quit_sync.set_text(text.quit);
                 }
             });
 
@@ -3984,6 +4084,7 @@ pub fn run() {
             get_settings,
             set_provider_key,
             set_settings,
+            set_ui_language,
             download_model_command,
             cancel_model_download,
             delete_model_command,

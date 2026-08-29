@@ -23,6 +23,7 @@ const ALLOWED_ACCELERATION: &[&str] = &["cpu", "cuda"];
 const ALLOWED_LANGUAGES: &[&str] = &[
     "auto", "layout", "ru", "en", "de", "es", "fr", "it", "zh", "pt", "tr",
 ];
+const ALLOWED_UI_LANGUAGES: &[&str] = &["ru", "en", "de", "es", "fr", "it", "zh", "pt", "tr"];
 const ALLOWED_SOUND_THEMES: &[&str] = &["zen", "rhodes", "scifi", "classic"];
 const MAX_DICTIONARY_CHARS: usize = 4096;
 const MAX_HOTKEY_CHARS: usize = 64;
@@ -48,6 +49,8 @@ fn lock_settings() -> MutexGuard<'static, ()> {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default)]
 pub struct Settings {
+    #[serde(default = "default_ui_language")]
+    pub ui_language: String,
     pub transcription_mode: String,
     pub api_provider: String,
     #[serde(default, skip_serializing)]
@@ -94,6 +97,7 @@ fn default_audio_device() -> String {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            ui_language: default_ui_language(),
             transcription_mode: "cloud".to_string(),
             api_provider: "gemini".to_string(),
             api_key: String::new(),
@@ -160,6 +164,11 @@ impl Settings {
         )?;
         validate_choice("language", &self.language, ALLOWED_LANGUAGES)?;
         validate_choice(
+            "interface language",
+            &self.ui_language,
+            ALLOWED_UI_LANGUAGES,
+        )?;
+        validate_choice(
             "sound theme",
             &self.overlay_sound_theme,
             ALLOWED_SOUND_THEMES,
@@ -194,6 +203,34 @@ impl Settings {
             return Err("Audio input device is invalid or too long".to_string());
         }
         Ok(())
+    }
+}
+
+fn ui_language_for_windows_lang_id(language_id: u16) -> &'static str {
+    const PRIMARY_LANGUAGE_MASK: u16 = 0x03ff;
+    match language_id & PRIMARY_LANGUAGE_MASK {
+        0x0004 => "zh",
+        0x0007 => "de",
+        0x0009 => "en",
+        0x000a => "es",
+        0x000c => "fr",
+        0x0010 => "it",
+        0x0016 => "pt",
+        0x0019 => "ru",
+        0x001f => "tr",
+        _ => "en",
+    }
+}
+
+fn default_ui_language() -> String {
+    #[cfg(target_os = "windows")]
+    {
+        let language_id = unsafe { windows_sys::Win32::Globalization::GetUserDefaultUILanguage() };
+        ui_language_for_windows_lang_id(language_id).to_string()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        "en".to_string()
     }
 }
 
@@ -520,6 +557,17 @@ pub fn save_settings<R: tauri::Runtime>(
     save_config(&get_settings_path(app_handle)?, &normalized)
 }
 
+pub fn set_ui_language<R: tauri::Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+    ui_language: &str,
+) -> Result<(), String> {
+    validate_choice("interface language", ui_language, ALLOWED_UI_LANGUAGES)?;
+    let _guard = lock_settings();
+    let mut settings = load_settings_unlocked(app_handle)?;
+    settings.ui_language = ui_language.to_string();
+    save_config(&get_settings_path(app_handle)?, &settings)
+}
+
 pub fn set_provider_key<R: tauri::Runtime>(
     app_handle: &tauri::AppHandle<R>,
     provider: &str,
@@ -575,6 +623,22 @@ mod tests {
         assert!(!settings.log_speech_text);
         assert_eq!(settings.active_api_key(), "");
         settings.validate().unwrap();
+    }
+
+    #[test]
+    fn windows_ui_language_uses_supported_locale_or_english_fallback() {
+        assert_eq!(ui_language_for_windows_lang_id(0x0804), "zh");
+        assert_eq!(ui_language_for_windows_lang_id(0x0407), "de");
+        assert_eq!(ui_language_for_windows_lang_id(0x0409), "en");
+        assert_eq!(ui_language_for_windows_lang_id(0x0c0a), "es");
+        assert_eq!(ui_language_for_windows_lang_id(0x040c), "fr");
+        assert_eq!(ui_language_for_windows_lang_id(0x0410), "it");
+        assert_eq!(ui_language_for_windows_lang_id(0x0416), "pt");
+        assert_eq!(ui_language_for_windows_lang_id(0x0419), "ru");
+        assert_eq!(ui_language_for_windows_lang_id(0x0819), "ru");
+        assert_eq!(ui_language_for_windows_lang_id(0x041f), "tr");
+        assert_eq!(ui_language_for_windows_lang_id(0x0413), "en");
+        assert_eq!(ui_language_for_windows_lang_id(0x0411), "en");
     }
 
     #[test]

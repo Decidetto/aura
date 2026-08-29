@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-set-ui-language"
+description = "Enables updating the persisted interface language."
+commands.allow = ["set_ui_language"]
