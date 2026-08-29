@@ -3638,17 +3638,6 @@ body.modal-open {
   letter-spacing: 0.04em;
 }
 
-.download-modal-checksum-badge {
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 600;
-  color: var(--accent);
-  background: rgba(255, 66, 0, 0.1);
-  border: 1px solid rgba(255, 66, 0, 0.22);
-  padding: 1px 6px;
-  border-radius: 4px;
-}
-
 .download-modal-checksum-code {
   display: block;
   font-family: var(--font-mono, "SF Mono", Consolas, monospace);

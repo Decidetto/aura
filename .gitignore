@@ -52,7 +52,7 @@ src-tauri/binaries/ggml-cuda.dll
 
 # Website temporary preview profiles, test scripts, and test screenshots
 website/.temp_edge_profile*/
-website/.temp_edge_verify/
+website/.temp_edge_verify*/
 website/screenshot_*.png
 website/check_console.cjs
 website/take_screenshots.cjs
