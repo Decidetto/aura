@@ -1515,11 +1515,13 @@ function initFooterAuraLetters() {
    Multi-Page Language Routing & First-Visit Auto-Detection
    ========================================================================== */
 function initLanguageAutoDetect() {
+  const currentHtmlLang = (document.documentElement.lang || '').toLowerCase();
   const path = window.location.pathname.toLowerCase();
-  const isDefaultEnglishPage = path.endsWith('index.html') || path === '/' || path.endsWith('/') || (!path.includes('index_ru.html'));
 
-  // Only auto-redirect if user landed on the default English root
-  if (!isDefaultEnglishPage || path.includes('index_ru.html')) return;
+  // If already on the Russian page (lang="ru" or /index_ru), NEVER redirect
+  if (currentHtmlLang === 'ru' || path.includes('index_ru')) {
+    return;
+  }
 
   try {
     const savedLang = localStorage.getItem('aura_user_lang');
@@ -1532,8 +1534,14 @@ function initLanguageAutoDetect() {
     }
 
     // First visit: Auto-detect browser language
-    const userLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
-    const isRuLocale = userLang.startsWith('ru') || userLang.startsWith('be') || userLang.startsWith('uk') || userLang.startsWith('kk');
+    const navLangs = navigator.languages ? Array.from(navigator.languages) : [];
+    const primaryLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+    const allLangs = [primaryLang, ...navLangs.map(l => (l || '').toLowerCase())];
+
+    const isRuLocale = allLangs.some(l => 
+      l.startsWith('ru') || l.startsWith('be') || l.startsWith('uk') || l.startsWith('kk')
+    );
+
     if (isRuLocale) {
       window.location.replace('index_ru.html' + window.location.search + window.location.hash);
     }
