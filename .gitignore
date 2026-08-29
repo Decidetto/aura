@@ -18,6 +18,7 @@ target/
 settings.json
 
 # AI-tooling working files (not part of the app)
+.claude/
 .agents/
 .impeccable/
 .superdesign/
