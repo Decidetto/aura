@@ -29,11 +29,12 @@ Press and hold the hotkey, speak, and release — Aura instantly transcribes you
 
 - **Global hotkey dictation** — hold to talk (`Alt+V`), or short-tap to latch recording (toggle mode); `Esc` cancels.
 - **Two recognition modes**:
-  - **Local (100% offline & private)** — whisper.cpp sidecar (CPU) or NVIDIA Parakeet TDT v3 (sherpa-onnx). Audio never leaves your computer; models are downloaded in a single click directly from settings.
+  - **Local (100% offline & private)** — whisper.cpp or NVIDIA Parakeet TDT v3 (sherpa-onnx) on CPU or NVIDIA CUDA GPU. Audio never leaves your computer; models are downloaded in a single click directly from settings.
   - **Cloud** — Google Gemini, Groq, OpenAI, Hugging Face, or your custom OpenAI-compatible server.
-- **NVIDIA CUDA GPU acceleration** — hardware GPU acceleration for Parakeet models with on-demand runtime downloading and automatic CPU fallback.
+- **NVIDIA CUDA GPU acceleration** — hardware GPU acceleration for Whisper and Parakeet models with 1-click on-demand runtime downloading and automatic CPU fallback.
 - **Real-time streaming input** — smooth word-level streaming into active fields without flickering or text duplicates.
-- **Focus Guard** — ensures transcribed text is never typed into the wrong window if focus shifts.
+- **Focus Guard & Context Editing** — ensures transcribed text is never typed into the wrong window if focus shifts (with safe clipboard handoff), and provides 1-click text editing on selected text with a visual AI sparkle indicator.
+- **Audio device selection & tail hold** — choose physical microphone input device with intelligent 160ms post-release grace buffer and Silero VAD silence trimming so final words are never clipped.
 - **Transcription history** — last 50 dictations with a live search bar, source filters (`All` / `Local` / `Cloud`), and one-click copy.
 - **Custom dictionary** — bias recognition towards your names, brands, and technical terms.
 - **11 language options** — auto-detect, keyboard-layout detection, or fixed selection (ru, en, de, es, fr, it, zh, pt, tr).
@@ -106,13 +107,13 @@ cargo test
 - **Update checks** run only on demand or when explicitly enabled in settings.
 
 ## Recently added
-
-- **NVIDIA CUDA GPU Acceleration** — offload local Parakeet model inference to NVIDIA GPUs with on-demand runtime downloading and auto CPU fallback.
-- **5-Tab Settings Interface** — organized settings categories (General, Speech, Hotkeys, History, About).
-- **History Search & Source Filters** — live text search across previous dictations with Local / Cloud filtering.
-- **Windows DPAPI Encryption** — protected credentials and history with strict ACL isolation.
-- **Streaming Input & Focus Guard** — smooth text streaming without flickering and protection against typing into background windows.
-- **Custom Accessible Dropdowns** — animated selector menus with keyboard navigation and scroll tracking.
+ 
+- **Audio Device Selection & VU Meter** — select physical microphone devices directly in Settings with a real-time input level meter and Silero VAD detection.
+- **Post-Release Audio Grace Buffer (Tail Hold)** — 160ms tail buffer and expanded VAD margin to completely prevent trailing word and syllable clipping.
+- **Context Editing & Safe Clipboard Handoff** — AI sparkle indicator for selection editing; if target window focus shifts during transcription, text is safely copied to the clipboard with an overlay notification.
+- **Google Gemini 3.6 Flash Integration** — upgraded cloud provider integration to multimodal Gemini 3.6 Flash for instant recognition and voice editing.
+- **Overlay Display Customization & Topmost Guard** — toggle timer and status messages to show a minimal acoustic wave capsule, with `HWND_TOPMOST` z-order protection against fullscreen apps.
+- **Instant Overlay Dismissal** — eliminated visual lag by triggering chime and overlay hide immediately upon text insertion.
 
 ## Roadmap
 

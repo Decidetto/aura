@@ -1,46 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aura — Free Voice Typing for Windows | Local AI & Privacy</title>
+  <meta name="description" content="Free high-speed voice typing for Windows directly under your cursor in any application. 100% offline, local AI models.">
   
-  <!-- SEO Meta Tags -->
-  <title>Aura — Fast Voice Typing for Windows | Free and Unlimited</title>
-  <meta name="description" content="Aura: free and open-source voice typing app for Windows. Works offline and privately with local models (Whisper, NVIDIA Parakeet) or via cloud providers (Gemini, OpenAI, Groq)." />
-  <meta name="keywords" content="voice typing, dictation, Windows, Whisper, Parakeet, CUDA, speech recognition, transcription, free, open source, Gemini, Groq, OpenAI" />
+  <!-- Fonts: Onest Neo-Grotesque -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
-  <!-- Open Graph -->
-  <meta property="og:title" content="Aura — Fast Voice Typing for Windows" />
-  <meta property="og:description" content="Hold down the hotkey, dictate your text, and release. Aura instantly transcribes your speech and inserts the text right under your cursor." />
-  <meta property="og:type" content="website" />
-  <meta property="og:image" content="assets/logo.svg" />
+  <!-- Canonical & Alternate Hreflang for SEO -->
+  <link rel="alternate" hreflang="ru" href="index_ru.html">
+  <link rel="alternate" hreflang="en" href="index.html">
+  <link rel="alternate" hreflang="x-default" href="index.html">
 
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-
-  <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=2.1.2" />
-  <script src="main.js?v=2.1.2" defer></script>
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css?v=6.8.0">
 </head>
 <body>
 
-  <!-- Background System -->
-  <div class="aura-bg-container">
-    <div class="aura-bg-grid"></div>
-    <div class="aura-glow aura-glow-1"></div>
-    <div class="aura-glow aura-glow-2"></div>
-    <div class="aura-glow aura-glow-3"></div>
-  </div>
+  <!-- Animated Fluid Obsidian-Orange Mesh Canvas -->
+  <canvas id="aura-fluid-canvas" class="aura-fluid-canvas" aria-hidden="true"></canvas>
 
-  <!-- Navigation Bar -->
+  <!-- Site Navigation -->
   <header class="site-header">
-    <div class="header-container">
-      <a href="#" class="logo-link" aria-label="Home" id="nav-logo">
+    <div class="container nav-wrap">
+      <a href="#" class="brand-logo" aria-label="Aura Главная">
         <svg class="site-logo" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path class="logo-outer" d="M398.114 421C445.533 380.876 474.714 322.514 474.714 256.857C474.714 136.486 376.229 38 255.857 38C135.486 38 37 136.486 37 256.857C37 322.514 66.1809 380.876 113.6 421" stroke="currentColor" stroke-width="73.1573" />
           <path class="logo-outer-ripple" d="M398.114 421C445.533 380.876 474.714 322.514 474.714 256.857C474.714 136.486 376.229 38 255.857 38C135.486 38 37 136.486 37 256.857C37 322.514 66.1809 380.876 113.6 421" stroke="currentColor" stroke-width="73.1573" />
@@ -48,667 +35,1000 @@
         </svg>
         <span class="logo-text">AURA</span>
       </a>
-      <nav class="main-nav" aria-label="Site navigation">
-        <a href="#features" class="nav-link" id="link-features">Features</a>
-        <a href="#workflow" class="nav-link" id="link-workflow">How It Works</a>
-        <a href="#demo" class="nav-link" id="link-demo">Demo</a>
-        <a href="#faq" class="nav-link" id="link-faq">FAQ</a>
-        <a href="index_ru.html" class="nav-link lang-switch" aria-label="Переключить на русский">RU</a>
+
+      <nav class="site-nav" aria-label="Main Navigation">
+        <ul class="nav-menu" id="nav-menu">
+          <li><a href="#how-it-works" class="nav-link" data-i18n="nav_how_it_works">How it works</a></li>
+          <li><a href="#features" class="nav-link" data-i18n="nav_features">Advantages</a></li>
+          <li><a href="#interface" class="nav-link" data-i18n="nav_interface">Interface</a></li>
+          <li><a href="#engines" class="nav-link" data-i18n="nav_engines">Architecture</a></li>
+          <li><a href="#comparison" class="nav-link" data-i18n="nav_comparison">Comparison</a></li>
+        </ul>
       </nav>
-      <div class="header-actions">
-        <a href="https://github.com/malashkadev/aura" class="btn btn-outline" id="header-github-btn">Open GitHub</a>
-        <a href="Aura_1.0.8_x64-setup.exe" download class="btn btn-primary btn-header-cta" id="header-download-btn">Download Aura</a>
+
+      <div class="nav-actions">
+        <a href="index_ru.html" class="btn-lang-toggle" id="btn-lang-toggle" aria-label="Переключить на русский" title="Переключить на русский" data-lang-target="ru">
+          <svg class="lang-globe-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <span class="lang-text" id="lang-current-label">RU</span>
+        </a>
+        <div class="header-cta-group" id="header-cta-group">
+          <a href="https://github.com/malashkadev/aura" target="_blank" rel="noopener noreferrer" class="btn-icon-github" aria-label="Репозиторий GitHub" title="GitHub">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+          </a>
+          <a href="Aura_1.0.9_x64-setup.exe" class="btn btn-primary btn-sm" data-download-trigger download>
+            <svg class="icon-download" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="dl-tray" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><g class="dl-arrow"><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></g></svg>
+            <span data-i18n="header_download_btn">Download</span>
+          </a>
+        </div>
       </div>
     </div>
   </header>
 
-  <!-- Main Content -->
-  <main>
-    <!-- Hero Section -->
-    <section class="hero-section" id="hero">
-    <div class="section-container hero-container">
-      <div class="hero-content reveal-on-scroll">
-        <h1 class="hero-title">Aura — Fast Voice Typing for Windows</h1>
-        <p class="hero-subtitle">Hold down the hotkey, dictate your text, and release. Aura instantly transcribes your speech and inserts the text right under your cursor. Works offline on your PC or via cloud services.</p>
-        <div class="hero-actions">
-          <div class="hero-download-wrapper">
-            <a href="Aura_1.0.8_x64-setup.exe" download class="btn btn-primary btn-hero-cta" id="hero-download-btn">Download Aura</a>
-            <span class="download-subtext" id="hero-download-subtext">(Windows 10 & 11)</span>
-          </div>
-          <a href="https://github.com/malashkadev/aura" class="btn btn-secondary" id="hero-github-btn">Open GitHub</a>
-        </div>
-      </div>
-      <div class="hero-visual reveal-on-scroll">
-        <div class="visual-wrapper">
-          <!-- Live Dictation Typing Simulator -->
-          <div class="window-mockup typing-demo-window">
-            <div class="mockup-editor-content">
-              <div class="editor-line">
-                <span class="line-num">1</span>
-                <div class="editor-text-wrapper"><span class="editor-text" id="demo-editor-text"></span><span class="editor-cursor">|</span></div>
-              </div>
-            </div>
-            
-            <!-- Real replica of Aura dictation overlay pill -->
-            <div class="mock-aura-overlay-wrapper" id="mock-overlay-wrapper">
-              <div class="mock-overlay-pill" id="mock-overlay-pill">
-                <svg width="103" height="30" viewBox="0 0 103 30" fill="none" xmlns="http://www.w3.org/2000/svg" class="overlay-pill-svg">
-                  <g clip-path="url(#clip_overlay)" transform="translate(3.0, 3.825) scale(0.75)">
-                    <path d="M12.2707 20.7875C10.4925 19.2829 9.39822 17.0943 9.39822 14.6322C9.39822 10.1183 13.0914 6.42505 17.6054 6.42505C22.1193 6.42505 25.8125 10.1183 25.8125 14.6322C25.8125 17.0943 24.7182 19.2829 22.94 20.7875" stroke="#FF4200" stroke-width="2.7434"/>
-                    <path d="M20.3763 11.601L25.6238 24.1871H21.844L19.6927 18.2358L17.9033 13.7724C17.796 13.4776 17.6955 13.3301 17.6017 13.3301C17.5213 13.3301 17.4274 13.4776 17.3202 13.7724L15.5308 18.2358L13.3795 24.1871H9.57961L14.8472 11.601C15.1153 10.9577 15.4705 10.522 15.9128 10.2942C16.3418 10.0663 16.9047 9.95239 17.6017 9.95239C18.4193 9.95239 19.0292 10.0797 19.4313 10.3344C19.82 10.5891 20.135 11.0113 20.3763 11.601Z" fill="#FE4200"/>
-                  </g>
-                  <rect class="sound-bar" x="32.4" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
-                  <rect class="sound-bar" x="38.7" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
-                  <rect class="sound-bar" x="45.0" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
-                  <rect class="sound-bar" x="51.3" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
-                  <rect class="sound-bar" x="57.6" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
-                  <rect class="sound-bar" x="63.9" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
-                  <rect class="sound-bar" x="70.2" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
-                  <rect class="sound-bar" x="76.5" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
-                  <rect class="sound-bar" x="82.8" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
-                  <rect class="sound-bar" x="89.1" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
-                  <defs>
-                    <clipPath id="clip_overlay">
-                      <rect width="19.2" height="19.2" fill="white" transform="matrix(-1 0 0 1 27.2 5)"/>
-                    </clipPath>
-                  </defs>
-                </svg>
-                <div id="mock-overlay-status">0:00</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Features Bento Section -->
-  <section class="features-section" id="features">
-    <div class="section-container">
-      <h2 class="section-title reveal-on-scroll">Key Features</h2>
-      
-      <div class="bento-grid">
-        <!-- Bento Cell 1: Engines (Double columns) -->
-        <div class="bento-card bento-col-2 bento-cloud-local reveal-on-scroll">
-          <div class="card-glow"></div>
-          <div class="bento-card-content">
-            <h3 class="bento-card-title">Local on PC or via Cloud</h3>
-            <p class="bento-card-desc">Fully autonomous with Whisper and NVIDIA Parakeet TDT v3 — audio never leaves your computer. When needed, connect cloud providers like Gemini, Groq, OpenAI, Hugging Face, or your custom API server.</p>
-            <div class="engine-graphic">
-              <div class="engine-node node-active" id="node-cloud">
-                <svg class="engine-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M17.5 19A3.5 3.5 0 0 0 21 15.5c0-2.79-2.54-4.5-5-4.5-.42 0-.83.07-1.23.21A6 6 0 0 0 3 13.5A3.5 3.5 0 0 0 6.5 17H17.5z"></path>
-                </svg>
-                <span class="node-label">Cloud (API)</span>
-              </div>
-              
-              <div class="engine-link-dots link-left"></div>
-              
-              <div class="engine-center-node">
-                <svg class="engine-center-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                  <line x1="12" y1="19" x2="12" y2="23"></line>
-                </svg>
-                <span class="node-center-label">Input (PC)</span>
-              </div>
-              
-              <div class="engine-link-dots link-right"></div>
-              
-              <div class="engine-node node-active" id="node-local">
-                <svg class="engine-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                  <line x1="8" y1="21" x2="16" y2="21"></line>
-                  <line x1="12" y1="17" x2="12" y2="21"></line>
-                </svg>
-                <span class="node-label">Whisper / Parakeet</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Bento Cell 2: Free & Open (Single column) -->
-        <div class="bento-card bento-accent-theme reveal-on-scroll">
-          <div class="card-glow"></div>
-          <div class="bento-card-content">
-            <h3 class="bento-card-title">100% Free and Open Source</h3>
-            <p class="bento-card-desc">No hidden fees, subscriptions, limits, or built-in ads. Aura is a free, open-source project licensed under AGPL-3.0.</p>
-            <span class="card-accent-badge">AGPL-3.0 License</span>
-          </div>
-        </div>
-
-        <!-- Bento Cell 3: Fast & Accurate (Single column) -->
-        <div class="bento-card reveal-on-scroll">
-          <div class="card-glow"></div>
-          <div class="bento-card-content">
-            <h3 class="bento-card-title">Fast & Accurate</h3>
-            <p class="bento-card-desc">High transcription speed, automatic punctuation, custom dictionary support, and a selection of models from Base to Large.</p>
-          </div>
-        </div>
-
-        <!-- Bento Cell 4: Stability & Focus (Double columns) -->
-        <div class="bento-card bento-col-2 reveal-on-scroll">
-          <div class="card-glow"></div>
-          <div class="bento-card-content">
-            <h3 class="bento-card-title">Streaming Input & Focus Guard</h3>
-            <p class="bento-card-desc">Text appears as you speak without delay. Built-in Focus Guard ensures transcribed text is never typed into the wrong window if focus shifts.</p>
-            <div class="details-tags">
-              <span class="detail-tag">11 Languages</span>
-              <span class="detail-tag">Custom Dictionary</span>
-              <span class="detail-tag">Focus Guard</span>
-              <span class="detail-tag">Streaming Input</span>
-              <span class="detail-tag">NVIDIA CUDA</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- How It Works Section -->
-  <section class="workflow-section" id="workflow">
-    <div class="section-container">
-      <h2 class="section-title reveal-on-scroll">How Does Aura Work?</h2>
-      
-      <div class="timeline-container">
-        <!-- Connecting decorative grid lines -->
-        <div class="timeline-line"></div>
-        
-        <div class="timeline-grid">
-          <!-- Step 1 -->
-          <div class="timeline-step reveal-on-scroll">
-            <div class="step-badge">1</div>
-            <h3 class="step-title">Trigger</h3>
-            <p class="step-desc">Press and hold the global hotkey <kbd class="step-kbd">Alt + V</kbd> in any application or text field (toggle mode is also supported).</p>
-          </div>
+  <!-- Hero Section (Fullscreen 100vh) -->
+  <section class="hero-section" id="hero">
+    <div class="container">
+      <div class="hero-grid">
+        <!-- Left Content -->
+        <div class="hero-content">
+          <h1 class="hero-title">
+            <span class="hero-title-line" data-i18n="hero_title_line1">Type with your voice.</span>
+            <span class="hero-title-line" data-i18n="hero_title_line2">Instantly everywhere.</span>
+          </h1>
           
-          <!-- Step 2 -->
-          <div class="timeline-step reveal-on-scroll">
-            <div class="step-badge">2</div>
-            <h3 class="step-title">Dictation</h3>
-            <p class="step-desc">Speak your phrase. A clean, subtle overlay pill displays microphone volume levels and recording duration.</p>
-          </div>
-          
-          <!-- Step 3 -->
-          <div class="timeline-step reveal-on-scroll">
-            <div class="step-badge">3</div>
-            <h3 class="step-title">Insertion</h3>
-            <p class="step-desc">Release the key. Text is instantly transcribed and typed directly into the active field.</p>
+          <p class="hero-subtext" data-i18n="hero_subtext">Free voice typing for writing and&nbsp;coding. Speak as&nbsp;you think&nbsp;— directly into any editor, browser, and&nbsp;messenger.</p>
+
+          <div class="hero-cta-group">
+            <a href="Aura_1.0.9_x64-setup.exe" class="btn btn-primary btn-lg" data-download-trigger download>
+              <svg class="icon-download" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="dl-tray" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><g class="dl-arrow"><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></g></svg>
+              <span data-i18n="hero_btn_download">Download for&nbsp;Windows</span>
+            </a>
+            
+            <a href="https://github.com/malashkadev/aura" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-lg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+              <span data-i18n="hero_btn_github">GitHub</span>
+            </a>
           </div>
         </div>
-      </div>
-    </div>
-  </section>
 
-  <!-- Demo & Settings Section -->
-  <section class="demo-section" id="demo">
-    <div class="section-container split-layout">
-      <div class="layout-visual reveal-on-scroll">
-        <!-- Interactive Settings Mockup Window -->
-        <div class="window-mockup settings-mockup-window">
-          <div class="settings-mockup-layout">
-            <!-- Sidebar Navigation (5 tabs matching Aura 1.0.8) -->
-            <nav class="mock-settings-sidebar" aria-label="Settings categories" role="tablist">
-              <div class="mock-nav-title">Settings</div>
-              <button type="button" class="mock-nav-tab mock-tab-active" data-mock-tab="general" role="tab" aria-selected="true" aria-controls="mock-panel-general" id="tab-general">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mock-tab-icon"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                General
-              </button>
-              <button type="button" class="mock-nav-tab" data-mock-tab="speech" role="tab" aria-selected="false" aria-controls="mock-panel-speech" id="tab-speech">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mock-tab-icon"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-                Speech
-              </button>
-              <button type="button" class="mock-nav-tab" data-mock-tab="hotkeys" role="tab" aria-selected="false" aria-controls="mock-panel-hotkeys" id="tab-hotkeys">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mock-tab-icon"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><line x1="6" y1="8" x2="6" y2="8"></line><line x1="10" y1="8" x2="10" y2="8"></line><line x1="14" y1="8" x2="14" y2="8"></line><line x1="18" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="18" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
-                Hotkeys
-              </button>
-              <button type="button" class="mock-nav-tab" data-mock-tab="history" role="tab" aria-selected="false" aria-controls="mock-panel-history" id="tab-history">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mock-tab-icon"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                History
-              </button>
-              <button type="button" class="mock-nav-tab" data-mock-tab="about" role="tab" aria-selected="false" aria-controls="mock-panel-about" id="tab-about">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mock-tab-icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                About
-              </button>
-            </nav>
-            
-            <!-- Content Pane -->
-            <div class="mock-settings-pane" id="mock-settings-pane">
-              
-              <!-- 1. PANEL: GENERAL (Active) -->
-              <div class="mock-panel mock-panel-active" id="mock-panel-general" role="tabpanel" aria-labelledby="tab-general">
-                <div class="mock-card-inner">
-                  <h5 class="mock-inner-title">Run Aura on Startup</h5>
-                  <p class="mock-inner-desc">Automatically launch the application when logging into Windows.</p>
-                  <label class="mock-toggle-switch">
-                    <input type="checkbox" id="mock-autostart-chk" checked />
-                    <span class="mock-toggle-track">
-                      <span class="mock-toggle-thumb"></span>
-                    </span>
-                    <span class="mock-toggle-label">Launch Aura on system startup</span>
-                  </label>
-                </div>
-                <div class="mock-card-inner">
-                  <h5 class="mock-inner-title">Interface Language</h5>
-                  <p class="mock-inner-desc">Select the display language for settings and notifications.</p>
-                  <div class="mock-select-wrapper">
-                    <select class="mock-select-box" aria-label="Interface language">
-                      <option value="en">English</option>
-                      <option value="ru">Russian</option>
-                      <option value="de">Deutsch</option>
-                    </select>
-                  </div>
-                </div>
+        <!-- Right Visual: Pure Obsidian Monolith with Acoustic Resonance & Kinetic Luminescence -->
+        <div class="hero-visual">
+          <div class="visual-wrapper">
+            <div class="monolith-canvas" id="monolith-canvas" aria-label="Aura Dictation Simulator">
+              <!-- Pure Typographic Content Surface -->
+              <div class="monolith-editor-surface">
+                <div class="stream-text-wrapper"><span class="stream-text-content" id="demo-editor-text"></span><span class="kinetic-cursor"></span></div>
               </div>
               
-              <!-- 2. PANEL: SPEECH -->
-              <div class="mock-panel" id="mock-panel-speech" style="display: none;" role="tabpanel" aria-labelledby="tab-speech">
-                <div class="mock-card-inner">
-                  <h5 class="mock-inner-title">Recognition Method</h5>
-                  <p class="mock-inner-desc">Choose between completely offline local transcription or cloud-based AI providers.</p>
-                  <div class="mock-engine-toggle-group">
-                    <label class="mock-engine-option">
-                      <input type="radio" name="mock_trans_mode" value="local" checked id="mock-radio-local" />
-                      <span class="mock-engine-card">
-                        <span class="mock-engine-name">Local AI</span>
-                        <span class="mock-engine-meta">Whisper / Parakeet (100% Offline)</span>
-                      </span>
-                    </label>
-                    <label class="mock-engine-option">
-                      <input type="radio" name="mock_trans_mode" value="cloud" id="mock-radio-cloud" />
-                      <span class="mock-engine-card">
-                        <span class="mock-engine-name">Cloud AI</span>
-                        <span class="mock-engine-meta">Gemini / Groq / OpenAI / Hugging Face</span>
-                      </span>
-                    </label>
-                  </div>
-                </div>
-                
-                <!-- Local Model Subcard -->
-                <div class="mock-card-inner" id="mock-card-local-model">
-                  <h5 class="mock-inner-title">Local Models</h5>
-                  <div class="mock-model-selection">
-                    <div class="mock-model-card mock-model-active" data-mock-model="base">
-                      <span class="mock-model-name">Whisper Base</span>
-                      <span class="mock-model-meta">~145 MB — fast on CPU</span>
+              <!-- Acoustic Resonance Sound Wave Dock with Centered Aura Pill -->
+              <div class="monolith-acoustic-dock">
+                <div class="mock-overlay-pill" id="mock-overlay-pill">
+                  <div class="pill-graphic-wrap">
+                    <!-- Acoustic Resonance Ripple Membrane (Centered on the pill itself) -->
+                    <div class="membrane-ripple-field" id="membrane-ripple-field" aria-hidden="true">
+                      <div class="ripple-circle ripple-1"></div>
+                      <div class="ripple-circle ripple-2"></div>
+                      <div class="ripple-circle ripple-3"></div>
                     </div>
-                    <div class="mock-model-card" data-mock-model="turbo">
-                      <span class="mock-model-name">Whisper Large v3 Turbo (Q5)</span>
-                      <span class="mock-model-meta">~550 MB — recommended</span>
-                    </div>
-                    <div class="mock-model-card" data-mock-model="parakeet">
-                      <span class="mock-model-name">NVIDIA Parakeet TDT v3 (int8)</span>
-                      <span class="mock-model-meta">~670 MB — CUDA GPU support</span>
-                    </div>
-                  </div>
-                </div>
 
-                <!-- Cloud API Keys Subcard -->
-                <div class="mock-card-inner" id="mock-card-api-keys" style="display: none;">
-                  <h5 class="mock-inner-title">Cloud Provider</h5>
-                  <div style="margin-bottom: 12px;">
-                    <div class="mock-select-wrapper">
-                      <select id="mock-api-provider" class="mock-select-box" aria-label="API Provider">
-                        <option value="gemini">Google Gemini AI</option>
-                        <option value="groq">Groq (Whisper + Llama)</option>
-                        <option value="openai">OpenAI (Whisper + GPT)</option>
-                        <option value="huggingface">Hugging Face</option>
-                        <option value="custom">Custom Server</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <input type="password" id="mock-api-key" class="mock-text-input" placeholder="Enter your Gemini API key..." />
-                  </div>
-                </div>
-
-                <div class="mock-card-inner">
-                  <h5 class="mock-inner-title">Recognition Language</h5>
-                  <div class="mock-select-wrapper">
-                    <select class="mock-select-box" aria-label="Recognition language">
-                      <option value="auto">Auto-detect (default)</option>
-                      <option value="layout">Match keyboard layout</option>
-                      <option value="en">English (English)</option>
-                      <option value="ru">Russian (Russian)</option>
-                    </select>
-                  </div>
-                </div>
-                
-                <div class="mock-card-inner">
-                  <h5 class="mock-inner-title">Text Input Mode</h5>
-                  <label class="mock-toggle-switch">
-                    <input type="checkbox" id="mock-streaming-chk" checked />
-                    <span class="mock-toggle-track">
-                      <span class="mock-toggle-thumb"></span>
-                    </span>
-                    <span class="mock-toggle-label">Real-time streaming input</span>
-                  </label>
-                </div>
-              </div>
-              
-              <!-- 3. PANEL: HOTKEYS -->
-              <div class="mock-panel" id="mock-panel-hotkeys" style="display: none;" role="tabpanel" aria-labelledby="tab-hotkeys">
-                <div class="mock-card-inner">
-                  <h5 class="mock-inner-title">Global Hotkey</h5>
-                  <p class="mock-inner-desc">Hold the chosen combination to start recording, release to transcribe.</p>
-                  <input type="text" class="mock-text-input" value="Alt + V" readonly aria-label="Global hotkey" />
-                  <div style="margin-top: 10px;">
-                    <label class="mock-toggle-switch">
-                      <input type="checkbox" id="mock-switch-trigger" />
-                      <span class="mock-toggle-track">
-                        <span class="mock-toggle-thumb"></span>
-                      </span>
-                      <span class="mock-toggle-label">Toggle mode (short click)</span>
-                    </label>
-                  </div>
-                </div>
-                <div class="mock-card-inner">
-                  <h5 class="mock-inner-title">Sound Effects</h5>
-                  <label class="mock-toggle-switch">
-                    <input type="checkbox" id="mock-sound-chk" checked />
-                    <span class="mock-toggle-track">
-                      <span class="mock-toggle-thumb"></span>
-                    </span>
-                    <span class="mock-toggle-label">Enable overlay sounds</span>
-                  </label>
-                  <div class="mock-slider-row" style="margin-top: 15px;">
-                    <span class="mock-label-text">Volume:</span>
-                    <input type="range" id="mock-sound-vol" class="mock-range-slider" min="0" max="100" value="80" aria-label="Sound effects volume" />
-                    <span id="mock-vol-val" class="mock-slider-val-label">80%</span>
-                  </div>
-                  <div style="margin-top: 12px;">
-                    <label class="mock-inner-title" for="mock-sound-theme" style="display: block; font-size: 0.8rem; margin-bottom: 6px;">Sound Theme</label>
-                    <div class="mock-select-wrapper">
-                      <select id="mock-sound-theme" class="mock-select-box">
-                        <option value="zen">Zen (Singing Bowls)</option>
-                        <option value="rhodes">Rhodes (Jazz Piano)</option>
-                        <option value="scifi">Sci-Fi (Space)</option>
-                        <option value="classic">Classic Bell</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- 4. PANEL: HISTORY -->
-              <div class="mock-panel" id="mock-panel-history" style="display: none;" role="tabpanel" aria-labelledby="tab-history">
-                <div class="mock-card-inner" style="padding: 0;">
-                  <div class="mock-history-header">
-                    <h5 class="mock-inner-title">Transcription History</h5>
-                    <button type="button" class="mock-btn-clear" id="mock-btn-clear-history">Clear</button>
-                  </div>
-                  
-                  <div class="mock-history-controls">
-                    <div class="mock-history-search-wrap">
-                      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                      </svg>
-                      <input type="text" id="mock-history-search" class="mock-history-search" placeholder="Search history..." />
-                    </div>
-                    <div class="mock-history-filters">
-                      <button type="button" class="mock-filter-btn active" data-filter="all">All</button>
-                      <button type="button" class="mock-filter-btn" data-filter="local">Local</button>
-                      <button type="button" class="mock-filter-btn" data-filter="cloud">Cloud</button>
-                    </div>
-                  </div>
-                  
-                  <div class="mock-history-list" id="mock-history-list">
-                    <div class="mock-history-item" data-source="local">
-                      <div class="mock-history-text">Run local Whisper model.</div>
-                      <div class="mock-history-meta">10 seconds ago &middot; Local (Base)</div>
-                    </div>
-                    <div class="mock-history-item" data-source="local">
-                      <div class="mock-history-text">Testing NVIDIA Parakeet GPU acceleration.</div>
-                      <div class="mock-history-meta">2 minutes ago &middot; Local (CUDA)</div>
-                    </div>
-                    <div class="mock-history-item" data-source="cloud">
-                      <div class="mock-history-text">Fast speech typing into the active window.</div>
-                      <div class="mock-history-meta">5 minutes ago &middot; Cloud (Groq)</div>
-                    </div>
-                  </div>
-                  
-                  <div class="mock-history-empty" id="mock-history-empty" style="display: none;">
-                    History is empty.
-                  </div>
-                </div>
-              </div>
-              
-              <!-- 5. PANEL: ABOUT -->
-              <div class="mock-panel" id="mock-panel-about" style="display: none;" role="tabpanel" aria-labelledby="tab-about">
-                <div class="mock-card-inner mock-about-card">
-                  <div class="mock-about-logo">
-                    <svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" style="background: none; width: 44px; height: 44px;">
-                      <path class="logo-outer" d="M398.114 421C445.533 380.876 474.714 322.514 474.714 256.857C474.714 136.486 376.229 38 255.857 38C135.486 38 37 136.486 37 256.857C37 322.514 66.1809 380.876 113.6 421" stroke="#FF4200" stroke-width="73.1573" />
-                      <path class="logo-inner" d="M181.963 176.024L42.0293 511.651H142.825L200.192 352.952L247.909 233.927C250.769 226.064 253.45 222.132 255.952 222.132C258.096 222.132 260.598 226.064 263.458 233.927L311.175 352.952L368.542 511.651H469.874L329.404 176.024C322.255 158.867 312.783 147.25 300.988 141.174C289.55 135.098 274.538 132.06 255.952 132.06C234.148 132.06 217.885 135.455 207.162 142.246C196.797 149.038 188.397 160.297 181.963 176.024Z" fill="#FE4200" />
+                    <!-- Authentic Aura Overlay Pill -->
+                    <svg width="103" height="30" viewBox="0 0 103 30" fill="none" xmlns="http://www.w3.org/2000/svg" class="overlay-pill-svg">
+                      <g clip-path="url(#clip_overlay_ru)" transform="translate(3.0, 3.825) scale(0.75)">
+                        <path d="M12.2707 20.7875C10.4925 19.2829 9.39822 17.0943 9.39822 14.6322C9.39822 10.1183 13.0914 6.42505 17.6054 6.42505C22.1193 6.42505 25.8125 10.1183 25.8125 14.6322C25.8125 17.0943 24.7182 19.2829 22.94 20.7875" stroke="#FF4200" stroke-width="2.7434"/>
+                        <path d="M20.3763 11.601L25.6238 24.1871H21.844L19.6927 18.2358L17.9033 13.7724C17.796 13.4776 17.6955 13.3301 17.6017 13.3301C17.5213 13.3301 17.4274 13.4776 17.3202 13.7724L15.5308 18.2358L13.3795 24.1871H9.57961L14.8472 11.601C15.1153 10.9577 15.4705 10.522 15.9128 10.2942C16.3418 10.0663 16.9047 9.95239 17.6017 9.95239C18.4193 9.95239 19.0292 10.0797 19.4313 10.3344C19.82 10.5891 20.135 11.0113 20.3763 11.601Z" fill="#FE4200"/>
+                      </g>
+                      <rect class="sound-bar" x="32.4" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
+                      <rect class="sound-bar" x="38.7" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
+                      <rect class="sound-bar" x="45.0" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
+                      <rect class="sound-bar" x="51.3" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
+                      <rect class="sound-bar" x="57.6" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
+                      <rect class="sound-bar" x="63.9" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
+                      <rect class="sound-bar" x="70.2" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
+                      <rect class="sound-bar" x="76.5" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
+                      <rect class="sound-bar" x="82.8" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
+                      <rect class="sound-bar" x="89.1" y="11.6001" width="3" height="6" rx="1.5" fill="#FE4200"/>
+                      <defs>
+                        <clipPath id="clip_overlay_ru">
+                          <rect width="19.2" height="19.2" fill="white" transform="matrix(-1 0 0 1 27.2 5)"/>
+                        </clipPath>
+                      </defs>
                     </svg>
                   </div>
-                  <h4 class="mock-about-title">Aura</h4>
-                  <span class="mock-about-ver">v1.0.8</span>
-                  <p class="mock-about-text">Fast voice typing utility for Windows. Works with local models (Whisper, NVIDIA Parakeet) and cloud providers (Gemini, OpenAI, Groq, Hugging Face).</p>
+
+                  <!-- Realtime Timer & Status Display -->
+                  <span class="mock-overlay-status" id="mock-overlay-status">0:00</span>
                 </div>
               </div>
-
             </div>
           </div>
         </div>
       </div>
-      <div class="layout-content reveal-on-scroll">
-        <h2 class="section-title">Flexibility in Every Detail</h2>
-        <p class="section-desc">Customize Aura for your workflow. Choose local models or cloud services, adjust hotkeys, select overlay sound themes, and manage your history.</p>
+    </div>
+
+    <!-- Hero Scroll Indicator -->
+    <a href="#how-it-works" id="hero-scroll-indicator" class="hero-scroll-indicator" aria-label="Как это устроено">
+      <span class="hero-scroll-caption" data-i18n="hero_scroll_caption">How it works</span>
+      <svg class="hero-scroll-arrowhead" width="32" height="16" viewBox="0 0 32 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 3L16 13L30 3" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </a>
+  </section>
+
+  <!-- How it Works Section -->
+  <!-- How it Works Section -->
+  <section id="how-it-works" class="section">
+    <div class="container">
+      <div class="section-head">
+        <h2 class="section-title" data-i18n="how_it_works_title">How it works</h2>
+        <p class="section-desc" data-i18n="how_it_works_desc">Voice typing built directly into the system: no&nbsp;extra windows, clipboard hops, or&nbsp;context switching.</p>
+      </div>
+
+      <!-- SVG Gradients Definition for Step Numbers -->
+      <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
+        <defs>
+          <linearGradient id="pipeline-num-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.48"/>
+            <stop offset="55%" stop-color="#ffffff" stop-opacity="0.12"/>
+            <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+          </linearGradient>
+          <linearGradient id="pipeline-num-grad-hover" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#ff7a28" stop-opacity="0.85"/>
+            <stop offset="60%" stop-color="#ff4200" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="#ff4200" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+      </svg>
+
+      <div class="pipeline-grid">
+        <div class="pipeline-card-wrap">
+          <div class="pipeline-num-canvas" aria-hidden="true">
+            <svg class="pipeline-step-svg step-svg-base" viewBox="0 0 160 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <text x="50%" y="195" text-anchor="middle" font-family="'Onest', system-ui, -apple-system, sans-serif" font-weight="900" font-size="220" letter-spacing="-0.06em" fill="url(#pipeline-num-grad)">1</text>
+            </svg>
+            <svg class="pipeline-step-svg step-svg-hover" viewBox="0 0 160 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <text x="50%" y="195" text-anchor="middle" font-family="'Onest', system-ui, -apple-system, sans-serif" font-weight="900" font-size="220" letter-spacing="-0.06em" fill="url(#pipeline-num-grad-hover)">1</text>
+            </svg>
+          </div>
+          <div class="pipeline-card card-keycap">
+            <div class="pipeline-header">
+              <div class="pipeline-icon-wrap keycap-wrap">
+                <img src="assets/keycap_base.png" class="keycap-base-img" alt="Switch Base" aria-hidden="true">
+                <img src="assets/keycap_cap.png" class="keycap-cap-img" alt="Глобальный хоткей">
+              </div>
+              <h3 class="pipeline-title" data-i18n="step1_title">Global Hotkey</h3>
+            </div>
+            <p class="pipeline-body" data-i18n="step1_body">Press <strong class="hotkey-token">Alt&nbsp;+&nbsp;V</strong> in&nbsp;any active application. While held down, Aura records voice input smoothly in&nbsp;the background without latency.</p>
+          </div>
+        </div>
+
+        <div class="pipeline-card-wrap">
+          <div class="pipeline-num-canvas" aria-hidden="true">
+            <svg class="pipeline-step-svg step-svg-base" viewBox="0 0 160 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <text x="50%" y="195" text-anchor="middle" font-family="'Onest', system-ui, -apple-system, sans-serif" font-weight="900" font-size="220" letter-spacing="-0.06em" fill="url(#pipeline-num-grad)">2</text>
+            </svg>
+            <svg class="pipeline-step-svg step-svg-hover" viewBox="0 0 160 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <text x="50%" y="195" text-anchor="middle" font-family="'Onest', system-ui, -apple-system, sans-serif" font-weight="900" font-size="220" letter-spacing="-0.06em" fill="url(#pipeline-num-grad-hover)">2</text>
+            </svg>
+          </div>
+          <div class="pipeline-card card-chip">
+            <div class="pipeline-header">
+              <div class="pipeline-icon-wrap chip-wrap">
+                <img src="assets/chip_base.png" class="chip-base-img" alt="Socket Base" aria-hidden="true">
+                <img src="assets/chip_die.png" class="chip-die-img" alt="Локальная обработка">
+              </div>
+              <h3 class="pipeline-title" data-i18n="step2_title">Local Processing</h3>
+            </div>
+            <p class="pipeline-body" data-i18n="step2_body">Whisper and&nbsp;Parakeet models process audio directly on&nbsp;your PC&nbsp;— powered by&nbsp;CPU or&nbsp;NVIDIA GPU.</p>
+          </div>
+        </div>
+
+        <div class="pipeline-card-wrap">
+          <div class="pipeline-num-canvas" aria-hidden="true">
+            <svg class="pipeline-step-svg step-svg-base" viewBox="0 0 160 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <text x="50%" y="195" text-anchor="middle" font-family="'Onest', system-ui, -apple-system, sans-serif" font-weight="900" font-size="220" letter-spacing="-0.06em" fill="url(#pipeline-num-grad)">3</text>
+            </svg>
+            <svg class="pipeline-step-svg step-svg-hover" viewBox="0 0 160 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <text x="50%" y="195" text-anchor="middle" font-family="'Onest', system-ui, -apple-system, sans-serif" font-weight="900" font-size="220" letter-spacing="-0.06em" fill="url(#pipeline-num-grad-hover)">3</text>
+            </svg>
+          </div>
+          <div class="pipeline-card card-cursor">
+            <div class="pipeline-header">
+              <div class="pipeline-icon-wrap cursor-wrap">
+                <img src="assets/cursor_letter_a.png" class="cursor-letter-a-img" alt="A" aria-hidden="true">
+                <img src="assets/cursor_caret.png" class="cursor-caret-img" alt="Печать под курсор">
+              </div>
+              <h3 class="pipeline-title" data-i18n="step3_title">Direct Cursor Typing</h3>
+            </div>
+            <p class="pipeline-body" data-i18n="step3_body">Formatted text with automatic punctuation and&nbsp;capitalization appears directly where your cursor is positioned.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Key Advantages Bento Section -->
+  <section id="features" class="section">
+    <div class="container">
+      <div class="section-head">
+        <h2 class="section-title" data-i18n="bento_title">Architecture Advantages</h2>
+        <p class="section-desc" data-i18n="bento_desc">Engineered for maximum performance, data privacy, and instant response.</p>
+      </div>
+
+      <div class="features-deck-container" id="features-deck" role="region" aria-label="Преимущества архитектуры">
         
-        <div class="shortcuts-card">
-          <h3 class="shortcuts-title">Default Controls:</h3>
-          <div class="shortcut-row">
-            <span class="shortcut-action">Start recording</span>
-            <kbd class="shortcut-key">Alt + V</kbd>
+        <!-- Card 1: Local Processing & Privacy -->
+        <article class="deck-card is-active" data-deck-index="0" id="deck-card-0">
+          <div class="deck-card-body">
+            <div class="deck-card-content">
+              <h3 class="deck-card-title" data-i18n="bento1_title">Local Processing & Privacy</h3>
+              <p class="deck-card-desc" data-i18n="bento1_body">When choosing local models, audio never leaves your PC. Zero external cloud servers, hidden logging, or telemetry.</p>
+            </div>
+            <div class="deck-card-visual">
+              <div class="bento-privacy-plates">
+                <div class="privacy-plate">
+                  <img src="assets/privacy_shield.png" class="privacy-plate-img" alt="100% Офлайн" width="34" height="34">
+                  <div class="privacy-plate-info">
+                    <span class="privacy-plate-title" data-i18n="bento1_p1_title">100% Offline</span>
+                    <span class="privacy-plate-sub" data-i18n="bento1_p1_sub">No cloud transfers</span>
+                  </div>
+                </div>
+
+                <div class="privacy-plate">
+                  <img src="assets/privacy_lock.png" class="privacy-plate-img" alt="0% Телеметрии" width="34" height="34">
+                  <div class="privacy-plate-info">
+                    <span class="privacy-plate-title" data-i18n="bento1_p2_title">0% Telemetry</span>
+                    <span class="privacy-plate-sub" data-i18n="bento1_p2_sub">DPAPI Encrypted</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="shortcut-row">
-            <span class="shortcut-action">Finish and insert</span>
-            <span class="shortcut-desc">release Alt + V</span>
+        </article>
+
+        <!-- Card 2: Universal App Typing -->
+        <article class="deck-card" data-deck-index="1" id="deck-card-1">
+          <div class="deck-card-body">
+            <div class="deck-card-content">
+              <h3 class="deck-card-title" data-i18n="bento2_title">Type in Any Application</h3>
+              <p class="deck-card-desc" data-i18n="bento2_body">Transcribed text is typed directly under your cursor into any active Windows window without clipboard interference.</p>
+            </div>
+            <div class="deck-card-visual">
+              <div class="bento-apps-grid grid-1row" role="list" aria-label="Поддерживаемые приложения">
+                <div class="app-logo-item" data-app="Telegram" role="listitem">
+                  <img src="assets/app_telegram.png" alt="Telegram" class="app-logo-img" width="28" height="28">
+                  <span class="app-logo-tooltip">Telegram</span>
+                </div>
+                <div class="app-logo-item" data-app="Discord" role="listitem">
+                  <img src="assets/app_discord.png" alt="Discord" class="app-logo-img" width="28" height="28">
+                  <span class="app-logo-tooltip">Discord</span>
+                </div>
+                <div class="app-logo-item" data-app="VS Code" role="listitem">
+                  <img src="assets/app_vscode.png" alt="VS Code" class="app-logo-img" width="28" height="28">
+                  <span class="app-logo-tooltip">VS Code</span>
+                </div>
+                <div class="app-logo-item" data-app="Notion" role="listitem">
+                  <img src="assets/app_notion.png" alt="Notion" class="app-logo-img" width="28" height="28">
+                  <span class="app-logo-tooltip">Notion</span>
+                </div>
+                <div class="app-logo-item" data-app="Obsidian" role="listitem">
+                  <img src="assets/app_obsidian.png" alt="Obsidian" class="app-logo-img" width="28" height="28">
+                  <span class="app-logo-tooltip">Obsidian</span>
+                </div>
+                <div class="app-logo-item" data-app="Google Chrome" role="listitem">
+                  <img src="assets/app_chrome.png" alt="Google Chrome" class="app-logo-img" width="28" height="28">
+                  <span class="app-logo-tooltip">Google Chrome</span>
+                </div>
+                <div class="app-logo-item app-logo-more" data-app="Any Windows App" role="listitem">
+                  <div class="app-more-plus-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                  </div>
+                  <span class="app-logo-tooltip">Any Windows App</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="shortcut-row">
-            <span class="shortcut-action">Toggle mode</span>
-            <span class="shortcut-desc">short press</span>
+        </article>
+
+        <!-- Card 3: Dual Hardware Architecture -->
+        <article class="deck-card" data-deck-index="2" id="deck-card-2">
+          <div class="deck-card-body">
+            <div class="deck-card-content">
+              <h3 class="deck-card-title" data-i18n="bento3_title">Runs on Any Hardware</h3>
+              <p class="deck-card-desc" data-i18n="bento3_body">Runs on any Intel and&nbsp;AMD processor out of the box, with 1-click NVIDIA CUDA GPU acceleration.</p>
+            </div>
+            <div class="deck-card-visual">
+              <div class="bento-hw-plates">
+                <!-- CPU Plate -->
+                <div class="hw-plate">
+                  <div class="hw-plate-logos">
+                    <img src="assets/hw_intel.png" alt="Intel" class="hw-brand-img img-intel">
+                    <span class="hw-brand-sep">/</span>
+                    <img src="assets/hw_amd.png" alt="AMD" class="hw-brand-img img-amd">
+                  </div>
+                  <div class="hw-plate-info">
+                    <span class="hw-plate-title" data-i18n="bento3_p1_title">Processor</span>
+                    <span class="hw-plate-sub" data-i18n="bento3_p1_sub">Intel & AMD</span>
+                  </div>
+                </div>
+
+                <!-- GPU Plate -->
+                <div class="hw-plate">
+                  <div class="hw-plate-logos">
+                    <img src="assets/hw_nvidia.png" alt="NVIDIA" class="hw-brand-img img-nvidia">
+                  </div>
+                  <div class="hw-plate-info">
+                    <span class="hw-plate-title" data-i18n="bento3_p2_title">Graphics Card</span>
+                    <span class="hw-plate-sub" data-i18n="bento3_p2_sub">NVIDIA CUDA</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="shortcut-row">
-            <span class="shortcut-action">Cancel recording</span>
-            <kbd class="shortcut-key">Esc</kbd>
+        </article>
+
+        <!-- Card 4: Open Source GitHub Project -->
+        <article class="deck-card" data-deck-index="3" id="deck-card-3">
+          <div class="deck-card-body">
+            <div class="deck-card-content">
+              <h3 class="deck-card-title" data-i18n="bento4_title">Open Source Project</h3>
+              <p class="deck-card-desc" data-i18n="bento4_body">Completely free, with zero ads or paid subscriptions. Source code is open to everyone on GitHub under AGPL-3.0.</p>
+            </div>
+            <div class="deck-card-visual">
+              <div class="bento-github-action">
+                <a href="https://github.com/malashkadev/aura" target="_blank" rel="noopener" class="btn-github-action">
+                  <span class="btn-github-action-left">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                    <span data-i18n="bento4_btn">Aura Repository on GitHub</span>
+                  </span>
+                  <span class="external-arrow-wrapper" aria-hidden="true">
+                    <svg class="external-arrow arrow-primary" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M7 17L17 7M17 7H7M17 7V17"/>
+                    </svg>
+                    <svg class="external-arrow arrow-clone" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M7 17L17 7M17 7H7M17 7V17"/>
+                    </svg>
+                  </span>
+                </a>
+              </div>
+            </div>
           </div>
-        </div>
+        </article>
       </div>
-    </div>
-  </section>
 
-  <!-- Dedicated Privacy Highlight Banner Section -->
-  <section class="privacy-section" id="privacy">
-    <div class="section-container">
-      <div class="privacy-card reveal-on-scroll">
-        <div class="privacy-glow"></div>
-        <div class="privacy-card-layout">
-          <div class="privacy-icon-area">
-            <svg class="privacy-lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
-          </div>
-          <div class="privacy-text-area">
-            <h3 class="privacy-title">Privacy & Data Security</h3>
-            <p class="privacy-desc">In local mode, recordings are processed entirely offline on your machine and never leave your PC. In cloud mode, audio, the generated transcript, selected text (when selection editing is active), and custom dictionary terms are sent directly to your chosen provider over TLS with zero telemetry. API keys and history are encrypted locally with Windows DPAPI. Optional update checks run only on demand or when explicitly enabled.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- FAQ Section (Accordions) -->
-  <section class="faq-section" id="faq">
-    <div class="section-container">
-      <h2 class="section-title reveal-on-scroll">Frequently Asked Questions</h2>
-      
-      <div class="faq-list">
-        <!-- Q1 -->
-        <div class="faq-item reveal-on-scroll">
-          <button type="button" class="faq-question-btn" aria-expanded="false">
-            <span>How is Aura different from Windows built-in voice typing (Win+H)?</span>
-            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </button>
-          <div class="faq-answer-pane">
-            <div class="faq-answer-content">
-              <p>Aura is faster, transcribes speech more accurately, and types text directly without losing window focus. The biggest difference is full offline autonomy with local models (Whisper, NVIDIA Parakeet) without sending voice data to Microsoft servers or the internet.</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Q2 -->
-        <div class="faq-item reveal-on-scroll">
-          <button type="button" class="faq-question-btn" aria-expanded="false">
-            <span>How secure and private is it?</span>
-            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </button>
-          <div class="faq-answer-pane">
-            <div class="faq-answer-content">
-              <p>The application contains no telemetry or analytics. Local mode runs entirely offline on your PC. Cloud mode communicates directly with your selected provider (Google, OpenAI, Groq) via encrypted TLS connections. API keys and transcription history are encrypted locally with Windows DPAPI.</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Q3 -->
-        <div class="faq-item reveal-on-scroll">
-          <button type="button" class="faq-question-btn" aria-expanded="false">
-            <span>What PC requirements are needed for local recognition?</span>
-            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </button>
-          <div class="faq-answer-pane">
-            <div class="faq-answer-content">
-              <p>For Whisper Base, any modern 4-core CPU and 4 GB RAM is sufficient with no extra setup. For NVIDIA Parakeet, GPU acceleration is supported — required CUDA libraries are downloaded automatically by the app without manual software installation.</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Q4 -->
-        <div class="faq-item reveal-on-scroll">
-          <button type="button" class="faq-question-btn" aria-expanded="false">
-            <span>Do I need to pay for Aura?</span>
-            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </button>
-          <div class="faq-answer-pane">
-            <div class="faq-answer-content">
-              <p>No, Aura is 100% free and open-source under the AGPL-3.0 license. There are no subscriptions or hidden limits. If using cloud mode with your own API keys, you only use the provider's pricing (Groq and Gemini often offer free tiers).</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Q5 -->
-        <div class="faq-item reveal-on-scroll">
-          <button type="button" class="faq-question-btn" aria-expanded="false">
-            <span>Is there a version for macOS or Linux?</span>
-            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
-          </button>
-          <div class="faq-answer-pane">
-            <div class="faq-answer-content">
-              <p>Official builds are currently available for Windows 10 and 11. A native macOS port is already in the repository and builds on CI; a release will follow once hardware testing is completed. Follow development on <a href="https://github.com/malashkadev/aura" style="color: var(--accent-color);">GitHub</a>.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  </main>
-
-  <!-- Footer -->
-  <footer class="site-footer">
-    <div class="footer-container">
-      <div class="footer-brand">
-        <div class="footer-logo-row">
-          <svg class="footer-logo" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path class="logo-outer" d="M398.114 421C445.533 380.876 474.714 322.514 474.714 256.857C474.714 136.486 376.229 38 255.857 38C135.486 38 37 136.486 37 256.857C37 322.514 66.1809 380.876 113.6 421" stroke="currentColor" stroke-width="73.1573" />
-            <path class="logo-outer-ripple" d="M398.114 421C445.533 380.876 474.714 322.514 474.714 256.857C474.714 136.486 376.229 38 255.857 38C135.486 38 37 136.486 37 256.857C37 322.514 66.1809 380.876 113.6 421" stroke="currentColor" stroke-width="73.1573" />
-            <path class="logo-inner" d="M181.963 176.024L42.0293 511.651H142.825L200.192 352.952L247.909 233.927C250.769 226.064 253.45 222.132 255.952 222.132C258.096 222.132 260.598 226.064 263.458 233.927L311.175 352.952L368.542 511.651H469.874L329.404 176.024C322.255 158.867 312.783 147.25 300.988 141.174C289.55 135.098 274.538 132.06 255.952 132.06C234.148 132.06 217.885 135.455 207.162 142.246C196.797 149.038 188.397 160.297 181.963 176.024Z" fill="currentColor" />
+      <!-- Segment Controller Dock (Option 1: Prev / Segment Pills / Next) -->
+      <div class="deck-controls-dock" aria-label="Advantages Navigation">
+        <button type="button" class="deck-nav-btn btn-deck-prev" id="deck-btn-prev" aria-label="Previous advantage" title="Предыдущее преимущество">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="15 18 9 12 15 6"></polyline>
           </svg>
-          <span class="logo-text">AURA</span>
+        </button>
+
+        <div class="deck-segment-bar" aria-hidden="true">
+          <span class="deck-segment-pill is-active"></span>
+          <span class="deck-segment-pill"></span>
+          <span class="deck-segment-pill"></span>
+          <span class="deck-segment-pill"></span>
         </div>
-        <p class="footer-desc">High-speed open-source voice typing for Windows. Crafted by <a href="https://github.com/malashkadev" target="_blank" rel="noopener noreferrer" style="color: var(--accent-color); font-weight: 500;">@malashkadev</a>.</p>
+
+        <button type="button" class="deck-nav-btn btn-deck-next" id="deck-btn-next" aria-label="Next advantage" title="Следующее преимущество">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
       </div>
-      <div class="footer-links">
-        <div class="footer-link-group">
-          <span class="footer-group-title">Application</span>
-          <a href="Aura_1.0.8_x64-setup.exe" download class="footer-link" id="footer-download-link">Download Aura</a>
-          <a href="https://github.com/malashkadev/aura/releases" class="footer-link" id="footer-releases-link">Changelog</a>
-        </div>
-        <div class="footer-link-group">
-          <span class="footer-group-title">Development</span>
-          <a href="https://github.com/malashkadev/aura" class="footer-link" id="footer-github-link">Open GitHub</a>
-          <a href="https://github.com/malashkadev/aura/blob/main/LICENSE" class="footer-link" id="footer-license-link">AGPL-3.0 License</a>
+    </div>
+  </section>
+
+  <!-- App Interface Showcase Section -->
+  <section id="interface" class="section">
+    <div class="container">
+      <div class="section-head">
+        <h2 class="section-title" data-i18n="interface_title">App Interface</h2>
+        <p class="section-desc" data-i18n="interface_desc">Clean and focused settings dashboard. Full control over models, audio capture, and hotkeys.</p>
+      </div>
+
+      <div class="app-showcase-window">
+        <div class="showcase-window-frame" role="region" aria-label="Демонстрация интерфейса Aura">
+          <!-- Window Header -->
+          <div class="showcase-window-header">
+            <div class="showcase-window-brand">
+              <svg class="showcase-app-logo" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path class="logo-outer" d="M398.114 421C445.533 380.876 474.714 322.514 474.714 256.857C474.714 136.486 376.229 38 255.857 38C135.486 38 37 136.486 37 256.857C37 322.514 66.1809 380.876 113.6 421" stroke="currentColor" stroke-width="73.1573"/>
+                <path class="logo-outer-ripple" d="M398.114 421C445.533 380.876 474.714 322.514 474.714 256.857C474.714 136.486 376.229 38 255.857 38C135.486 38 37 136.486 37 256.857C37 322.514 66.1809 380.876 113.6 421" stroke="currentColor" stroke-width="73.1573"/>
+                <path class="logo-inner" d="M181.963 176.024L42.0293 511.651H142.825L200.192 352.952L247.909 233.927C250.769 226.064 253.45 222.132 255.952 222.132C258.096 222.132 260.598 226.064 263.458 233.927L311.175 352.952L368.542 511.651H469.874L329.404 176.024C322.255 158.867 312.783 147.25 300.988 141.174C289.55 135.098 274.538 132.06 255.952 132.06C234.148 132.06 217.885 135.455 207.162 142.246C196.797 149.038 188.397 160.297 181.963 176.024Z" fill="currentColor"/>
+              </svg>
+              <span class="showcase-logo-text">AURA</span>
+            </div>
+            <div class="showcase-window-controls">
+              <span class="showcase-win-btn showcase-win-minimize" aria-hidden="true" title="Minimize">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </span>
+              <span class="showcase-win-btn showcase-win-close" aria-hidden="true" title="Close">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </span>
+            </div>
+          </div>
+
+          <!-- Window Body: Nav + Content -->
+          <div class="showcase-window-body">
+            <!-- Sidebar -->
+            <aside class="showcase-sidebar">
+              <div class="showcase-nav-title" data-i18n="showcase_nav_title">Settings</div>
+              <nav class="showcase-nav-list" role="tablist" aria-label="Settings Tabs">
+                <button type="button" class="showcase-tab active" data-showcase-tab="general" role="tab" aria-selected="true" aria-controls="showcase-panel-general">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="showcase-tab-icon"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                  <span data-i18n="showcase_tab_general">General</span>
+                </button>
+                <button type="button" class="showcase-tab" data-showcase-tab="speech" role="tab" aria-selected="false" aria-controls="showcase-panel-speech">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="showcase-tab-icon"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                  <span data-i18n="showcase_tab_speech">Speech</span>
+                </button>
+                <button type="button" class="showcase-tab" data-showcase-tab="hotkeys" role="tab" aria-selected="false" aria-controls="showcase-panel-hotkeys">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="showcase-tab-icon"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><line x1="6" y1="8" x2="6" y2="8"></line><line x1="10" y1="8" x2="10" y2="8"></line><line x1="14" y1="8" x2="14" y2="8"></line><line x1="18" y1="8" x2="18" y2="8"></line><line x1="6" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="18" y2="12"></line><line x1="7" y1="16" x2="17" y2="16"></line></svg>
+                  <span data-i18n="showcase_tab_hotkeys">Hotkeys</span>
+                </button>
+                <button type="button" class="showcase-tab" data-showcase-tab="history" role="tab" aria-selected="false" aria-controls="showcase-panel-history">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="showcase-tab-icon"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  <span data-i18n="showcase_tab_history">History</span>
+                </button>
+                <button type="button" class="showcase-tab" data-showcase-tab="about" role="tab" aria-selected="false" aria-controls="showcase-panel-about">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="showcase-tab-icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                  <span data-i18n="showcase_tab_about">About</span>
+                </button>
+              </nav>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="showcase-content">
+              <!-- Panel 1: General -->
+              <section class="showcase-panel active" id="showcase-panel-general" role="tabpanel">
+                <div class="showcase-card">
+                  <h3 class="showcase-card-title" data-i18n="showcase_card_autostart_title">Aura Autostart</h3>
+                  <p class="showcase-card-desc" data-i18n="showcase_card_autostart_desc">Launch application automatically when signing into Windows.</p>
+                  <label class="showcase-toggle">
+                    <input type="checkbox" checked />
+                    <span class="showcase-toggle-track"><span class="showcase-toggle-thumb"></span></span>
+                    <span class="showcase-toggle-label" data-i18n="showcase_toggle_autostart">Launch Aura on Windows startup</span>
+                  </label>
+                </div>
+
+                <div class="showcase-card">
+                  <h3 class="showcase-card-title" data-i18n="showcase_card_lang_title">Interface Language</h3>
+                  <p class="showcase-card-desc" data-i18n="showcase_card_lang_desc">Choose language for app settings and system notifications.</p>
+                  <div class="showcase-field-group">
+                    <span class="showcase-field-label" data-i18n="showcase_label_lang">Interface language</span>
+                    <div class="showcase-select-box">
+                      <span data-i18n="showcase_val_lang">English</span>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="showcase-card">
+                  <h3 class="showcase-card-title" data-i18n="showcase_card_timer_title">Timer and Overlay Status</h3>
+                  <p class="showcase-card-desc" data-i18n="showcase_card_timer_desc">Display elapsed time and processing status beneath the mic pill. Errors are always visible.</p>
+                  <label class="showcase-toggle">
+                    <input type="checkbox" checked />
+                    <span class="showcase-toggle-track"><span class="showcase-toggle-thumb"></span></span>
+                    <span class="showcase-toggle-label" data-i18n="showcase_toggle_timer">Show timer and status in overlay</span>
+                  </label>
+                </div>
+
+                <div class="showcase-card">
+                  <h3 class="showcase-card-title" data-i18n="showcase_card_updates_title">Check for Updates</h3>
+                  <p class="showcase-card-desc" data-i18n="showcase_card_updates_desc">Aura connects to GitHub only during manual checks or when auto-check is enabled.</p>
+                  <label class="showcase-toggle">
+                    <input type="checkbox" />
+                    <span class="showcase-toggle-track"><span class="showcase-toggle-thumb"></span></span>
+                    <span class="showcase-toggle-label" data-i18n="showcase_toggle_updates">Automatically check for updates on launch</span>
+                  </label>
+                  <div class="showcase-btn-row">
+                    <button type="button" class="btn btn-secondary btn-sm showcase-action-btn" data-i18n="showcase_btn_updates">Check for Updates</button>
+                  </div>
+                </div>
+              </section>
+
+              <!-- Panel 2: Speech -->
+              <section class="showcase-panel" id="showcase-panel-speech" role="tabpanel" style="display: none;">
+                <div class="showcase-card">
+                  <div class="showcase-mic-header">
+                    <div>
+                      <h3 class="showcase-card-title" data-i18n="showcase_card_mic_title">Microphone Check</h3>
+                      <p class="showcase-card-desc" data-i18n="showcase_card_mic_desc">Test input audio level and voice activity detection in real time.</p>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" id="showcase-btn-mic-test" data-i18n="showcase_btn_mic_test">Test Audio</button>
+                  </div>
+                  <div class="showcase-field-group">
+                    <span class="showcase-field-label" data-i18n="showcase_label_mic_device">Microphone (Input Device)</span>
+                    <div class="showcase-select-box">
+                      <span data-i18n="showcase_val_mic_device">Default (System Default)</span>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                  </div>
+                  <div class="showcase-mic-meter-bar">
+                    <div class="showcase-mic-fill" id="showcase-mic-fill"></div>
+                  </div>
+                  <div class="showcase-mic-status">
+                    <span class="showcase-vad-dot" id="showcase-vad-dot"></span>
+                    <span class="showcase-vad-text" id="showcase-vad-text" data-i18n="showcase_vad_silence">Silence</span>
+                  </div>
+                </div>
+
+                <div class="showcase-card">
+                  <h3 class="showcase-card-title" data-i18n="showcase_card_mode_title">Recognition Mode</h3>
+                  <p class="showcase-card-desc" data-i18n="showcase_card_mode_desc">Choose between high-speed cloud providers or fully autonomous offline local speech recognition.</p>
+                  <div class="showcase-engine-toggle">
+                    <div class="showcase-engine-card active" data-engine-mode="local">
+                      <span class="showcase-engine-name" data-i18n="showcase_mode_local_name">Local AI</span>
+                      <span class="showcase-engine-meta" data-i18n="showcase_mode_local_meta">Whisper / Parakeet (100% offline)</span>
+                    </div>
+                    <div class="showcase-engine-card" data-engine-mode="cloud">
+                      <span class="showcase-engine-name" data-i18n="showcase_mode_cloud_name">Cloud AI</span>
+                      <span class="showcase-engine-meta" data-i18n="showcase_mode_cloud_meta">Gemini / OpenAI / Groq (API key required)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="showcase-card">
+                  <h3 class="showcase-card-title" data-i18n="showcase_card_recog_title">Local Speech Recognition</h3>
+                  <p class="showcase-card-desc" data-i18n="showcase_card_recog_desc">Configure local speech engine for complete privacy.</p>
+                  <div class="showcase-field-group">
+                    <span class="showcase-field-label" data-i18n="showcase_label_recog_engine">Recognition Engine</span>
+                    <div class="showcase-select-box">
+                      <span>Whisper.cpp</span>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                  </div>
+                  <div class="showcase-subgroup">
+                    <span class="showcase-field-label" data-i18n="showcase_label_hw_accel">Local Hardware Acceleration</span>
+                    <div class="showcase-hardware-grid">
+                      <div class="showcase-hw-item">
+                        <div class="showcase-hw-info">
+                          <span class="showcase-hw-name" data-i18n="showcase_hw_cpu_name">CPU (No Acceleration)</span>
+                          <span class="showcase-hw-desc" data-i18n="showcase_hw_cpu_desc">Standard mode. Compatible with any PC, utilizes CPU cores.</span>
+                        </div>
+                      </div>
+                      <div class="showcase-hw-item active">
+                        <div class="showcase-hw-info">
+                          <span class="showcase-hw-name" data-i18n="showcase_hw_gpu_name">NVIDIA CUDA (Max Speed)</span>
+                          <span class="showcase-hw-desc" data-i18n="showcase_hw_gpu_desc">For GeForce GPUs. Uses dedicated VRAM for instant response.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="showcase-card">
+                  <h3 class="showcase-card-title" data-i18n="showcase_card_speech_lang_title">Speech Language</h3>
+                  <p class="showcase-card-desc" data-i18n="showcase_card_speech_lang_desc">Choose recognition language or enable auto-detection.</p>
+                  <div class="showcase-field-group">
+                    <span class="showcase-field-label" data-i18n="showcase_label_speech_lang">Select Language</span>
+                    <div class="showcase-select-box">
+                      <span data-i18n="showcase_val_speech_lang">Auto-detect</span>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="showcase-card">
+                  <h3 class="showcase-card-title" data-i18n="showcase_card_dict_title">Custom Vocabulary</h3>
+                  <p class="showcase-card-desc" data-i18n="showcase_card_dict_desc">Add domain terms, names, or code identifiers separated by commas to improve accuracy.</p>
+                  <div class="showcase-textarea-mock" data-i18n="showcase_mock_dict">For example: Aura, commit, repository...</div>
+                </div>
+              </section>
+
+              <!-- Panel 3: Hotkeys -->
+              <section class="showcase-panel" id="showcase-panel-hotkeys" role="tabpanel" style="display: none;">
+                <div class="showcase-card">
+                  <h3 class="showcase-card-title" data-i18n="showcase_card_hotkey_title">Global Hotkey</h3>
+                  <p class="showcase-card-desc" data-i18n="showcase_card_hotkey_desc">Hold down hotkey to record audio, release to transcribe and type.</p>
+                  <div class="showcase-field-group">
+                    <span class="showcase-field-label" data-i18n="showcase_label_hotkey">Shortcut</span>
+                    <div class="showcase-hotkey-input-row">
+                      <div class="showcase-hotkey-input">Alt + V</div>
+                      <button type="button" class="showcase-icon-btn" title="Reset to Alt+V">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <label class="showcase-toggle">
+                    <input type="checkbox" />
+                    <span class="showcase-toggle-track"><span class="showcase-toggle-thumb"></span></span>
+                    <span class="showcase-toggle-label" data-i18n="showcase_toggle_hotkey_mode">Toggle Mode (Short Press)</span>
+                  </label>
+                  <p class="showcase-switch-subdesc" data-i18n="showcase_desc_hotkey_mode">Press briefly to start recording without holding. Press again to stop.</p>
+                </div>
+
+                <div class="showcase-card">
+                  <h3 class="showcase-card-title" data-i18n="showcase_card_sound_title">Audio Feedback</h3>
+                  <p class="showcase-card-desc" data-i18n="showcase_card_sound_desc">Overlay sound effects during recording.</p>
+                  <label class="showcase-toggle">
+                    <input type="checkbox" checked />
+                    <span class="showcase-toggle-track"><span class="showcase-toggle-thumb"></span></span>
+                    <span class="showcase-toggle-label" data-i18n="showcase_toggle_sound">Enable overlay sounds</span>
+                  </label>
+                  <div class="showcase-field-group">
+                    <div class="showcase-volume-row">
+                      <span class="showcase-field-label" data-i18n="showcase_label_sound_vol">Sound Volume</span>
+                      <span class="showcase-volume-val">80%</span>
+                    </div>
+                    <div class="showcase-slider-track">
+                      <div class="showcase-slider-fill" style="width: 80%;"></div>
+                      <div class="showcase-slider-thumb" style="left: 80%;"></div>
+                    </div>
+                  </div>
+                  <div class="showcase-field-group">
+                    <span class="showcase-field-label" data-i18n="showcase_label_sound_theme">Sound Theme</span>
+                    <div class="showcase-select-box">
+                      <span data-i18n="showcase_val_sound_theme">Zen</span>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- Panel 4: History -->
+              <section class="showcase-panel" id="showcase-panel-history" role="tabpanel" style="display: none;">
+                <div class="showcase-card">
+                  <div class="showcase-history-head">
+                    <div>
+                      <h3 class="showcase-card-title" data-i18n="showcase_card_hist_title">Transcription History</h3>
+                      <p class="showcase-card-desc" data-i18n="showcase_card_hist_desc">Recent voice dictations stored locally on your PC.</p>
+                    </div>
+                    <button type="button" class="showcase-btn-clear" data-i18n="showcase_btn_hist_clear">Clear History</button>
+                  </div>
+
+                  <div class="showcase-history-controls">
+                    <div class="showcase-search-wrap">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                      <span class="showcase-search-placeholder" data-i18n="showcase_hist_search_placeholder">Search history...</span>
+                    </div>
+                    <div class="showcase-history-filters">
+                      <button type="button" class="showcase-filter-btn active" data-history-filter="all" data-i18n="showcase_hist_filter_all">All</button>
+                      <button type="button" class="showcase-filter-btn" data-history-filter="cloud" data-i18n="showcase_hist_filter_cloud">Cloud</button>
+                      <button type="button" class="showcase-filter-btn" data-history-filter="local" data-i18n="showcase_hist_filter_local">Local</button>
+                    </div>
+                  </div>
+
+                  <div class="showcase-history-list">
+                    <div class="showcase-history-item" data-history-type="local">
+                      <div class="showcase-history-item-body">
+                        <div class="showcase-history-meta">
+                          <span class="showcase-history-time">17:14:02</span>
+                          <span class="showcase-history-tag tag-local" data-i18n="showcase_hist_tag_local">Local</span>
+                          <span class="showcase-history-duration">2.4 с</span>
+                        </div>
+                        <div class="showcase-history-text" data-i18n="showcase_hist_item1_text">Create an async request handler with graceful error handling.</div>
+                      </div>
+                      <button type="button" class="showcase-icon-btn" title="Copy">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                      </button>
+                    </div>
+
+                    <div class="showcase-history-item" data-history-type="local">
+                      <div class="showcase-history-item-body">
+                        <div class="showcase-history-meta">
+                          <span class="showcase-history-time">16:48:19</span>
+                          <span class="showcase-history-tag tag-local" data-i18n="showcase_hist_tag_local">Local</span>
+                          <span class="showcase-history-duration">1.8 с</span>
+                        </div>
+                        <div class="showcase-history-text" data-i18n="showcase_hist_item2_text">Voice dictation directly into any active window with zero context switching.</div>
+                      </div>
+                      <button type="button" class="showcase-icon-btn" title="Copy">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                      </button>
+                    </div>
+
+                    <div class="showcase-history-item" data-history-type="cloud">
+                      <div class="showcase-history-item-body">
+                        <div class="showcase-history-meta">
+                          <span class="showcase-history-time">15:20:45</span>
+                          <span class="showcase-history-tag tag-cloud" data-i18n="showcase_hist_tag_cloud">Cloud</span>
+                          <span class="showcase-history-duration">3.1 с</span>
+                        </div>
+                        <div class="showcase-history-text" data-i18n="showcase_hist_item3_text">Prepare a concise architectural summary and review core invariants.</div>
+                      </div>
+                      <button type="button" class="showcase-icon-btn" title="Copy">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- Panel 5: About -->
+              <section class="showcase-panel" id="showcase-panel-about" role="tabpanel" style="display: none;">
+                <div class="showcase-card showcase-about-card">
+                  <div class="showcase-about-icon">
+                    <svg class="showcase-about-logo" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path class="logo-outer" d="M398.114 421C445.533 380.876 474.714 322.514 474.714 256.857C474.714 136.486 376.229 38 255.857 38C135.486 38 37 136.486 37 256.857C37 322.514 66.1809 380.876 113.6 421" stroke="currentColor" stroke-width="73.1573"/>
+                      <path class="logo-outer-ripple" d="M398.114 421C445.533 380.876 474.714 322.514 474.714 256.857C474.714 136.486 376.229 38 255.857 38C135.486 38 37 136.486 37 256.857C37 322.514 66.1809 380.876 113.6 421" stroke="currentColor" stroke-width="73.1573"/>
+                      <path class="logo-inner" d="M181.963 176.024L42.0293 511.651H142.825L200.192 352.952L247.909 233.927C250.769 226.064 253.45 222.132 255.952 222.132C258.096 222.132 260.598 226.064 263.458 233.927L311.175 352.952L368.542 511.651H469.874L329.404 176.024C322.255 158.867 312.783 147.25 300.988 141.174C289.55 135.098 274.538 132.06 255.952 132.06C234.148 132.06 217.885 135.455 207.162 142.246C196.797 149.038 188.397 160.297 181.963 176.024Z" fill="currentColor"/>
+                    </svg>
+                  </div>
+                  <h3 class="showcase-about-title">AURA</h3>
+                  <span class="showcase-about-version">v1.0.9</span>
+                  <p class="showcase-about-desc" data-i18n="showcase_about_desc">Fast desktop voice typing for Windows powered by local neural networks (Whisper, NVIDIA Parakeet) and advanced cloud models (Gemini, OpenAI, Groq).</p>
+                </div>
+
+                <div class="showcase-card">
+                  <h3 class="showcase-card-title" data-i18n="showcase_card_diag_title">Diagnostics</h3>
+                  <p class="showcase-card-desc" data-i18n="showcase_card_diag_desc">Log exact speech transcriptions to diagnostics file. Disabled by default for privacy.</p>
+                  <label class="showcase-toggle">
+                    <input type="checkbox" />
+                    <span class="showcase-toggle-track"><span class="showcase-toggle-thumb"></span></span>
+                    <span class="showcase-toggle-label" data-i18n="showcase_toggle_diag">Log speech text (Developer mode)</span>
+                  </label>
+                  <div class="showcase-btn-row">
+                    <button type="button" class="btn btn-secondary btn-sm showcase-action-btn" data-i18n="showcase_btn_diag">Copy Diagnostic Report</button>
+                  </div>
+                </div>
+              </section>
+            </main>
+          </div>
         </div>
       </div>
     </div>
-    <div class="footer-bottom">
-      <p class="copyright">&copy; 2026 Aura App. Released under the AGPL-3.0 license. An independent project.</p>
+  </section>
+
+  <!-- Engine Architecture Section -->
+  <section id="engines" class="section">
+    <div class="container">
+      <div class="section-head">
+        <h2 class="section-title" data-i18n="engines_title">Supported Engines</h2>
+        <p class="section-desc" data-i18n="engines_desc">Flexible architecture supports both local neural networks and high-performance cloud APIs.</p>
+      </div>
+
+      <div class="engine-matrix-wrap">
+        <div class="engine-tabs">
+          <button class="engine-tab-btn active" data-tab="whisper">
+            <svg class="engine-logo-openai" width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M11.248 18.25q-.825 0-1.568-.314a4.3 4.3 0 0 1-1.32-.874 4 4 0 0 1-1.304.214 4 4 0 0 1-2.046-.544 4.27 4.27 0 0 1-1.518-1.485 4 4 0 0 1-.56-2.095q0-.48.131-1.04A4.4 4.4 0 0 1 2.04 10.71a4.07 4.07 0 0 1 .017-3.4 4.2 4.2 0 0 1 1.056-1.418 3.8 3.8 0 0 1 1.6-.842 3.9 3.9 0 0 1 .76-1.683q.593-.759 1.451-1.188a4.04 4.04 0 0 1 1.832-.429q.825 0 1.567.313.742.314 1.32.875a4 4 0 0 1 1.304-.215q1.106 0 2.046.545a4.14 4.14 0 0 1 1.501 1.485q.578.941.578 2.095 0 .48-.132 1.04.66.61 1.023 1.419.363.792.363 1.666 0 .892-.38 1.717a4.3 4.3 0 0 1-1.072 1.435 3.8 3.8 0 0 1-1.584.825 3.8 3.8 0 0 1-.775 1.683 4.06 4.06 0 0 1-1.436 1.188 4.04 4.04 0 0 1-1.832.429m-4.076-2.062q.825 0 1.435-.347l3.103-1.782a.36.36 0 0 0 .164-.313v-1.42L7.881 14.62a.67.67 0 0 1-.726 0l-3.118-1.798a.5.5 0 0 1-.017.115v.198q0 .841.396 1.551.413.693 1.139 1.089a3.2 3.2 0 0 0 1.617.412m.165-2.69a.4.4 0 0 0 .181.05q.083 0 .165-.05l1.238-.71-3.977-2.31a.7.7 0 0 1-.363-.643v-3.58q-.825.362-1.32 1.122a2.9 2.9 0 0 0-.495 1.65q0 .809.413 1.55.412.743 1.072 1.123zm3.91 3.663q.875 0 1.585-.396a2.96 2.96 0 0 0 1.534-2.64v-3.564a.32.32 0 0 0-.165-.297l-1.254-.726v4.604a.7.7 0 0 1-.363.643l-3.119 1.799a3 3 0 0 0 1.783.577m.627-6.039V8.878L10.01 7.822 8.129 8.878v2.244l1.881 1.056zM7.057 5.859a.7.7 0 0 1 .363-.644l3.119-1.798a3 3 0 0 0-1.782-.578q-.874 0-1.584.396A2.96 2.96 0 0 0 6.05 4.324a3.07 3.07 0 0 0-.396 1.551v3.547q0 .199.165.314l1.237.726zm8.383 7.887q.825-.364 1.303-1.123.495-.758.495-1.65a3.15 3.15 0 0 0-.412-1.55q-.413-.743-1.073-1.123l-3.086-1.782q-.099-.065-.181-.049a.3.3 0 0 0-.165.05l-1.238.692 3.993 2.327a.6.6 0 0 1 .264.264.64.64 0 0 1 .1.363zm-3.317-8.382a.63.63 0 0 1 .726 0l3.135 1.831v-.297q0-.792-.396-1.501a2.86 2.86 0 0 0-1.105-1.155q-.71-.43-1.65-.43-.825 0-1.436.347L8.294 5.941a.36.36 0 0 0-.165.314v1.418z"/>
+            </svg>
+            <span>OpenAI Whisper</span>
+          </button>
+          <button class="engine-tab-btn" data-tab="parakeet">
+            <svg class="engine-logo-nvidia" width="20" height="15" viewBox="0 0 271.7 179.7" fill="currentColor">
+              <path d="M101.3 53.6V37.4c1.6-.1 3.2-.2 4.8-.2 44.4-1.4 73.5 38.2 73.5 38.2S148.2 119 114.5 119c-4.5 0-8.9-.7-13.1-2.1V67.7c17.3 2.1 20.8 9.7 31.1 27l23.1-19.4s-16.9-22.1-45.3-22.1c-3-.1-6 .1-9 .4m0-53.6v24.2l4.8-.3c61.7-2.1 102 50.6 102 50.6s-46.2 56.2-94.3 56.2c-4.2 0-8.3-.4-12.4-1.1v15c3.4.4 6.9.7 10.3.7 44.8 0 77.2-22.9 108.6-49.9 5.2 4.2 26.5 14.3 30.9 18.7-29.8 25-99.3 45.1-138.7 45.1-3.8 0-7.4-.2-11-.6v21.1h170.2V0H101.3zm0 116.9v12.8c-41.4-7.4-52.9-50.5-52.9-50.5s19.9-22 52.9-25.6v14h-.1c-17.3-2.1-30.9 14.1-30.9 14.1s7.7 27.3 31 35.2M27.8 77.4s24.5-36.2 73.6-40V24.2C47 28.6 0 74.6 0 74.6s26.6 77 101.3 84v-14c-54.8-6.8-73.5-67.2-73.5-67.2z"/>
+            </svg>
+            <span>NVIDIA Parakeet</span>
+          </button>
+          <button class="engine-tab-btn" data-tab="cloud">
+            <svg class="engine-logo-cloud" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
+            </svg>
+            <span>Cloud AI</span>
+          </button>
+        </div>
+
+        <div id="engine-panel-whisper" class="engine-tab-content active">
+          <div class="engine-feature-grid">
+            <div class="engine-feat-item">
+              <span class="engine-feat-label" data-i18n="engine_whisper_feat1_label">Inference Mode</span>
+              <span class="engine-feat-val" data-i18n="engine_whisper_feat1_val">Offline (CPU / CUDA)</span>
+              <p class="engine-feat-desc" data-i18n="engine_whisper_feat1_desc">Model stays resident in RAM and transcribes without network lag.</p>
+            </div>
+            <div class="engine-feat-item">
+              <span class="engine-feat-label" data-i18n="engine_whisper_feat2_label">Supported Models</span>
+              <span class="engine-feat-val" data-i18n="engine_whisper_feat2_val">Base → Large v3 Turbo</span>
+              <p class="engine-feat-desc" data-i18n="engine_whisper_feat2_desc">From lightweight Base for any PC to high-accuracy Large v3 Turbo.</p>
+            </div>
+            <div class="engine-feat-item">
+              <span class="engine-feat-label" data-i18n="engine_whisper_feat3_label">Languages</span>
+              <span class="engine-feat-val" data-i18n="engine_whisper_feat3_val">99+ Languages</span>
+              <p class="engine-feat-desc" data-i18n="engine_whisper_feat3_desc">Automatic punctuation, capitalization, and formatting.</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="engine-panel-parakeet" class="engine-tab-content">
+          <div class="engine-feature-grid">
+            <div class="engine-feat-item">
+              <span class="engine-feat-label" data-i18n="engine_parakeet_feat1_label">Architecture</span>
+              <span class="engine-feat-val" data-i18n="engine_parakeet_feat1_val">NVIDIA Parakeet</span>
+              <p class="engine-feat-desc" data-i18n="engine_parakeet_feat1_desc">0.6B model optimized for NVIDIA discrete graphics.</p>
+            </div>
+            <div class="engine-feat-item">
+              <span class="engine-feat-label" data-i18n="engine_parakeet_feat2_label">Response Time</span>
+              <span class="engine-feat-val" data-i18n="engine_parakeet_feat2_val">Real-time Streaming</span>
+              <p class="engine-feat-desc" data-i18n="engine_parakeet_feat2_desc">Ultra-low latency streaming voice input without perceptible lag.</p>
+            </div>
+            <div class="engine-feat-item">
+              <span class="engine-feat-label" data-i18n="engine_parakeet_feat3_label">CUDA Setup</span>
+              <span class="engine-feat-val" data-i18n="engine_parakeet_feat3_val">1 Click</span>
+              <p class="engine-feat-desc" data-i18n="engine_parakeet_feat3_desc">Acceleration components download directly inside app settings.</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="engine-panel-cloud" class="engine-tab-content">
+          <div class="engine-feature-grid">
+            <div class="engine-feat-item">
+              <span class="engine-feat-label" data-i18n="engine_cloud_feat1_label">Providers</span>
+              <span class="engine-feat-val" data-i18n="engine_cloud_feat1_val">Gemini, Groq, OpenAI</span>
+              <p class="engine-feat-desc" data-i18n="engine_cloud_feat1_desc">Support for any OpenAI-compatible API endpoint.</p>
+            </div>
+            <div class="engine-feat-item">
+              <span class="engine-feat-label" data-i18n="engine_cloud_feat2_label">Universal Support</span>
+              <span class="engine-feat-val" data-i18n="engine_cloud_feat2_val">All PCs & Laptops</span>
+              <p class="engine-feat-desc" data-i18n="engine_cloud_feat2_desc">Dictate smoothly even on lightweight laptops without dedicated GPU.</p>
+            </div>
+            <div class="engine-feat-item">
+              <span class="engine-feat-label" data-i18n="engine_cloud_feat3_label">Security</span>
+              <span class="engine-feat-val" data-i18n="engine_cloud_feat3_val">DPAPI Encryption</span>
+              <p class="engine-feat-desc" data-i18n="engine_cloud_feat3_desc">API keys are securely encrypted by native Windows DPAPI.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison Section -->
+  <section id="comparison" class="section">
+    <div class="container">
+      <div class="section-head">
+        <h2 class="section-title" data-i18n="comparison_title">Comparison with Alternatives</h2>
+        <p class="section-desc" data-i18n="comparison_desc">How Aura compares to proprietary cloud tools and built-in Windows voice typing.</p>
+      </div>
+
+      <div class="comparison-table-wrap">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th class="col-feature" data-i18n="comp_th_param">Parameter</th>
+              <th class="col-aura highlight" data-i18n="comp_th_aura">Aura</th>
+              <th class="col-other" data-i18n="comp_th_cloud">Cloud Services</th>
+              <th class="col-other" data-i18n="comp_th_win">Windows Voice (Win + H)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="cell-feature" data-i18n="comp_r1_param">Response Speed</td>
+              <td class="cell-aura highlight" data-i18n="comp_r1_aura">Zero network latency <span class="table-note">(local)</span></td>
+              <td class="cell-other" data-i18n="comp_r1_cloud">Network audio upload delay</td>
+              <td class="cell-other" data-i18n="comp_r1_win">Noticeable latency</td>
+            </tr>
+            <tr>
+              <td class="cell-feature" data-i18n="comp_r2_param">Privacy</td>
+              <td class="cell-aura highlight" data-i18n="comp_r2_aura">100% Local on your PC</td>
+              <td class="cell-other" data-i18n="comp_r2_cloud">Audio sent to third-party cloud</td>
+              <td class="cell-other" data-i18n="comp_r2_win">Telemetry collected</td>
+            </tr>
+            <tr>
+              <td class="cell-feature" data-i18n="comp_r3_param">Punctuation</td>
+              <td class="cell-aura highlight" data-i18n="comp_r3_aura">Automatic</td>
+              <td class="cell-other" data-i18n="comp_r3_cloud">Basic</td>
+              <td class="cell-other" data-i18n="comp_r3_win">Voice commands only</td>
+            </tr>
+            <tr>
+              <td class="cell-feature" data-i18n="comp_r4_param">Pricing</td>
+              <td class="cell-aura highlight" data-i18n="comp_r4_aura">100% Free</td>
+              <td class="cell-other" data-i18n="comp_r4_cloud">Paid subscription</td>
+              <td class="cell-other" data-i18n="comp_r4_win">Free</td>
+            </tr>
+            <tr>
+              <td class="cell-feature" data-i18n="comp_r5_param">Offline Mode</td>
+              <td class="cell-aura highlight" data-i18n="comp_r5_aura">Autonomous <span class="table-note">(local models)</span></td>
+              <td class="cell-other" data-i18n="comp_r5_cloud">Requires internet</td>
+              <td class="cell-other" data-i18n="comp_r5_win">Requires internet</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Monolithic Closing Finale & Footer -->
+  <footer class="site-finale-footer" id="download">
+    <div class="container finale-content-wrap">
+      <!-- Punchy Closing CTA -->
+      <div class="finale-cta-block">
+        <h2 class="finale-title" data-i18n="download_title">Try Aura in Action</h2>
+
+        <div class="finale-actions">
+          <a href="Aura_1.0.9_x64-setup.exe" class="btn btn-primary btn-lg" data-download-trigger download>
+            <svg class="icon-download" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="dl-tray" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><g class="dl-arrow"><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></g></svg>
+            <span data-i18n="download_btn_primary">Download for Windows</span>
+          </a>
+          
+          <a href="https://github.com/malashkadev/aura" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-lg">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+            <span data-i18n="download_btn_github">GitHub Repository</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Monolithic 3D Letters: A U R A -->
+      <div class="aura-letters-wrap" id="aura-letters-wrap" aria-hidden="true">
+        <span class="aura-letter" data-letter="A">A</span>
+        <span class="aura-letter" data-letter="U">U</span>
+        <span class="aura-letter" data-letter="R">R</span>
+        <span class="aura-letter" data-letter="A">A</span>
+      </div>
+
+      <!-- Clean Baseline Footer Bar -->
+      <div class="finale-bottom-bar">
+        <div class="finale-copy" data-i18n="footer_copy">© 2026 Aura Project. Free and open-source software under AGPL-3.0.</div>
+        <ul class="finale-simple-links">
+          <li><a href="https://github.com/malashkadev/aura" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+          <li><a href="https://github.com/malashkadev/aura/releases" target="_blank" rel="noopener noreferrer" data-i18n="footer_releases">Releases</a></li>
+          <li><a href="https://github.com/malashkadev/aura/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" data-i18n="footer_license">License</a></li>
+        </ul>
+      </div>
     </div>
   </footer>
 
-  <!-- Scroll to Top Button -->
-  <button type="button" class="scroll-top-btn" id="scroll-top-btn" aria-label="Scroll to top">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="scroll-top-icon">
-      <line x1="12" y1="19" x2="12" y2="5"></line>
-      <polyline points="5 12 12 5 19 12"></polyline>
-    </svg>
-  </button>
-
-  <!-- Confirm Download Modal -->
-  <div class="modal-overlay" id="download-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3 class="modal-title" id="modal-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
+  <!-- Download Confirmation Intent Modal (Obsidian Glass) -->
+  <div class="download-modal-backdrop" id="download-modal" role="dialog" aria-modal="true" aria-labelledby="modal-download-title" aria-describedby="modal-download-desc" aria-hidden="true">
+    <div class="download-modal-card">
+      <div class="download-modal-header">
+        <div class="download-modal-brand-badge">
+          <svg class="site-logo" width="24" height="24" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path class="logo-outer" d="M398.114 421C445.533 380.876 474.714 322.514 474.714 256.857C474.714 136.486 376.229 38 255.857 38C135.486 38 37 136.486 37 256.857C37 322.514 66.1809 380.876 113.6 421" stroke="currentColor" stroke-width="73.1573" />
+            <path class="logo-inner" d="M181.963 176.024L42.0293 511.651H142.825L200.192 352.952L247.909 233.927C250.769 226.064 253.45 222.132 255.952 222.132C258.096 222.132 260.598 226.064 263.458 233.927L311.175 352.952L368.542 511.651H469.874L329.404 176.024C322.255 158.867 312.783 147.25 300.988 141.174C289.55 135.098 274.538 132.06 255.952 132.06C234.148 132.06 217.885 135.455 207.162 142.246C196.797 149.038 188.397 160.297 181.963 176.024Z" fill="currentColor" />
           </svg>
-          Confirm Download
-        </h3>
+          <span class="download-modal-logo-text">AURA</span>
+        </div>
+        <button type="button" class="download-modal-close" id="modal-download-close" aria-label="Close window">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
       </div>
-      <div class="modal-body">
-        <p>You are downloading <strong>Aura</strong> installer for Windows. Please confirm your download details below:</p>
-        <div class="modal-meta-grid">
-          <div class="modal-meta-item">
-            <span class="modal-meta-label">Platform</span>
-            <span class="modal-meta-value">Windows x64 (10 / 11)</span>
-          </div>
-          <div class="modal-meta-item">
-            <span class="modal-meta-label">File Size</span>
-            <span class="modal-meta-value">~23.0 MB</span>
-          </div>
-          <div class="modal-meta-item">
-            <span class="modal-meta-label">Version</span>
-            <span class="modal-meta-value">1.0.8 (Latest)</span>
-          </div>
-          <div class="modal-meta-item">
-            <span class="modal-meta-label">Signature</span>
-            <span class="modal-meta-value">Open-source (not Authenticode-signed)</span>
-          </div>
-          <div class="modal-meta-checksum">
-            <span>SHA-256: <code>0F48923BD58A0A8D002A758D13F67EB46188905093AFFE90B2B9C23289EE9325</code></span>
-          </div>
+
+      <h3 class="download-modal-title" id="modal-download-title" data-i18n="modal_dl_title">Download Confirmation</h3>
+      <p class="download-modal-desc" id="modal-download-desc" data-i18n="modal_dl_desc">
+        You are about to download the official standalone Aura installer for Windows.
+      </p>
+
+      <div class="download-modal-spec-grid">
+        <div class="download-modal-spec-row">
+          <span class="download-modal-spec-label" data-i18n="modal_dl_ver_label">Software Version</span>
+          <span class="download-modal-spec-val" data-i18n="modal_dl_ver_val">1.0.9 (Latest Stable)</span>
+        </div>
+        <div class="download-modal-spec-row">
+          <span class="download-modal-spec-label" data-i18n="modal_dl_req_label">Compatibility</span>
+          <span class="download-modal-spec-val" data-i18n="modal_dl_req_val">Windows 10 / 11 (64-bit)</span>
+        </div>
+        <div class="download-modal-spec-row">
+          <span class="download-modal-spec-label">SHA-256</span>
+          <span class="download-modal-spec-val" style="font-family: monospace; font-size: 0.72rem; word-break: break-all;">D978DD7D20A856A0689F9C5D6E2D44C88DD09475BC3C6FBBD50EA59801F1D667</span>
         </div>
       </div>
-      <div class="modal-actions">
-        <button type="button" class="modal-btn modal-btn-cancel" id="modal-cancel-btn">Cancel</button>
-        <a href="#" class="modal-btn modal-btn-confirm" id="modal-confirm-btn">Download</a>
+
+      <div class="download-modal-tip-box">
+        <svg class="download-modal-tip-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <div class="download-modal-tip-text" data-i18n="modal_dl_tip">
+          Installation takes less than a minute. Open-source release (not digitally signed with an Authenticode certificate). In cloud mode, audio, transcript, selected text, and custom dictionary entries are sent directly to your chosen provider over TLS; optional update check runs only on demand or when enabled.
+        </div>
+      </div>
+
+      <div class="download-modal-actions">
+        <button type="button" class="btn btn-secondary" id="modal-download-cancel" data-i18n="modal_dl_btn_cancel">Cancel</button>
+        <a href="Aura_1.0.9_x64-setup.exe" class="btn btn-primary" id="modal-download-confirm" download>
+          <svg class="icon-download" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="dl-tray" d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><g class="dl-arrow"><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></g></svg>
+          <span data-i18n="modal_dl_btn_confirm">Download</span>
+        </a>
       </div>
     </div>
   </div>
 
+  <!-- Floating Back to Top Button -->
+  <button type="button" class="back-to-top" id="back-to-top" aria-label="Back to top" title="Back to top">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M18 15l-6-6-6 6"/>
+    </svg>
+  </button>
+
+  <!-- Scripts -->
+  <script src="main.js?v=6.8.0"></script>
 </body>
 </html>

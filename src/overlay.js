@@ -2,8 +2,59 @@ const { listen } = window.__TAURI__.event;
 
 const bars = document.querySelectorAll(".sound-bar");
 const statusEl = document.getElementById("overlay-status");
+const statusTextEl = document.getElementById("overlay-status-text");
+const contextBadgeEl = document.getElementById("overlay-context-badge");
 const pill = document.querySelector(".overlay-pill");
 let currentState = "recording";
+
+function updateStatusVisibility() {
+  const hasText = statusTextEl
+    ? Boolean(statusTextEl.textContent && statusTextEl.textContent.trim())
+    : Boolean(statusEl && statusEl.textContent && statusEl.textContent.trim());
+  const hasContext = Boolean(
+    contextBadgeEl &&
+    contextBadgeEl.style.display !== "none" &&
+    contextBadgeEl.style.display !== ""
+  );
+  if (statusEl) {
+    statusEl.style.display = (hasText || hasContext) ? "inline-block" : "none";
+  }
+}
+
+function setOverlayText(text) {
+  if (statusTextEl) {
+    statusTextEl.textContent = text;
+  } else if (statusEl) {
+    statusEl.textContent = text;
+  }
+  updateStatusVisibility();
+}
+
+const contextIndicatorTranslations = {
+  ru: "Редактирование",
+  en: "Edit",
+  de: "Bearbeiten",
+  fr: "Modifier",
+  it: "Modifica",
+  es: "Editar",
+  pt: "Editar",
+  zh: "编辑",
+  ja: "編集",
+  tr: "Düzenle"
+};
+
+listen("selection-context-active", (event) => {
+  const active = Boolean(event.payload);
+  if (contextBadgeEl) {
+    contextBadgeEl.style.display = active ? "inline-flex" : "none";
+    const textEl = document.getElementById("overlay-context-text");
+    if (textEl) {
+      const uiLang = localStorage.getItem("aura_ui_lang") || "ru";
+      textEl.textContent = contextIndicatorTranslations[uiLang] || contextIndicatorTranslations.en;
+    }
+  }
+  updateStatusVisibility();
+});
 // Monotonic counter advanced on every state event. The hide guard compares
 // it so a hide request from an old session can never mask a brand-new
 // recording (state strings alone cannot distinguish two sessions).
@@ -215,7 +266,7 @@ function applyActiveThemeSettings(settings) {
   soundVolume = typeof settings.overlay_sound_volume === "number" ? settings.overlay_sound_volume : 0.8;
   overlayShowTimer = settings.overlay_show_timer !== false;
   if (!overlayShowTimer && !currentState.startsWith("error")) {
-    statusEl.textContent = "";
+    setOverlayText("");
   }
   if (globalGain && audioCtx) {
     globalGain.gain.setValueAtTime(soundVolume, audioCtx.currentTime);
@@ -329,13 +380,13 @@ function setBarColor(color) {
 function updateTimer() {
   if (currentState === "recording" && recordStart) {
     if (!overlayShowTimer) {
-      statusEl.textContent = "";
+      setOverlayText("");
       return;
     }
     const secs = Math.floor((Date.now() - recordStart) / 1000);
     const m = Math.floor(secs / 60);
     const s = String(secs % 60).padStart(2, "0");
-    statusEl.textContent = `${m}:${s}`;
+    setOverlayText(`${m}:${s}`);
   }
 }
 setInterval(updateTimer, 500);
@@ -404,53 +455,77 @@ const processingTranslations = {
 };
 
 const noticeTranslations = {
+  "elevated-paste-blocked": {
+    ru: "Система заблокировала вставку в активное окно. Текст сохранён в буфере обмена",
+    en: "The system blocked pasting into the active window. Text kept in the clipboard",
+    de: "Das System hat das Einfügen in das aktive Fenster blockiert. Text befindet sich in der Zwischenablage",
+    fr: "Le système a bloqué le collage dans la fenêtre active. Texte conservé dans le presse-papiers",
+    it: "Il sistema ha bloccato l'incolla nella finestra attiva. Testo conservato negli appunti",
+    es: "El sistema bloqueó pegar en la ventana activa. Texto guardado en el portapapeles",
+    pt: "O sistema bloqueou a colagem na janela ativa. Texto mantido na área de transferência",
+    zh: "系统阻止了向活动窗口粘贴。文本已保留在剪贴板中",
+    ja: "システムがアクティブなウィンドウへの貼り付けをブロックしました。テキストはクリップボードに保持されています",
+    tr: "Sistem etkin pencereye yapıştırmayı engelledi. Metin panoda saklandı"
+  },
   "Cloud unavailable — used local model instead": {
-    ru: "Облако недоступно — использована локальная модель",
-    en: "Cloud unavailable — used local model instead",
-    de: "Cloud nicht verfügbar — lokales Modell verwendet",
-    fr: "Cloud indisponible — modèle local utilisé",
-    it: "Cloud non disponibile — usato il modello locale",
-    es: "Cloud no disponible: se usó el modelo local",
-    pt: "Cloud indisponível — modelo local usado",
-    zh: "云端不可用 — 已改用本地模型",
-    ja: "クラウドが利用できないため、ローカルモデルを使用しました",
-    tr: "Cloud kullanılamıyor — yerel model kullanıldı"
+    ru: "Локальный режим (сбой сети)",
+    en: "Local fallback (network error)",
+    de: "Lokaler Modus (Netzwerkfehler)",
+    fr: "Mode local (erreur réseau)",
+    it: "Modalità locale (errore di rete)",
+    es: "Modo local (error de red)",
+    pt: "Modo local (erro de rede)",
+    zh: "本地模式（网络错误）",
+    ja: "ローカルモード（ネットワークエラー）",
+    tr: "Yerel mod (ağ hatası)"
+  },
+  "focus-changed-copied": {
+    ru: "Скопировано (фокус изменен)",
+    en: "Copied (focus changed)",
+    de: "Kopiert (Fokus geändert)",
+    fr: "Copié (focus modifié)",
+    it: "Copiato (focus modificato)",
+    es: "Copiado (foco cambiado)",
+    pt: "Copiado (foco alterado)",
+    zh: "已复制（焦点已更改）",
+    ja: "コピー完了（フォーカス変更）",
+    tr: "Kopyalandı (odak değişti)"
   },
   "final-copied-after-edit": {
-    ru: "Финальный текст скопирован",
-    en: "Final text copied",
-    de: "Finaltext kopiert",
-    fr: "Texte final copié",
-    it: "Testo finale copiato",
-    es: "Texto final copiado",
-    pt: "Texto final copiado",
-    zh: "最终文本已复制",
-    ja: "最終テキストをコピーしました",
-    tr: "Son metin kopyalandı"
+    ru: "Текст скопирован",
+    en: "Text copied",
+    de: "Text kopiert",
+    fr: "Texte copié",
+    it: "Testo copiato",
+    es: "Texto copiado",
+    pt: "Texto copiado",
+    zh: "文本已复制",
+    ja: "テキストをコピーしました",
+    tr: "Metin kopyalandı"
   },
   "loading-model": {
-    ru: "Загрузка модели в память…",
-    en: "Loading model into memory…",
-    de: "Modell wird in den Speicher geladen…",
-    fr: "Chargement du modèle en mémoire…",
-    it: "Caricamento del modello in memoria…",
-    es: "Cargando modelo en memoria…",
-    pt: "Carregando modelo na memória…",
-    zh: "正在将模型加载到内存中…",
-    ja: "モデルをメモリに読み込んでいます…",
-    tr: "Model belleğe yükleniyor…"
+    ru: "Загрузка модели…",
+    en: "Loading model…",
+    de: "Modell wird geladen…",
+    fr: "Chargement du modèle…",
+    it: "Caricamento del modello…",
+    es: "Cargando modelo…",
+    pt: "Carregando modelo…",
+    zh: "正在加载模型…",
+    ja: "モデルを読み込み中…",
+    tr: "Model yükleniyor…"
   },
   "warming-model": {
-    ru: "Инициализация движка…",
-    en: "Initializing engine…",
-    de: "Engine wird initialisiert…",
-    fr: "Initialisation du moteur…",
-    it: "Inizializzazione del motore…",
-    es: "Inicializando motor…",
-    pt: "Inicializando o motor…",
-    zh: "正在初始化引擎…",
-    ja: "エンジンを初期化しています…",
-    tr: "Motor başlatılıyor…"
+    ru: "Инициализация…",
+    en: "Initializing…",
+    de: "Initialisierung…",
+    fr: "Initialisation…",
+    it: "Inizializzazione…",
+    es: "Inicializando…",
+    pt: "Inicializando…",
+    zh: "正在初始化…",
+    ja: "初期化中…",
+    tr: "Başlatılıyor…"
   }
 };
 
@@ -639,7 +714,7 @@ listen("recording-state", (event) => {
 
   if (currentState === "recording") {
     recordStart = Date.now();
-    statusEl.textContent = overlayShowTimer ? "0:00" : "";
+    setOverlayText(overlayShowTimer ? "0:00" : "");
     statusEl.classList.remove("error");
     setBarColor("#FE4200");
     resetBars();
@@ -649,26 +724,35 @@ listen("recording-state", (event) => {
     playThemeStart();
   } else if (currentState === "processing") {
     angle = 0;
+    if (contextBadgeEl) {
+      contextBadgeEl.style.display = "none";
+    }
     const uiLang = localStorage.getItem("aura_ui_lang") || "ru";
-    statusEl.textContent = overlayShowTimer ? (processingTranslations[uiLang] || processingTranslations.en) : "";
+    setOverlayText(overlayShowTimer ? (processingTranslations[uiLang] || processingTranslations.en) : "");
     statusEl.classList.remove("error");
   } else if (currentState.startsWith("notice:")) {
     // Non-alarming transient message (e.g. cloud->local fallback); no error sound.
+    if (contextBadgeEl) {
+      contextBadgeEl.style.display = "none";
+    }
     const notice = currentState.substring("notice:".length);
     const uiLang = localStorage.getItem("aura_ui_lang") || "ru";
     const translations = noticeTranslations[notice];
-    statusEl.textContent = overlayShowTimer ? (translations?.[uiLang] || translations?.en || notice) : "";
+    setOverlayText(overlayShowTimer ? (translations?.[uiLang] || translations?.en || notice) : "");
     statusEl.classList.remove("error");
     setBarColor("#FE4200");
     pill.classList.add("visible");
   } else if (currentState.startsWith("error")) {
     recordStart = null;
+    if (contextBadgeEl) {
+      contextBadgeEl.style.display = "none";
+    }
     let errMsg = "Ошибка распознавания";
     if (currentState.includes(":")) {
       errMsg = currentState.substring(currentState.indexOf(":") + 1);
     }
     const uiLang = localStorage.getItem("aura_ui_lang") || "ru";
-    statusEl.textContent = translateError(errMsg, uiLang);
+    setOverlayText(translateError(errMsg, uiLang));
     statusEl.classList.add("error");
     setBarColor("#666666");
     resetBars();
@@ -701,6 +785,9 @@ function hideOverlayAfterPillFade(expectedState, expectedCycle) {
 
   const hideNow = () => {
     if (guardExpired()) return;
+    if (contextBadgeEl) {
+      contextBadgeEl.style.display = "none";
+    }
     window.__TAURI__.core
       .invoke("hide_overlay_window")
       .catch((err) => console.error("hide_overlay_window failed:", err));
@@ -729,6 +816,11 @@ function hideOverlayAfterPillFade(expectedState, expectedCycle) {
 listen("hide-overlay-requested", (event) => {
   const payload = event.payload || {};
   const status = payload.status || "success";
+
+  if (contextBadgeEl) {
+    contextBadgeEl.style.display = "none";
+  }
+  updateStatusVisibility();
 
   if (status === "success") {
     playThemeSuccess();

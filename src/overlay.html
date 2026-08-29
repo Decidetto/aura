@@ -32,6 +32,7 @@
     }
 
     #overlay-status {
+      display: none;
       margin-top: 8px;
       font-family: "Segoe UI", sans-serif;
       font-size: 9px;
@@ -46,13 +47,28 @@
       word-wrap: break-word;
     }
 
-    #overlay-status:empty {
-      display: none;
-    }
-
     #overlay-status.error {
       color: #ff5c5c;
       font-weight: 600;
+    }
+
+    .context-indicator {
+      display: none;
+      align-items: center;
+      gap: 3.5px;
+      color: #fe4200;
+      font-weight: 600;
+      font-size: 8.5px;
+      line-height: 11px;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    .sparkle-icon {
+      width: 10px;
+      height: 10px;
+      fill: #fe4200;
+      flex-shrink: 0;
     }
 
     html, body {
@@ -106,7 +122,17 @@
         </clipPath>
       </defs>
     </svg>
-    <div id="overlay-status"></div>
+    <div id="overlay-status">
+      <span id="overlay-status-text"></span>
+      <span id="overlay-context-badge" class="context-indicator" title="Редактирование">
+        <svg class="sparkle-icon" viewBox="0 0 16 16">
+          <path d="M8 0C8 3.3 6 5.5 2 6.5C6 7.5 8 9.7 8 13C8 9.7 10 7.5 14 6.5C10 5.5 8 3.3 8 0Z"/>
+          <path d="M13.5 1C13.5 2.1 12.7 2.8 11.5 3.2C12.7 3.7 13.5 4.4 13.5 5.5C13.5 4.4 14.3 3.7 15.5 3.2C14.3 2.8 13.5 2.1 13.5 1Z"/>
+          <path d="M3 10.5C3 11.2 2.5 11.7 1.5 12C2.5 12.3 3 12.8 3 13.5C3 12.8 3.5 12.3 4.5 12C3.5 11.7 3 11.2 3 10.5Z"/>
+        </svg>
+        <span id="overlay-context-text">Редактирование</span>
+      </span>
+    </div>
   </div>
 
   <script src="overlay.js"></script>

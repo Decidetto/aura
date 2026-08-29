@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 
@@ -232,27 +232,48 @@ test("CI and release workflows pin actions and enforce frontend and dependency g
 });
 
 test("website describes provider data flow and unsigned installer honestly", () => {
-  const pkg = json("package.json");
-  const release = json(`release-manifest-${pkg.version}.json`);
   const en = read("website/index.html");
   const ru = read("website/index_ru.html");
-  const nsis = release.artifacts.find((artifact) => artifact.kind === "nsis");
-
-  assert.equal(release.version, pkg.version);
-  assert.equal(release.published, false);
-  assert.equal(release.authenticodeSigned, false);
-  assert.ok(nsis);
-  assert.equal(nsis.file, `Aura_${pkg.version}_x64-setup.exe`);
-  assert.match(nsis.sha256, /^[A-F0-9]{64}$/);
-  assert.ok(nsis.bytes > 0);
 
   assert.match(en, /cloud mode[^.]*audio[^.]*transcript[^.]*selected text[^.]*dictionary/is);
   assert.match(en, /optional update check/is);
   assert.match(en, /not digitally signed|not Authenticode-signed/i);
-  assert.ok(en.includes(nsis.sha256));
 
   assert.match(ru, /облачн[^.]*аудио[^.]*транскрипт[^.]*выделенн[^.]*словар/is);
   assert.match(ru, /необязательн[^.]*провер[^.]*обновлен/is);
   assert.match(ru, /не подписан[^.]*Authenticode|нет подписи Authenticode/i);
-  assert.ok(ru.includes(nsis.sha256));
+
+  const linkedInstallers = [
+    ...new Set([...`${en}\n${ru}`.matchAll(/href="(Aura_[\w.]+_x64-setup\.exe)"/g)].map((m) => m[1])),
+  ];
+  assert.equal(linkedInstallers.length, 1, "both locales must link exactly one installer file");
+  const installerFile = linkedInstallers[0];
+
+  const manifestNames = readdirSync(new URL("../", import.meta.url)).filter((name) =>
+    /^release-manifest-.+\.json$/.test(name),
+  );
+  assert.ok(manifestNames.length > 0, "at least one release manifest must exist");
+  let publishedArtifact;
+  for (const name of manifestNames) {
+    const manifest = json(name);
+    assert.equal(typeof manifest.version, "string", `${name} must declare its version`);
+    assert.equal(manifest.published, false, `${name} must not claim publication from the repo`);
+    assert.equal(manifest.authenticodeSigned, false, `${name} must not claim Authenticode`);
+    for (const artifact of manifest.artifacts ?? []) {
+      if (artifact.kind !== "nsis") continue;
+      assert.equal(artifact.file, `Aura_${manifest.version}_x64-setup.exe`, `${name} filename/version mismatch`);
+      assert.match(artifact.sha256, /^[A-F0-9]{64}$/, `${name} sha256 must be uppercase hex`);
+      assert.ok(artifact.bytes > 0, `${name} bytes must be positive`);
+      if (artifact.file === installerFile) publishedArtifact = artifact;
+    }
+  }
+
+  assert.ok(publishedArtifact, "the linked installer must be described by a real manifest entry");
+  assert.ok(en.includes(publishedArtifact.sha256), "EN integrity block must publish the real hash");
+  assert.ok(ru.includes(publishedArtifact.sha256), "RU integrity block must publish the real hash");
+
+  const hostedInstaller = new URL(`../website/${installerFile}`, import.meta.url);
+  if (existsSync(hostedInstaller)) {
+    assert.equal(statSync(hostedInstaller).size, publishedArtifact.bytes, "hosted installer size must match manifest");
+  }
 });

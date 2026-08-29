@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Aura",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "identifier": "com.aura.app",
   "build": {
     "frontendDist": "../src"
@@ -18,7 +18,7 @@
         "minWidth": 760,
         "minHeight": 550,
         "resizable": true,
-        "visible": true,
+        "visible": false,
         "decorations": false,
         "transparent": true
       },
@@ -73,6 +73,19 @@
       "binaries/whisper-sidecar",
       "binaries/whisper-server",
       "binaries/sherpa-onnx-offline"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "sidebarImage": "icons/nsis-sidebar.bmp",
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "hooks.nsh",
+        "template": "installer.nsi",
+        "languages": ["Russian", "English"],
+        "displayLanguageSelector": true,
+        "customLanguageFiles": {
+          "Russian": "Russian.nsh"
+        }
+      }
+    }
   }
 }

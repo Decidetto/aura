@@ -83,6 +83,12 @@ pub struct Settings {
     pub log_speech_text: bool,
     pub overlay_show_timer: bool,
     pub whisper_keep_in_memory: bool,
+    #[serde(default = "default_audio_device")]
+    pub audio_input_device: String,
+}
+
+fn default_audio_device() -> String {
+    "default".to_string()
 }
 
 impl Default for Settings {
@@ -117,6 +123,7 @@ impl Default for Settings {
             log_speech_text: false,
             overlay_show_timer: true,
             whisper_keep_in_memory: true,
+            audio_input_device: "default".to_string(),
         }
     }
 }
@@ -180,6 +187,11 @@ impl Settings {
         }
         if self.local_engine == "whisper" && self.model_name == "parakeet-v3" {
             return Err("Whisper engine cannot use the parakeet-v3 model".to_string());
+        }
+        if self.audio_input_device.chars().count() > 128
+            || self.audio_input_device.chars().any(|ch| ch.is_control())
+        {
+            return Err("Audio input device is invalid or too long".to_string());
         }
         Ok(())
     }

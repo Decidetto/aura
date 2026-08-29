@@ -658,6 +658,7 @@ pub fn run_local_whisper<R: Runtime>(
         "1".to_string(),
         "--beam-size".to_string(),
         "-1".to_string(),
+        "-sow".to_string(),
     ];
 
     let settings = crate::settings::load_settings(app_handle).unwrap_or_default();
@@ -665,10 +666,10 @@ pub fn run_local_whisper<R: Runtime>(
         args.push("-ng".to_string());
     }
 
-    let dict = dictionary.trim();
-    if !dict.is_empty() {
+    let primed_prompt = build_whisper_prompt(lang, dictionary);
+    if !primed_prompt.is_empty() {
         args.push("--prompt".to_string());
-        args.push(dict.to_string());
+        args.push(primed_prompt);
     }
 
     let mut working_dir = short_dlls_dir.to_path_buf();
@@ -1801,6 +1802,18 @@ enum ParakeetChildStatus {
     Empty,
 }
 
+/// Sleeps in one-second slices so `Drop` on the owning watchdog never blocks
+/// app exit for a full multi-second backoff tick.
+fn watchdog_sleep_interruptible(stop: &std::sync::atomic::AtomicBool, secs: u64) {
+    use std::sync::atomic::Ordering;
+    for _ in 0..secs {
+        if stop.load(Ordering::SeqCst) {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+}
+
 fn parakeet_watchdog_main<R: Runtime>(
     app_handle: &tauri::AppHandle<R>,
     stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
@@ -1858,7 +1871,7 @@ fn parakeet_watchdog_main<R: Runtime>(
                 // Nothing to observe. Restore the daemon only while settings
                 // still want Parakeet (the user may have disabled it).
                 watchdog_restart_parakeet(app_handle, &state);
-                std::thread::sleep(std::time::Duration::from_secs(backoff_secs));
+                watchdog_sleep_interruptible(&stop, backoff_secs);
                 backoff_secs = (backoff_secs * 2).min(30);
             }
         }
@@ -1893,6 +1906,163 @@ fn watchdog_restart_parakeet<R: Runtime>(
             "Sidecar",
             None,
             &format!("Parakeet watchdog could not restore the server: {error}"),
+        );
+    }
+}
+
+/// One watchdog per app lifetime for the resident whisper-server: it
+/// resurrects a crashed daemon while the user idles between dictations, so a
+/// dead instance never downgrades the next dictation to a cold CLI start.
+/// Mirrors [`ParakeetWatchdog`]; dropping it (app exit) raises the stop flag.
+pub(crate) struct WhisperWatchdog {
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    handle: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Drop for WhisperWatchdog {
+    fn drop(&mut self) {
+        self.stop.store(true, std::sync::atomic::Ordering::SeqCst);
+        if let Some(handle) = self.handle.take() {
+            let _ = handle.join();
+        }
+    }
+}
+
+impl WhisperWatchdog {
+    fn spawn<R: Runtime>(app_handle: tauri::AppHandle<R>) -> Self {
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let thread_stop = std::sync::Arc::clone(&stop);
+        let handle = match std::thread::Builder::new()
+            .name("whisper-watchdog".to_string())
+            .spawn(move || whisper_watchdog_main(&app_handle, thread_stop))
+        {
+            Ok(handle) => Some(handle),
+            Err(error) => {
+                crate::logger::log(
+                    "WARN",
+                    "Sidecar",
+                    None,
+                    &format!(
+                        "Could not spawn the Whisper watchdog thread ({error}); \
+                         background auto-restart is disabled for this session"
+                    ),
+                );
+                None
+            }
+        };
+        Self { stop, handle }
+    }
+}
+
+enum WhisperChildStatus {
+    Alive,
+    Exited(Option<std::process::ExitStatus>),
+    Empty,
+}
+
+fn whisper_watchdog_main<R: Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+) {
+    use std::sync::atomic::Ordering;
+    let mut backoff_secs: u64 = 5;
+    loop {
+        if stop.load(Ordering::SeqCst) {
+            return;
+        }
+        let Some(state) = app_handle.try_state::<crate::AppState>() else {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            continue;
+        };
+        let status = {
+            let mut slot = recover_lock(&state.whisper_server, "Whisper server");
+            match slot.as_mut() {
+                None => WhisperChildStatus::Empty,
+                Some(server) => match server.child.try_wait() {
+                    Ok(None) => WhisperChildStatus::Alive,
+                    Ok(Some(exit)) => WhisperChildStatus::Exited(Some(exit)),
+                    Err(error) => {
+                        crate::logger::log(
+                            "WARN",
+                            "Sidecar",
+                            None,
+                            &format!("Could not inspect Whisper server ({error}); restarting"),
+                        );
+                        WhisperChildStatus::Exited(None)
+                    }
+                },
+            }
+        };
+        match status {
+            WhisperChildStatus::Alive => {
+                backoff_secs = 5;
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+            WhisperChildStatus::Exited(exit) => {
+                backoff_secs = 5;
+                crate::logger::log(
+                    "WARN",
+                    "Sidecar",
+                    None,
+                    &format!(
+                        "Resident Whisper server exited unexpectedly ({}); restarting",
+                        exit.map(|s| s.to_string())
+                            .unwrap_or_else(|| "status unavailable".to_string())
+                    ),
+                );
+                watchdog_restart_whisper(app_handle, &state);
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+            WhisperChildStatus::Empty => {
+                // Nothing running: restore the daemon only while settings
+                // still want the local Whisper engine (the user may have
+                // stopped it deliberately after switching engines).
+                watchdog_restart_whisper(app_handle, &state);
+                watchdog_sleep_interruptible(&stop, backoff_secs);
+                backoff_secs = (backoff_secs * 2).min(30);
+            }
+        }
+    }
+}
+
+fn watchdog_restart_whisper<R: Runtime>(app_handle: &tauri::AppHandle<R>, state: &crate::AppState) {
+    let _lifecycle = recover_lock(&state.whisper_lifecycle, "Whisper lifecycle");
+    let wanted_model = crate::settings::load_settings(app_handle)
+        .ok()
+        .filter(|settings| {
+            settings.transcription_mode == "local" && settings.local_engine == "whisper"
+        })
+        .map(|settings| settings.model_name);
+    let Some(model) = wanted_model else {
+        // Stopped while the user switched engines or modes: clear the corpse
+        // so the watchdog stops polling it.
+        let dead = recover_lock(&state.whisper_server, "Whisper server").take();
+        if dead.is_some() {
+            state
+                .whisper_port
+                .store(0, std::sync::atomic::Ordering::SeqCst);
+        }
+        return;
+    };
+    // Skip pointless attempts (and backoff log spam) while prerequisites are
+    // missing — the model may still be downloading or the binaries were just
+    // removed. The next ensure/start path spawns the watchdog work normally
+    // once they exist again.
+    let Ok(app_local_data) = app_handle.path().app_local_data_dir() else {
+        return;
+    };
+    let model_path = app_local_data
+        .join("models")
+        .join(format_model_filename(&model));
+    if !model_path.is_file() || find_whisper_server(app_handle).is_err() {
+        return;
+    }
+    if let Err(error) = start_whisper_server_unlocked(app_handle, state, &model) {
+        crate::logger::log(
+            "WARN",
+            "Sidecar",
+            None,
+            &format!("Whisper watchdog could not restore the server: {error}"),
         );
     }
 }
@@ -2185,6 +2355,14 @@ pub fn start_whisper_server<R: Runtime>(
         .ok_or_else(|| "Application state is not initialized".to_string())?;
 
     let _lifecycle = recover_lock(&state.whisper_lifecycle, "Whisper lifecycle");
+    // Lazily spawn the watchdog that resurrects a crashed resident server
+    // while the app idles (same pattern as the Parakeet watchdog).
+    {
+        let mut watchdog_slot = recover_lock(&state.whisper_watchdog, "Whisper watchdog");
+        if watchdog_slot.is_none() {
+            *watchdog_slot = Some(WhisperWatchdog::spawn(app_handle.clone()));
+        }
+    }
     start_whisper_server_unlocked(app_handle, &state, model_name)
 }
 
@@ -2289,6 +2467,7 @@ fn start_whisper_server_unlocked<R: Runtime>(
         "-1".to_string(),
         "-nt".to_string(),
         "-nf".to_string(),
+        "-sow".to_string(),
     ];
     if current_accel == "cpu" {
         args.push("-ng".to_string());
@@ -2486,6 +2665,32 @@ pub(crate) fn whisper_server_status<R: Runtime>(
         .map(|running| (running.provider.clone(), running.port))
 }
 
+pub fn build_whisper_prompt(language: &str, user_dictionary: &str) -> String {
+    let base_prompt = match language {
+        "ru" => "Привет, вот пример грамотной диктовки: с точками, запятыми и верным регистром.",
+        "en" => "Hello, here is a clean dictation sample: with periods, commas, and proper capitalization.",
+        "de" => "Hallo, hier ist eine saubere Diktatprobe: mit Punkten, Kommas und korrekter Großschreibung.",
+        "es" => "Hola, este es un ejemplo de dictado claro: con puntos, comas y mayúsculas correctas.",
+        "fr" => "Bonjour, voici un exemple de dictée claire : avec des points, des virgules et des majuscules correctes.",
+        "it" => "Ciao, ecco un esempio di dettatura chiara: con punti, virgole e maiuscole corrette.",
+        "zh" => "你好，这是一个标点和大小写规范的听写示例。",
+        "pt" => "Olá, este é um exemplo de ditado claro: com pontos, vírgulas e maiúsculas corretas.",
+        "tr" => "Merhaba, noktaları, virgülleri ve doğru büyük harfleri olan düzgün bir dikte örneği.",
+        _ => "Привет, вот пример грамотной диктовки: с точками, запятыми и верным регистром.",
+    };
+
+    let dict = user_dictionary.trim();
+    if dict.is_empty() {
+        base_prompt.to_string()
+    } else {
+        match language {
+            "ru" => format!("{base_prompt} Термины: {dict}."),
+            "en" => format!("{base_prompt} Vocabulary: {dict}."),
+            _ => format!("{base_prompt} Terms: {dict}."),
+        }
+    }
+}
+
 pub async fn transcribe_via_whisper_server(
     port: u16,
     wav_path: &Path,
@@ -2511,15 +2716,16 @@ pub async fn transcribe_via_whisper_server(
         _ => "auto",
     };
 
+    let primed_prompt = build_whisper_prompt(lang, dictionary);
+
     let mut form = reqwest::multipart::Form::new()
         .part("file", file_part)
         .text("language", lang.to_string())
         .text("response_format", "json")
         .text("temperature", "0.0");
 
-    let dict = dictionary.trim();
-    if !dict.is_empty() {
-        form = form.text("prompt", dict.to_string());
+    if !primed_prompt.is_empty() {
+        form = form.text("prompt", primed_prompt);
     }
 
     let url = format!("http://127.0.0.1:{port}/inference");

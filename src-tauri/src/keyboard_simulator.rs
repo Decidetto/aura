@@ -2,6 +2,35 @@ const REPLACEMENT_BATCH_UNITS: usize = 32;
 const REPLACEMENT_BATCH_PAUSE_MS: u64 = 2;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FocusTarget {
+    pub hwnd: isize,
+    pub root_hwnd: isize,
+    pub process_id: u32,
+}
+
+impl FocusTarget {
+    pub fn is_empty(&self) -> bool {
+        self.hwnd == 0
+    }
+
+    pub fn is_compatible_with(&self, current: &FocusTarget) -> bool {
+        if self.is_empty() || current.is_empty() {
+            return true;
+        }
+        if self.hwnd == current.hwnd {
+            return true;
+        }
+        if self.root_hwnd != 0 && self.root_hwnd == current.root_hwnd {
+            return true;
+        }
+        if self.process_id != 0 && self.process_id == current.process_id {
+            return true;
+        }
+        false
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ReplacementDispatchMetrics {
     pub backspaces: usize,
     pub utf16_units: usize,
@@ -275,6 +304,7 @@ mod windows_impl {
 
     pub fn simulate_copy() {
         let released = release_modifiers();
+        std::thread::sleep(std::time::Duration::from_millis(30));
         unsafe {
             let mut inputs = [std::mem::zeroed::<INPUT>(); 4];
 
@@ -314,14 +344,27 @@ mod windows_impl {
                 dwExtraInfo: 0,
             };
 
-            SendInput(4, inputs.as_mut_ptr(), std::mem::size_of::<INPUT>() as i32);
+            let inserted = SendInput(4, inputs.as_mut_ptr(), std::mem::size_of::<INPUT>() as i32);
+            if inserted != 4 {
+                crate::logger::log(
+                    "WARN",
+                    "Keyboard",
+                    None,
+                    &format!("SendInput accepted {inserted}/4 events for copy; target may block injection (UIPI/elevated window)"),
+                );
+            }
         }
+        std::thread::sleep(std::time::Duration::from_millis(30));
         restore_modifiers(&released);
     }
 
-    pub fn simulate_paste() {
+    /// Dispatches Ctrl+V and reports whether the OS accepted every event.
+    /// `false` means input never reached the target (typically a UIPI block
+    /// because the foreground app runs elevated) — the caller must NOT then
+    /// restore the clipboard over the preserved transcript.
+    pub fn simulate_paste() -> bool {
         let released = release_modifiers();
-        unsafe {
+        let accepted = unsafe {
             let mut inputs = [std::mem::zeroed::<INPUT>(); 4];
 
             inputs[0].r#type = INPUT_KEYBOARD;
@@ -360,9 +403,20 @@ mod windows_impl {
                 dwExtraInfo: 0,
             };
 
-            SendInput(4, inputs.as_mut_ptr(), std::mem::size_of::<INPUT>() as i32);
-        }
+            let inserted = SendInput(4, inputs.as_mut_ptr(), std::mem::size_of::<INPUT>() as i32);
+            let ok = inserted == 4;
+            if !ok {
+                crate::logger::log(
+                    "WARN",
+                    "Keyboard",
+                    None,
+                    &format!("SendInput accepted {inserted}/4 events for paste; target may block injection (UIPI/elevated window)"),
+                );
+            }
+            ok
+        };
         restore_modifiers(&released);
+        accepted
     }
 
     pub fn send_dummy_key() {
@@ -388,15 +442,35 @@ mod windows_impl {
         }
     }
 
+    const GA_ROOT: u32 = 2;
+
     #[link(name = "user32")]
     extern "system" {
         pub fn GetForegroundWindow() -> isize;
+        pub fn GetAncestor(hwnd: isize, gaflags: u32) -> isize;
         pub fn GetWindowThreadProcessId(hwnd: isize, lpdwprocessid: *mut u32) -> u32;
         pub fn GetKeyboardLayout(idthread: u32) -> isize;
     }
 
     pub fn get_foreground_window() -> isize {
         unsafe { GetForegroundWindow() }
+    }
+
+    pub fn get_focus_target() -> super::FocusTarget {
+        unsafe {
+            let hwnd = GetForegroundWindow();
+            if hwnd == 0 {
+                return super::FocusTarget::default();
+            }
+            let mut pid: u32 = 0;
+            GetWindowThreadProcessId(hwnd, &mut pid);
+            let root = GetAncestor(hwnd, GA_ROOT);
+            super::FocusTarget {
+                hwnd,
+                root_hwnd: if root != 0 { root } else { hwnd },
+                process_id: pid,
+            }
+        }
     }
 
     pub fn get_active_layout_language() -> String {
@@ -677,7 +751,7 @@ mod macos_impl {
         let _ = post_keyboard_event(&source, 8, false, kCGEventFlagMaskCommand, None);
     }
 
-    pub fn simulate_paste() {
+    pub fn simulate_paste() -> bool {
         let Some(source) = create_event_source() else {
             crate::logger::log(
                 "ERROR",
@@ -685,10 +759,11 @@ mod macos_impl {
                 None,
                 "Failed to create macOS event source",
             );
-            return;
+            return false;
         };
-        let _ = post_keyboard_event(&source, 9, true, kCGEventFlagMaskCommand, None);
-        let _ = post_keyboard_event(&source, 9, false, kCGEventFlagMaskCommand, None);
+        let down = post_keyboard_event(&source, 9, true, kCGEventFlagMaskCommand, None);
+        let up = post_keyboard_event(&source, 9, false, kCGEventFlagMaskCommand, None);
+        down.is_some() && up.is_some()
     }
 
     pub fn send_dummy_key() {
@@ -710,6 +785,15 @@ mod macos_impl {
             }
             let pid: i32 = msg_send![app, processIdentifier];
             pid as isize
+        }
+    }
+
+    pub fn get_focus_target() -> super::FocusTarget {
+        let hwnd = get_foreground_window();
+        super::FocusTarget {
+            hwnd,
+            root_hwnd: hwnd,
+            process_id: hwnd as u32,
         }
     }
 
@@ -880,14 +964,14 @@ mod macos_impl {
 // ============================================================================
 #[cfg(target_os = "windows")]
 pub use windows_impl::{
-    get_active_layout_language, get_foreground_window, replace_text, send_dummy_key, simulate_copy,
-    simulate_paste, type_backspaces, type_string,
+    get_active_layout_language, get_focus_target, get_foreground_window, replace_text,
+    send_dummy_key, simulate_copy, simulate_paste, type_backspaces, type_string,
 };
 
 #[cfg(target_os = "macos")]
 pub use macos_impl::{
-    get_active_layout_language, get_foreground_window, replace_text, send_dummy_key, simulate_copy,
-    simulate_paste, type_backspaces, type_string,
+    get_active_layout_language, get_focus_target, get_foreground_window, replace_text,
+    send_dummy_key, simulate_copy, simulate_paste, type_backspaces, type_string,
 };
 
 #[cfg(test)]
@@ -949,5 +1033,37 @@ mod tests {
         assert_eq!(partial_keyup_recovery_index(1, 64), Some(1));
         assert_eq!(partial_keyup_recovery_index(63, 64), Some(63));
         assert_eq!(partial_keyup_recovery_index(64, 64), None);
+    }
+
+    #[test]
+    fn test_focus_target_compatibility() {
+        let empty = FocusTarget::default();
+        let target_a = FocusTarget {
+            hwnd: 100,
+            root_hwnd: 1000,
+            process_id: 42,
+        };
+        let target_b = FocusTarget {
+            hwnd: 200,
+            root_hwnd: 1000, // Same root window (e.g. split editor)
+            process_id: 42,
+        };
+        let target_c = FocusTarget {
+            hwnd: 300,
+            root_hwnd: 3000,
+            process_id: 42, // Same process (e.g. child popup dialog)
+        };
+        let target_other = FocusTarget {
+            hwnd: 500,
+            root_hwnd: 5000,
+            process_id: 99, // Completely different window & process
+        };
+
+        assert!(empty.is_compatible_with(&target_a));
+        assert!(target_a.is_compatible_with(&empty));
+        assert!(target_a.is_compatible_with(&target_a));
+        assert!(target_a.is_compatible_with(&target_b));
+        assert!(target_a.is_compatible_with(&target_c));
+        assert!(!target_a.is_compatible_with(&target_other));
     }
 }

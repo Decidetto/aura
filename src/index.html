@@ -83,7 +83,7 @@
             <div class="form-group">
               <label for="select-ui-lang" class="field-label" data-i18n="general_ui_lang_title">Язык интерфейса</label>
               <div class="select-wrap">
-                <select id="select-ui-lang" class="custom-select" data-preview="preview-text-ui-lang" aria-haspopup="listbox" aria-expanded="false">
+                <select id="select-ui-lang" class="custom-select" aria-haspopup="listbox" aria-expanded="false">
                   <option value="ru">Русский</option>
                   <option value="en">English</option>
                   <option value="de">Deutsch</option>
@@ -130,6 +130,15 @@
                 <p class="card-desc" data-i18n="mic_meter_desc">Проверьте уровень входного сигнала и детекцию речи в реальном времени.</p>
               </div>
               <button type="button" class="btn btn-secondary btn-mic-test" id="btn-toggle-mic-meter" data-i18n="mic_meter_test_btn_start">Запустить тест</button>
+            </div>
+            <div class="form-group" style="margin-top: 12px; margin-bottom: 12px;">
+              <label for="select-audio-device" class="field-label" data-i18n="audio_device_label">Микрофон (устройство ввода)</label>
+              <div class="select-wrap">
+                <select id="select-audio-device" class="custom-select" aria-haspopup="listbox" aria-expanded="false">
+                  <option value="default" data-i18n="audio_device_default">По умолчанию (системное)</option>
+                </select>
+                <div class="select-panel" id="panel-select-audio-device" role="listbox"></div>
+              </div>
             </div>
             <div class="mic-meter-display">
               <div class="mic-meter-bar-track">
@@ -244,6 +253,7 @@
                 </select>
                 <div class="select-panel" id="panel-select-local-engine" role="listbox"></div>
               </div>
+              <span id="engine-health-chip" class="engine-health-chip" role="status" style="display:none;"></span>
             </div>
 
             <div class="form-group" id="gpu-acceleration-settings">
@@ -556,8 +566,8 @@
                 <path class="logo-inner" d="M181.963 176.024L42.0293 511.651H142.825L200.192 352.952L247.909 233.927C250.769 226.064 253.45 222.132 255.952 222.132C258.096 222.132 260.598 226.064 263.458 233.927L311.175 352.952L368.542 511.651H469.874L329.404 176.024C322.255 158.867 312.783 147.25 300.988 141.174C289.55 135.098 274.538 132.06 255.952 132.06C234.148 132.06 217.885 135.455 207.162 142.246C196.797 149.038 188.397 160.297 181.963 176.024Z" fill="currentColor"/>
               </svg>
             </div>
-            <h2 class="about-app-title">Aura</h2>
-            <p class="about-version" data-i18n="about_version">v1.0.8</p>
+            <h2 class="about-app-title">AURA</h2>
+            <p class="about-version" data-i18n="about_version">v1.0.9</p>
             <button type="button" id="update-badge" class="update-badge" style="display: none;">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
               <span id="update-badge-text" data-i18n="update_available">Доступно обновление</span>

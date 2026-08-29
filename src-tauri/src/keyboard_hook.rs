@@ -134,6 +134,10 @@ mod windows_impl {
     /// pair while settings are being saved (C14).
     static HOTKEY_PAIR: AtomicU32 = AtomicU32::new((18 << 16) | 0x56); // Alt+V
 
+    /// Packed (modifier_vk << 16) | key_vk waiting to be applied once an
+    /// in-flight recording releases; u32::MAX means "nothing pending".
+    static PENDING_HOTKEY: AtomicU32 = AtomicU32::new(u32::MAX);
+
     const VK_ESCAPE: u32 = 0x1B;
 
     fn keyboard_input(vk: u16, scan: u16, flags: u32) -> INPUT {
@@ -268,11 +272,43 @@ mod windows_impl {
     pub fn update_hotkey(hotkey_str: &str) -> Result<(), String> {
         let (modifier, key) =
             parse_hotkey(hotkey_str).ok_or_else(|| format!("Unsupported hotkey: {hotkey_str}"))?;
+        let packed = (modifier << 16) | key;
 
-        HOTKEY_PAIR.store((modifier << 16) | key, Ordering::SeqCst);
-        SHORTCUT_ACTIVE.store(false, Ordering::SeqCst);
+        if SHORTCUT_ACTIVE.load(Ordering::SeqCst) {
+            // A live session still holds the old key: resetting SHORTCUT_ACTIVE
+            // here would orphan it, because its eventual key-up no longer
+            // matches the new pair and the session could never end normally.
+            // Defer the switch until that release finalizes the session.
+            PENDING_HOTKEY.store(packed, Ordering::SeqCst);
+            crate::logger::log(
+                "INFO",
+                "Hotkey",
+                None,
+                "Recording is active; hotkey change deferred until the current hotkey is released",
+            );
+            return Ok(());
+        }
+
+        HOTKEY_PAIR.store(packed, Ordering::SeqCst);
+        PENDING_HOTKEY.store(u32::MAX, Ordering::SeqCst);
         KEY_SUPPRESSED.store(false, Ordering::SeqCst);
         Ok(())
+    }
+
+    /// Applies a hotkey change that was deferred because a recording session
+    /// was mid-flight when settings were saved.
+    fn apply_pending_hotkey() {
+        let packed = PENDING_HOTKEY.swap(u32::MAX, Ordering::SeqCst);
+        if packed != u32::MAX {
+            HOTKEY_PAIR.store(packed, Ordering::SeqCst);
+            KEY_SUPPRESSED.store(false, Ordering::SeqCst);
+            crate::logger::log(
+                "INFO",
+                "Hotkey",
+                None,
+                "Deferred hotkey change applied after the recording ended",
+            );
+        }
     }
 
     fn notify_hotkey(is_down: bool) {
@@ -407,6 +443,7 @@ mod windows_impl {
                     }
                     if SHORTCUT_ACTIVE.swap(false, Ordering::SeqCst) {
                         notify_hotkey(false);
+                        apply_pending_hotkey();
                         if modifier_vk == 18 {
                             send_disarmed_alt_up(&kbd_struct);
                         }
@@ -434,6 +471,7 @@ mod windows_impl {
                     let was_active = SHORTCUT_ACTIVE.swap(false, Ordering::SeqCst);
                     if was_active {
                         notify_hotkey(false);
+                        apply_pending_hotkey();
                         if modifier_vk == 18 && modifier_satisfied {
                             send_dummy_ctrl_tap();
                         }
@@ -570,6 +608,10 @@ mod macos_impl {
         key_code: 9,                              // V key
     });
 
+    /// A hotkey change deferred because a recording was mid-flight when
+    /// settings were saved; applied on the session's release.
+    static PENDING_HOTKEY: Mutex<Option<(u64, u32)>> = Mutex::new(None);
+
     const VK_ESCAPE: u32 = 53;
 
     fn parse_hotkey(hotkey_str: &str) -> Option<(u64, u32)> {
@@ -654,6 +696,30 @@ mod macos_impl {
         let (modifier, key) =
             parse_hotkey(hotkey_str).ok_or_else(|| format!("Unsupported hotkey: {hotkey_str}"))?;
 
+        if SHORTCUT_ACTIVE.load(Ordering::SeqCst) {
+            // A live session still holds the old key; defer to avoid orphaning
+            // it (its key-up would no longer match the new configuration).
+            match PENDING_HOTKEY.lock() {
+                Ok(mut guard) => *guard = Some((modifier, key)),
+                Err(poisoned) => {
+                    crate::logger::log(
+                        "ERROR",
+                        "Hotkey",
+                        None,
+                        "Recovering poisoned macOS pending-hotkey mutex",
+                    );
+                    *poisoned.into_inner() = Some((modifier, key));
+                }
+            }
+            crate::logger::log(
+                "INFO",
+                "Hotkey",
+                None,
+                "Recording is active; hotkey change deferred until the current hotkey is released",
+            );
+            return Ok(());
+        }
+
         let mut guard = match HOTKEY_CONFIG.lock() {
             Ok(guard) => guard,
             Err(poisoned) => {
@@ -668,9 +734,45 @@ mod macos_impl {
         };
         guard.modifier_mask = modifier;
         guard.key_code = key;
-        SHORTCUT_ACTIVE.store(false, Ordering::SeqCst);
+        drop(guard);
+        if let Ok(mut pending) = PENDING_HOTKEY.lock() {
+            *pending = None;
+        }
         KEY_SUPPRESSED.store(false, Ordering::SeqCst);
         Ok(())
+    }
+
+    fn apply_pending_hotkey() {
+        let pending = match PENDING_HOTKEY.lock() {
+            Ok(mut guard) => guard.take(),
+            Err(poisoned) => poisoned.into_inner().take(),
+        };
+        if let Some((modifier, key)) = pending {
+            match HOTKEY_CONFIG.lock() {
+                Ok(mut guard) => {
+                    guard.modifier_mask = modifier;
+                    guard.key_code = key;
+                }
+                Err(poisoned) => {
+                    crate::logger::log(
+                        "ERROR",
+                        "Hotkey",
+                        None,
+                        "Recovering poisoned macOS hotkey mutex",
+                    );
+                    let mut guard = poisoned.into_inner();
+                    guard.modifier_mask = modifier;
+                    guard.key_code = key;
+                }
+            }
+            KEY_SUPPRESSED.store(false, Ordering::SeqCst);
+            crate::logger::log(
+                "INFO",
+                "Hotkey",
+                None,
+                "Deferred hotkey change applied after the recording ended",
+            );
+        }
     }
 
     pub fn start_hook<F>(callback: F) -> Result<(), String>
@@ -834,6 +936,7 @@ mod macos_impl {
                 let was_active = SHORTCUT_ACTIVE.swap(false, Ordering::SeqCst);
                 if was_active {
                     notify_hotkey(false);
+                    apply_pending_hotkey();
                 }
                 if suppressed || modifier_satisfied || was_active {
                     return std::ptr::null_mut(); // Suppress target key release
@@ -843,6 +946,7 @@ mod macos_impl {
             // If the modifier mask is active and was released logical-wise
             if !modifier_satisfied && SHORTCUT_ACTIVE.swap(false, Ordering::SeqCst) {
                 notify_hotkey(false);
+                apply_pending_hotkey();
             }
         }
 

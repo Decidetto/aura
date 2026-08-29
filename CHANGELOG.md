@@ -3,6 +3,21 @@
 All notable changes to Aura are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/), versions follow [SemVer](https://semver.org/).
 
+## [1.0.9] — 2026-08-29
+
+### Added
+- **Audio Input Device Selection**: Users can now select their physical microphone device directly in the Speech settings card. Added backend device enumeration with `cpal` in `src-tauri/src/audio_recorder.rs` and exposed `get_audio_input_devices` IPC command with DPAPI-backed persistence.
+- **Context Editing AI Indicator (3 Sparkle Stars + «Редактирование»)**: When selection context editing is active, the overlay displays a crisp 3-star vector sparkle icon with localized «Редактирование» / «Edit» status in `src/overlay.html` and `src/overlay.js` across all 10 UI locales.
+- **Google Gemini 3.6 Flash Multimodal Integration**: Upgraded Gemini cloud provider integration to the latest multimodal `gemini-3.6-flash` model with automatic version fallback cascade, enabling instant speech recognition and voice editing in a single network request.
+- **Topmost Z-Order Guard**: Added `ensure_overlay_topmost` in `src-tauri/src/lib.rs` using Win32 `SetWindowPos(HWND_TOPMOST)` during recording session start to prevent full-screen or high-priority foreground windows from obscuring the overlay.
+
+### Fixed
+- **Post-Release Audio Grace Buffer (Tail Hold)**: Added a 160ms recording tail buffer upon hotkey release in `src-tauri/src/audio_recorder.rs` and widened the Silero VAD silence trimming margin to 350ms in `src-tauri/src/vad.rs`, completely eliminating trailing word clipping and truncated final syllables.
+- **Robust Focus Guard & Safe Clipboard Handoff**: Enhanced focus tracking in `src-tauri/src/keyboard_simulator.rs` to verify matching window HWND, root top-level parent HWND (`GA_ROOT`), and target PID. If focus changes to an incompatible window mid-transcription, typing is safely aborted and the recognized text is placed on the clipboard with an overlay notification across all 10 UI locales.
+- **Reliable Selection Capture**: Stabilized simulated `Ctrl+C` keystrokes in `src-tauri/src/keyboard_simulator.rs` with 30ms modifier delays, preventing clipboard race conditions in editors and web browsers.
+- **Instant Overlay Dismissal Timing**: Eliminated the 1–2s visual delay after text paste by firing overlay hide and chime events immediately upon document insertion.
+- **Provider-Aware Settings UI**: The selection editing card dynamically adapts to cloud provider capabilities, hiding for Hugging Face (which limits free tokens to ASR only) and enabling for Gemini, Groq, OpenAI, and Custom servers.
+
 ## [1.0.8] — 2026-08-16
 
 ### Added

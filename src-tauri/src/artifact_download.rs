@@ -75,6 +75,51 @@ fn parse_content_range(value: &str) -> Result<ParsedContentRange, String> {
     Ok(ParsedContentRange { start, end, total })
 }
 
+/// Returns bytes available to the caller on the volume hosting `path`.
+/// `None` when the platform probe is unavailable (non-Windows builds).
+#[cfg(target_os = "windows")]
+fn available_bytes_on_volume(path: &Path) -> Option<u64> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
+
+    let wide: Vec<u16> = path
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let mut available: u64 = 0;
+    let mut _total: u64 = 0;
+    let mut _free: u64 = 0;
+    let ok = unsafe { GetDiskFreeSpaceExW(wide.as_ptr(), &mut available, &mut _total, &mut _free) };
+    if ok != 0 {
+        Some(available)
+    } else {
+        None
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn available_bytes_on_volume(_path: &Path) -> Option<u64> {
+    None
+}
+
+/// Fails the download up front when the volume hosting `dir` cannot hold
+/// `required` bytes. A probe failure is not fatal (fail-open), matching the
+/// rest of this module's tolerance for degraded environments.
+pub fn ensure_disk_space(dir: &Path, required: u64, label: &str) -> Result<(), String> {
+    let Some(available) = available_bytes_on_volume(dir) else {
+        return Ok(());
+    };
+    if available < required {
+        return Err(format!(
+            "Not enough free disk space for {label}: need at least {required} bytes ({:.1} GB free required, {:.1} GB available)",
+            required as f64 / 1_073_741_824.0,
+            available as f64 / 1_073_741_824.0,
+        ));
+    }
+    Ok(())
+}
+
 pub(crate) fn sha256_file(path: &Path) -> Result<String, String> {
     let mut file = std::fs::File::open(path).map_err(|error| {
         format!(
@@ -221,6 +266,9 @@ where
         })?;
     }
 
+    // The verified check comes FIRST: an already-downloaded artifact must
+    // install even on an almost-full disk, where the download budget would
+    // fail a preflight that no longer needs to run.
     if artifact_is_verified(destination, spec).await? {
         if is_cancelled() {
             return Err(format!("Download of '{}' cancelled", spec.label));
@@ -234,6 +282,16 @@ where
             resumed_from: spec.expected_size,
             reused_existing: true,
         });
+    }
+
+    if let Some(parent) = destination.parent() {
+        // Room for the .part file AND the verified destination copy, with a
+        // small fixed margin; a probe failure is ignored (fail-open).
+        let required = spec
+            .expected_size
+            .saturating_mul(2)
+            .saturating_add(64 * 1024 * 1024);
+        ensure_disk_space(parent, required, spec.label)?;
     }
 
     let partial = partial_path(destination, spec)?;

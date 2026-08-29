@@ -394,6 +394,47 @@ impl StreamingResampler {
     }
 }
 
+pub fn list_audio_input_devices() -> Vec<String> {
+    let host = cpal::default_host();
+    let mut names = Vec::new();
+    if let Ok(devices) = host.input_devices() {
+        for device in devices {
+            if let Ok(name) = device.name() {
+                if !name.trim().is_empty() && !names.contains(&name) {
+                    names.push(name);
+                }
+            }
+        }
+    }
+    names
+}
+
+fn find_input_device(device_name: Option<&str>) -> Result<cpal::Device, String> {
+    let host = cpal::default_host();
+    if let Some(name) = device_name {
+        let name_trimmed = name.trim();
+        if !name_trimmed.is_empty() && name_trimmed != "default" {
+            if let Ok(devices) = host.input_devices() {
+                for dev in devices {
+                    if let Ok(dev_name) = dev.name() {
+                        if dev_name == name_trimmed {
+                            return Ok(dev);
+                        }
+                    }
+                }
+            }
+            crate::logger::log(
+                "WARN",
+                "Audio",
+                None,
+                &format!("Specified audio input device '{name_trimmed}' not found; falling back to default device"),
+            );
+        }
+    }
+    host.default_input_device()
+        .ok_or_else(|| "No default audio input device found".to_string())
+}
+
 impl AudioRecorder {
     pub fn new() -> Self {
         Self {
@@ -412,6 +453,7 @@ impl AudioRecorder {
         output_path: &str,
         enable_sample_stream: bool,
         retain_samples_for_preview: bool,
+        device_name: Option<&str>,
         on_volume: F,
     ) -> Result<(), String>
     where
@@ -424,6 +466,7 @@ impl AudioRecorder {
             output_path,
             enable_sample_stream,
             retain_samples_for_preview,
+            device_name,
             on_volume,
         );
         self.starting.store(false, Ordering::SeqCst);
@@ -435,6 +478,7 @@ impl AudioRecorder {
         output_path: &str,
         enable_sample_stream: bool,
         retain_samples_for_preview: bool,
+        device_name: Option<&str>,
         on_volume: F,
     ) -> Result<(), String>
     where
@@ -459,6 +503,7 @@ impl AudioRecorder {
         let shared = Arc::new(Mutex::new(RecordingBuffer::new(retain_samples_for_preview)));
         let worker_shared = Arc::clone(&shared);
         let output_path = PathBuf::from(output_path);
+        let dev_name = device_name.map(str::to_string);
 
         let worker = thread::Builder::new()
             .name("aura-audio-recorder".to_string())
@@ -473,6 +518,7 @@ impl AudioRecorder {
                         ready_tx,
                         worker_shared,
                         sample_stream_publisher,
+                        dev_name,
                         Box::new(on_volume),
                     )
                 }));
@@ -613,7 +659,10 @@ pub fn stop_mic_meter() {
     }
 }
 
-pub fn start_mic_meter<R: tauri::Runtime>(app_handle: tauri::AppHandle<R>) -> Result<(), String> {
+pub fn start_mic_meter<R: tauri::Runtime>(
+    app_handle: tauri::AppHandle<R>,
+    device_name: Option<&str>,
+) -> Result<(), String> {
     stop_mic_meter();
 
     let stop_flag = Arc::new(AtomicBool::new(false));
@@ -625,14 +674,14 @@ pub fn start_mic_meter<R: tauri::Runtime>(app_handle: tauri::AppHandle<R>) -> Re
         *guard = Some(Arc::clone(&stop_flag));
     }
 
+    let dev_name = device_name.map(str::to_string);
     let thread_stop = Arc::clone(&stop_flag);
     std::thread::Builder::new()
         .name("aura-mic-meter".to_string())
         .spawn(move || {
-            let host = cpal::default_host();
-            let device = match host.default_input_device() {
-                Some(d) => d,
-                None => {
+            let device = match find_input_device(dev_name.as_deref()) {
+                Ok(d) => d,
+                Err(_) => {
                     let mutex = ACTIVE_MIC_METER_STOP.get_or_init(|| Mutex::new(None));
                     if let Ok(mut guard) = mutex.lock() {
                         *guard = None;
@@ -778,10 +827,11 @@ fn recorder_worker(
     ready_tx: mpsc::SyncSender<Result<(), String>>,
     shared: Arc<Mutex<RecordingBuffer>>,
     sample_stream: Option<SampleStreamPublisher>,
+    device_name: Option<String>,
     on_volume: Box<dyn Fn(f32) + Send>,
 ) -> Result<(), String> {
     let (stream, sample_rx, error_rx, dropped_chunks, channels, sample_rate) =
-        match setup_input_stream() {
+        match setup_input_stream(device_name.as_deref()) {
             Ok(value) => value,
             Err(error) => {
                 let _ = ready_tx.send(Err(error.clone()));
@@ -836,6 +886,23 @@ fn recorder_worker(
             Err(mpsc::RecvTimeoutError::Disconnected) => break Ok(RecorderCommand::Cancel),
         }
     };
+
+    if matches!(outcome, Ok(RecorderCommand::Stop)) {
+        // Post-Release Audio Grace Buffer (Tail Hold):
+        // Allow hardware/WASAPI buffers to capture trailing speech phonemes for 160ms.
+        let grace_deadline = std::time::Instant::now() + Duration::from_millis(160);
+        while std::time::Instant::now() < grace_deadline {
+            let _ = drain_audio_queue(
+                &sample_rx,
+                &shared,
+                sample_stream.as_ref(),
+                &mut resampler,
+                &mut wav_writer,
+                on_volume.as_ref(),
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
 
     drop(stream);
 
@@ -963,11 +1030,8 @@ type StreamSetup = (
     u32,
 );
 
-fn setup_input_stream() -> Result<StreamSetup, String> {
-    let host = cpal::default_host();
-    let device = host
-        .default_input_device()
-        .ok_or_else(|| "No default input device found".to_string())?;
+fn setup_input_stream(device_name: Option<&str>) -> Result<StreamSetup, String> {
+    let device = find_input_device(device_name)?;
     let config = device
         .default_input_config()
         .map_err(|e| format!("Failed to get default input config: {e}"))?;

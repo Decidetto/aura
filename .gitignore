@@ -1,4 +1,4 @@
-﻿# Ignore binary executables (whisper sidecar in src-tauri/binaries is intentionally tracked)
+# Ignore binary executables (whisper sidecar in src-tauri/binaries is intentionally tracked)
 Aura.exe
 *.exe
 !src-tauri/binaries/*.exe
@@ -43,5 +43,22 @@ skill-observations/
 skill-updates/
 tasks/
 log.txt
+*.log
+
 # Downloaded GPU runtimes (fetched at install time, not committed)
 src-tauri/binaries/cuda/
+src-tauri/binaries/ggml-cuda.dll
+
+# Website temporary preview profiles, test scripts, and test screenshots
+website/.temp_edge_profile*/
+website/.temp_edge_verify/
+website/screenshot_*.png
+website/check_console.cjs
+website/take_screenshots.cjs
+website/verify_*.cjs
+website/server.cjs
+website/*showcase*.html
+website/preview_*.html
+website/test_*.html
+website/deck-animations-preview.html
+

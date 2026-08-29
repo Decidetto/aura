@@ -82,6 +82,14 @@ reason = "unic-ucd-ident: unmaintained upstream; transitive dependency via urlpa
 id = "RUSTSEC-2026-0221"
 reason = "event-listener: StackSlot !Send unsoundness in event-listener 5.4.1 (updated in Cargo.lock)"
 
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0258"
+reason = "h2: unbounded empty DATA frames (HTTP/2 server DoS; Aura operates strictly as an HTTP client)"
+
+[[IgnoredVulns]]
+id = "GHSA-8g9c-29p8-h446"
+reason = "Alias of RUSTSEC-2026-0258 (h2 unbounded empty DATA frames)"
+
 [[PackageOverrides]]
 name = "atk"
 ignore = true

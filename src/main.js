@@ -40,17 +40,14 @@ const i18nDict = {
     "streaming_desc": "Выберите способ отображения наговариваемого текста.",
     "streaming_checkbox": "Потоковый ввод в реальном времени (экспериментальный)",
     "streaming_subdesc": "Если выключено: текст вставится целиком только после того, как вы отпустите клавиши.",
-    "punct_title": "Интеллектуальная пунктуация",
-    "punct_desc": "Преобразовывать голосовые команды (\"запятая\", \"точка с запятой\") в знаки препинания.",
-    "punct_checkbox": "Включить обработку голосовой пунктуации",
     "vocab_title": "Пользовательский словарь",
     "vocab_desc": "Внесите термины, имена или брендовые названия через запятую, чтобы улучшить их распознавание.",
     "vocab_placeholder": "Например: Аура, коммит, репозиторий...",
-    "punct_model_label": "Пунктуация (для английского)",
-    "punct_model_name": "CT-Transformer (zh-en, int8)",
-    "punct_model_meta": "~62 МБ — голосовая пунктуация",
     "engine_health_parakeet_running": "Parakeet: сервер запущен ({provider}, порт {port})",
     "engine_health_parakeet_stopped": "Parakeet: сервер не запущен",
+    "engine_health_whisper_running": "Whisper: сервер запущен ({provider}, порт {port})",
+    "engine_health_whisper_stopped": "Whisper: сервер не запущен",
+    "engine_starting": "Запуск движка…",
     "local_model_title": "Локальное распознавание",
     "local_model_desc": "Настройте локальный движок распознавания речи для полной приватности.",
     "local_model_label": "Размер модели",
@@ -98,7 +95,7 @@ const i18nDict = {
     "history_unit_ms": "мс",
     "history_unit_sec": "с",
     "about_app_title": "Голосовой ввод Aura",
-    "about_version": "v1.0.8",
+    "about_version": "v1.0.9",
     "about_description": "Инструмент глобального голосового ввода для Windows. Программа переводит речь в текст и вставляет его в любое активное окно с автоматическим форматированием и расстановкой пунктуации.",
     "status_ready": "Готово",
     "btn_save": "Сохранить настройки",
@@ -118,6 +115,7 @@ const i18nDict = {
     "status_loaded": "Настройки загружены",
     "status_load_error": "Ошибка загрузки настроек: ",
     "status_save_error": "Ошибка сохранения настроек: ",
+    "status_streaming_degraded": "Живое превью Parakeet отключено — финальный текст готовится пакетно",
     "model_downloading_pattern": "Запуск скачивания для модели '{model}'...",
     "model_download_error_pattern": "Ошибка скачивания: {err}",
     "delete_model_title": "Удаление модели",
@@ -174,6 +172,9 @@ const i18nDict = {
     "overlay_timer_checkbox": "Показывать таймер и статус в оверлее",
     "mic_meter_title": "Проверка микрофона",
     "mic_meter_desc": "Проверьте уровень входящего сигнала и распознавание голоса в реальном времени.",
+    "audio_device_label": "Микрофон (устройство ввода)",
+    "audio_device_default": "По умолчанию (системное)",
+    "audio_device_desc": "Выберите физический микрофон для записи голоса.",
     "mic_meter_test_btn_start": "Начать тест",
     "mic_meter_test_btn_stop": "Остановить тест",
     "mic_meter_speech": "Голос",
@@ -214,17 +215,14 @@ const i18nDict = {
     "streaming_desc": "Choose how transcribed text is displayed.",
     "streaming_checkbox": "Real-time streaming typing (experimental)",
     "streaming_subdesc": "If disabled: text is typed as a whole only when you release hotkeys.",
-    "punct_title": "Smart Punctuation",
-    "punct_desc": "Convert spoken punctuation commands (like \"comma\", \"period\") into punctuation.",
-    "punct_checkbox": "Enable spoken punctuation processing",
     "vocab_title": "Custom Vocabulary",
     "vocab_desc": "Add specific terms, names, or jargon separated by commas to improve recognition.",
     "vocab_placeholder": "e.g. Aura, commit, repository...",
-    "punct_model_label": "Punctuation (for English)",
-    "punct_model_name": "CT-Transformer (zh-en, int8)",
-    "punct_model_meta": "~62 MB — spoken punctuation",
     "engine_health_parakeet_running": "Parakeet: server running ({provider}, port {port})",
     "engine_health_parakeet_stopped": "Parakeet: server not running",
+    "engine_health_whisper_running": "Whisper: server running ({provider}, port {port})",
+    "engine_health_whisper_stopped": "Whisper: server not running",
+    "engine_starting": "Starting engine…",
     "local_model_title": "Local Recognition",
     "local_model_desc": "Configure a local speech-to-text engine for complete privacy.",
     "local_model_label": "Model Size",
@@ -272,7 +270,7 @@ const i18nDict = {
     "history_unit_ms": "ms",
     "history_unit_sec": "s",
     "about_app_title": "Aura Voice Input",
-    "about_version": "v1.0.8",
+    "about_version": "v1.0.9",
     "about_description": "Global voice input tool for Windows. The program transcribes speech to text and inserts it into any active window with automatic formatting and punctuation.",
     "status_ready": "Ready",
     "btn_save": "Save Settings",
@@ -292,6 +290,7 @@ const i18nDict = {
     "status_loaded": "Settings loaded",
     "status_load_error": "Failed to load settings: ",
     "status_save_error": "Failed to save settings: ",
+    "status_streaming_degraded": "Live Parakeet preview disabled — the final text is being prepared in batch mode",
     "model_downloading_pattern": "Starting download for model '{model}'...",
     "model_download_error_pattern": "Download error: {err}",
     "delete_model_title": "Delete model",
@@ -348,6 +347,9 @@ const i18nDict = {
     "overlay_timer_checkbox": "Show timer and status on overlay",
     "mic_meter_title": "Microphone Check",
     "mic_meter_desc": "Test input signal level and real-time voice detection.",
+    "audio_device_label": "Microphone (input device)",
+    "audio_device_default": "Default (system)",
+    "audio_device_desc": "Select physical microphone for voice recording.",
     "mic_meter_test_btn_start": "Start Test",
     "mic_meter_test_btn_stop": "Stop Test",
     "mic_meter_speech": "Voice",
@@ -395,17 +397,14 @@ const i18nDict = {
     "streaming_desc": "Wählen Sie, wie die Transkription eingegeben wird.",
     "streaming_checkbox": "Echtzeit-Streaming-Eingabe (experimentell)",
     "streaming_subdesc": "Wenn deaktiviert: Text wird als Ganzes eingefügt, wenn die Taste losgelassen wird.",
-    "punct_title": "Intelligente Interpunktion",
-    "punct_desc": "Gesprochene Satzzeichen (z. B. \"Komma\", \"Punkt\") in Interpunktion umwandeln.",
-    "punct_checkbox": "Verarbeitung gesprochener Satzzeichen aktivieren",
     "vocab_title": "Eigenes Wörterbuch",
     "vocab_desc": "Tragen Sie Begriffe, Namen oder Fachbegriffe durch Komma getrennt ein, um die Erkennung zu verbessern.",
     "vocab_placeholder": "z.B. Aura, Commit, Repository...",
-    "punct_model_label": "Interpunktion (für Englisch)",
-    "punct_model_name": "CT-Transformer (zh-en, int8)",
-    "punct_model_meta": "~62 MB — Sprachinterpunktion",
     "engine_health_parakeet_running": "Parakeet: Server läuft ({provider}, Port {port})",
     "engine_health_parakeet_stopped": "Parakeet: Server läuft nicht",
+    "engine_health_whisper_running": "Whisper: Server läuft ({provider}, Port {port})",
+    "engine_health_whisper_stopped": "Whisper: Server läuft nicht",
+    "engine_starting": "Engine wird gestartet…",
     "local_model_title": "Lokales Whisper-Modell",
     "local_model_desc": "Konfigurieren Sie eine lokale Spracherkennungs-Engine für vollständige Privatsphäre.",
     "local_model_label": "Modellgröße",
@@ -450,7 +449,7 @@ const i18nDict = {
     "history_unit_ms": "ms",
     "history_unit_sec": "s",
     "about_app_title": "Aura Spracheingabe",
-    "about_version": "v1.0.8",
+    "about_version": "v1.0.9",
     "about_description": "Globales Spracheingabe-Tool für Windows. Die Anwendung überträgt Sprache in Text und fügt ihn mit automatischer Formatierung und Zeichensetzung in jedes aktive Fenster ein.",
     "status_ready": "Bereit",
     "btn_save": "Einstellungen speichern",
@@ -470,6 +469,7 @@ const i18nDict = {
     "status_loaded": "Einstellungen geladen",
     "status_load_error": "Fehler beim Laden der Einstellungen: ",
     "status_save_error": "Fehler beim Speichern der Einstellungen: ",
+    "status_streaming_degraded": "Live-Parakeet-Vorschau deaktiviert — der finale Text wird im Batch-Modus erstellt",
     "model_downloading_pattern": "Download für Modell '{model}' wird gestartet...",
     "model_download_error_pattern": "Download-Fehler: {err}",
     "delete_model_title": "Modell löschen",
@@ -522,6 +522,9 @@ const i18nDict = {
     "overlay_timer_checkbox": "Timer und Status im Overlay anzeigen",
     "mic_meter_title": "Mikrofontest",
     "mic_meter_desc": "Testen Sie den Eingangssignalpegel und die Spracherkennung in Echtzeit.",
+    "audio_device_label": "Mikrofon (Eingabegerät)",
+    "audio_device_default": "Standard (System)",
+    "audio_device_desc": "Wählen Sie ein physisches Mikrofon für die Sprachaufnahme aus.",
     "mic_meter_test_btn_start": "Test starten",
     "mic_meter_test_btn_stop": "Test stoppen",
     "mic_meter_speech": "Sprache",
@@ -562,17 +565,14 @@ const i18nDict = {
     "streaming_desc": "Seleccione el método para mostrar el texto transcrito.",
     "streaming_checkbox": "Escritura en tiempo real (experimental)",
     "streaming_subdesc": "Si está desactivado: el texto se inserta completo tras soltar el atajo.",
-    "punct_title": "Puntuación inteligente",
-    "punct_desc": "Convertir comandos de voz (ej. \"coma\", \"punto\") en signos gráficos.",
-    "punct_checkbox": "Activar procesamiento de puntuación por voz",
     "vocab_title": "Vocabulario personalizado",
     "vocab_desc": "Añada términos específicos, nombres o siglas separados por comas para mejorar el dictado.",
     "vocab_placeholder": "ej. Aura, commit, repositorio...",
-    "punct_model_label": "Puntuación (para inglés)",
-    "punct_model_name": "CT-Transformer (zh-en, int8)",
-    "punct_model_meta": "~62 MB — puntuación por voz",
     "engine_health_parakeet_running": "Parakeet: servidor en ejecución ({provider}, puerto {port})",
     "engine_health_parakeet_stopped": "Parakeet: servidor no en ejecución",
+    "engine_health_whisper_running": "Whisper: servidor en ejecución ({provider}, puerto {port})",
+    "engine_health_whisper_stopped": "Whisper: servidor no en ejecución",
+    "engine_starting": "Iniciando motor…",
     "local_model_title": "Modelo Whisper local",
     "local_model_desc": "Configure un motor local de reconocimiento de voz para mantener la privacidad.",
     "local_model_label": "Tamaño del modelo",
@@ -617,7 +617,7 @@ const i18nDict = {
     "history_unit_ms": "ms",
     "history_unit_sec": "s",
     "about_app_title": "Dictado por voz Aura",
-    "about_version": "v1.0.8",
+    "about_version": "v1.0.9",
     "about_description": "Herramienta de entrada de voz global para Windows. El programa transcribe el habla en texto y lo inserta en cualquier ventana activa con formato y puntuación automáticos.",
     "status_ready": "Listo",
     "btn_save": "Guardar ajustes",
@@ -637,6 +637,7 @@ const i18nDict = {
     "status_loaded": "Ajustes cargados",
     "status_load_error": "Error al cargar los ajustes: ",
     "status_save_error": "Error al guardar los ajustes: ",
+    "status_streaming_degraded": "Vista previa en vivo de Parakeet desactivada: el texto final se prepara por lotes",
     "model_downloading_pattern": "Iniciando descarga para el modelo '{model}'...",
     "model_download_error_pattern": "Error de descarga: {err}",
     "delete_model_title": "Eliminar modelo",
@@ -696,6 +697,9 @@ const i18nDict = {
     "overlay_timer_checkbox": "Mostrar temporizador y estado en el overlay",
     "mic_meter_title": "Comprobación de micrófono",
     "mic_meter_desc": "Pruebe el nivel de señal de entrada y la detección de voz en tiempo real.",
+    "audio_device_label": "Micrófono (dispositivo de entrada)",
+    "audio_device_default": "Predeterminado (sistema)",
+    "audio_device_desc": "Seleccione el micrófono físico para la grabación de voz.",
     "mic_meter_test_btn_start": "Iniciar prueba",
     "mic_meter_test_btn_stop": "Detener prueba",
     "mic_meter_speech": "Voz",
@@ -736,17 +740,14 @@ const i18nDict = {
     "streaming_desc": "Sélectionnez le mode d'affichage du texte transcrit.",
     "streaming_checkbox": "Affichage du texte en temps réel (expérimental)",
     "streaming_subdesc": "Si désactivé: le texte est inséré en une fois lorsque vous relâchez le raccourci.",
-    "punct_title": "Ponctuation intelligente",
-    "punct_desc": "Convertir les commandes vocales (ex. \"virgule\", \"point\") en signes de ponctuation.",
-    "punct_checkbox": "Activer le traitement de la ponctuation dictée",
     "vocab_title": "Vocabulaire personnalisé",
     "vocab_desc": "Ajoutez des termes spécifiques, noms propres ou sigles séparés par des virgules pour améliorer la dictée.",
     "vocab_placeholder": "ex. Aura, commit, dépôt...",
-    "punct_model_label": "Ponctuation (pour l'anglais)",
-    "punct_model_name": "CT-Transformer (zh-en, int8)",
-    "punct_model_meta": "~62 Mo — ponctuation vocale",
     "engine_health_parakeet_running": "Parakeet : serveur en cours d'exécution ({provider}, port {port})",
     "engine_health_parakeet_stopped": "Parakeet : serveur non démarré",
+    "engine_health_whisper_running": "Whisper : serveur en cours d'exécution ({provider}, port {port})",
+    "engine_health_whisper_stopped": "Whisper : serveur non démarré",
+    "engine_starting": "Démarrage du moteur…",
     "local_model_title": "Modèle Whisper local",
     "local_model_desc": "Configurez un moteur local de reconnaissance vocale pour préserver entièrement votre confidentialité.",
     "local_model_label": "Taille du modèle",
@@ -791,7 +792,7 @@ const i18nDict = {
     "history_unit_ms": "ms",
     "history_unit_sec": "s",
     "about_app_title": "Dictée vocale Aura",
-    "about_version": "v1.0.8",
+    "about_version": "v1.0.9",
     "about_description": "Outil de saisie vocale globale pour Windows. Le programme transcrit la parole en texte et l'insère dans n'importe quelle fenêtre active avec un formatage et une ponctuation automatiques.",
     "status_ready": "Prêt",
     "btn_save": "Enregistrer",
@@ -811,6 +812,7 @@ const i18nDict = {
     "status_loaded": "Paramètres chargés",
     "status_load_error": "Échec du chargement des paramètres : ",
     "status_save_error": "Échec de l'enregistrement des paramètres : ",
+    "status_streaming_degraded": "Aperçu live Parakeet désactivé — le texte final est préparé par lot",
     "model_downloading_pattern": "Démarrage du téléchargement pour le modèle '{model}'...",
     "model_download_error_pattern": "Erreur de téléchargement: {err}",
     "delete_model_title": "Supprimer le modèle",
@@ -870,6 +872,9 @@ const i18nDict = {
     "overlay_timer_checkbox": "Afficher le minuteur et l'état sur l'overlay",
     "mic_meter_title": "Vérification du microphone",
     "mic_meter_desc": "Testez le niveau du signal d'entrée et la détection vocale en temps réel.",
+    "audio_device_label": "Microphone (périphérique d'entrée)",
+    "audio_device_default": "Par défaut (système)",
+    "audio_device_desc": "Sélectionnez le microphone physique pour l'enregistrement vocal.",
     "mic_meter_test_btn_start": "Démarrer le test",
     "mic_meter_test_btn_stop": "Arrêter le test",
     "mic_meter_speech": "Voix",
@@ -910,17 +915,14 @@ const i18nDict = {
     "streaming_desc": "Seleziona come visualizzare il testo trascritto.",
     "streaming_checkbox": "Inserimento del testo in tempo reale (sperimentale)",
     "streaming_subdesc": "Se disattivato: il testo viene inserito interamente solo quando rilasci la scorciatoia.",
-    "punct_title": "Punteggiatura intelligente",
-    "punct_desc": "Converte i comandi vocali (es. \"virgola\", \"punto\") in simboli grafici.",
-    "punct_checkbox": "Attiva elaborazione della punteggiatura vocale",
     "vocab_title": "Vocabolario personalizzato",
     "vocab_desc": "Aggiungi parole specifiche, nomi o acronimi separati da virgole per migliorare la precisione.",
     "vocab_placeholder": "es. Aura, commit, repository...",
-    "punct_model_label": "Punteggiatura (per l'inglese)",
-    "punct_model_name": "CT-Transformer (zh-en, int8)",
-    "punct_model_meta": "~62 MB — punteggiatura vocale",
     "engine_health_parakeet_running": "Parakeet: server in esecuzione ({provider}, porta {port})",
     "engine_health_parakeet_stopped": "Parakeet: server non in esecuzione",
+    "engine_health_whisper_running": "Whisper: server in esecuzione ({provider}, porta {port})",
+    "engine_health_whisper_stopped": "Whisper: server non in esecuzione",
+    "engine_starting": "Avvio del motore…",
     "local_model_title": "Modello Whisper locale",
     "local_model_desc": "Configura un motore locale di riconoscimento vocale per la massima privacy.",
     "local_model_label": "Dimensione modello",
@@ -965,7 +967,7 @@ const i18nDict = {
     "history_unit_ms": "ms",
     "history_unit_sec": "s",
     "about_app_title": "Dettatura vocale Aura",
-    "about_version": "v1.0.8",
+    "about_version": "v1.0.9",
     "about_description": "Strumento di inserimento vocale globale per Windows. Il programma trascrive la voce in testo e la inserisce in qualsiasi finestra attiva con formattazione e punteggiatura automatiche.",
     "status_ready": "Pronto",
     "btn_save": "Salva impostazioni",
@@ -985,6 +987,7 @@ const i18nDict = {
     "status_loaded": "Impostazioni caricate",
     "status_load_error": "Impossibile caricare le impostazioni: ",
     "status_save_error": "Impossibile salvare le impostazioni: ",
+    "status_streaming_degraded": "Anteprima live di Parakeet disattivata — il testo finale viene elaborato in batch",
     "model_downloading_pattern": "Avvio del download per il modello '{model}'...",
     "model_download_error_pattern": "Errore di download: {err}",
     "delete_model_title": "Elimina modello",
@@ -1044,6 +1047,9 @@ const i18nDict = {
     "overlay_timer_checkbox": "Mostra timer e stato nell'overlay",
     "mic_meter_title": "Controllo microfono",
     "mic_meter_desc": "Testa il livello del segnale di ingresso e il rilevamento vocale in tempo reale.",
+    "audio_device_label": "Microfono (dispositivo di input)",
+    "audio_device_default": "Predefinito (sistema)",
+    "audio_device_desc": "Seleziona il microfono fisico per la registrazione vocale.",
     "mic_meter_test_btn_start": "Avvia test",
     "mic_meter_test_btn_stop": "Arresta test",
     "mic_meter_speech": "Voce",
@@ -1084,17 +1090,14 @@ const i18nDict = {
     "streaming_desc": "选择转换后文本的录入方式。",
     "streaming_checkbox": "实时流式文本录入 (实验性)",
     "streaming_subdesc": "如果关闭: 只有松开按键后，文字才会一次性录入。",
-    "punct_title": "智能标点符号",
-    "punct_desc": "将语音指令(如“逗号”、“句号”)转换为对应的标点符号。",
-    "punct_checkbox": "开启语音标点转换处理",
     "vocab_title": "自定义词典",
     "vocab_desc": "以逗号分隔输入专用术语、人名或品牌，以便提高识别精度。",
     "vocab_placeholder": "例如：Aura, commit, 仓库...",
-    "punct_model_label": "标点（用于英语）",
-    "punct_model_name": "CT-Transformer (zh-en, int8)",
-    "punct_model_meta": "约 62 MB — 语音标点",
     "engine_health_parakeet_running": "Parakeet：服务器运行中（{provider}，端口 {port}）",
     "engine_health_parakeet_stopped": "Parakeet：服务器未运行",
+    "engine_health_whisper_running": "Whisper：服务器运行中（{provider}，端口 {port}）",
+    "engine_health_whisper_stopped": "Whisper：服务器未运行",
+    "engine_starting": "引擎启动中…",
     "local_model_title": "本地 Whisper 模型",
     "local_model_desc": "配置本地语音识别引擎，确保数据完全私密。",
     "local_model_label": "模型大小",
@@ -1139,7 +1142,7 @@ const i18nDict = {
     "history_unit_ms": "毫秒",
     "history_unit_sec": "秒",
     "about_app_title": "Aura 智能语音输入",
-    "about_version": "v1.0.8",
+    "about_version": "v1.0.9",
     "about_description": "适用于 Windows 的全局语音输入工具。本程序可以将语音转录为文本，并以自动格式和标点符号插入到任何活动窗口中。",
     "status_ready": "就绪",
     "btn_save": "保存设置",
@@ -1159,6 +1162,7 @@ const i18nDict = {
     "status_loaded": "设置已加载",
     "status_load_error": "加载设置失败: ",
     "status_save_error": "保存设置失败: ",
+    "status_streaming_degraded": "Parakeet 实时预览已停用——最终文本将批量生成",
     "model_downloading_pattern": "正在启动模型 '{model}' 的下载...",
     "model_download_error_pattern": "下载错误: {err}",
     "delete_model_title": "删除模型",
@@ -1218,6 +1222,9 @@ const i18nDict = {
     "overlay_timer_checkbox": "在悬浮窗上显示计时器和状态",
     "mic_meter_title": "麦克风检测",
     "mic_meter_desc": "实时测试输入信号强度和语音检测。",
+    "audio_device_label": "麦克风（输入设备）",
+    "audio_device_default": "默认（系统）",
+    "audio_device_desc": "选择用于语音录制的物理麦克风。",
     "mic_meter_test_btn_start": "开始测试",
     "mic_meter_test_btn_stop": "停止测试",
     "mic_meter_speech": "语音",
@@ -1258,17 +1265,14 @@ const i18nDict = {
     "streaming_desc": "Escolha o método para exibir o texto transcrito.",
     "streaming_checkbox": "Escrita em tempo real (experimental)",
     "streaming_subdesc": "Se desativado: o texto é colado inteiro apenas ao soltar o atalho.",
-    "punct_title": "Pontuação inteligente",
-    "punct_desc": "Converter comandos de voz (ex. \"vírgula\", \"ponto\") em pontuação correspondente.",
-    "punct_checkbox": "Habilitar processamento de pontuação por voz",
     "vocab_title": "Dicionário personalizado",
     "vocab_desc": "Adicione termos específicos, nomes ou siglas separados por vírgula para melhorar o reconhecimento.",
     "vocab_placeholder": "ex. Aura, commit, repositório...",
-    "punct_model_label": "Pontuação (para inglês)",
-    "punct_model_name": "CT-Transformer (zh-en, int8)",
-    "punct_model_meta": "~62 MB — pontuação por voz",
     "engine_health_parakeet_running": "Parakeet: servidor em execução ({provider}, porta {port})",
     "engine_health_parakeet_stopped": "Parakeet: servidor não em execução",
+    "engine_health_whisper_running": "Whisper: servidor em execução ({provider}, porta {port})",
+    "engine_health_whisper_stopped": "Whisper: servidor não em execução",
+    "engine_starting": "Iniciando o motor…",
     "local_model_title": "Modelo Whisper local",
     "local_model_desc": "Configure um mecanismo local de reconhecimento de voz para manter total privacidade.",
     "local_model_label": "Tamanho do modelo",
@@ -1313,7 +1317,7 @@ const i18nDict = {
     "history_unit_ms": "ms",
     "history_unit_sec": "s",
     "about_app_title": "Ditado de voz Aura",
-    "about_version": "v1.0.8",
+    "about_version": "v1.0.9",
     "about_description": "Ferramenta de entrada de voz global para Windows. O programa transcreve a fala em texto e a insere em qualquer janela ativa com formatação e pontuação automáticas.",
     "status_ready": "Pronto",
     "btn_save": "Salvar configurações",
@@ -1333,6 +1337,7 @@ const i18nDict = {
     "status_loaded": "Configurações carregadas",
     "status_load_error": "Falha ao carregar configurações: ",
     "status_save_error": "Falha ao salvar configurações: ",
+    "status_streaming_degraded": "Pré-visualização ao vivo do Parakeet desativada — o texto final será gerado em lote",
     "model_downloading_pattern": "Iniciando download para o modelo '{model}'...",
     "model_download_error_pattern": "Erro de download: {err}",
     "delete_model_title": "Excluir modelo",
@@ -1392,6 +1397,9 @@ const i18nDict = {
     "overlay_timer_checkbox": "Exibir temporizador e status no overlay",
     "mic_meter_title": "Verificação de microfone",
     "mic_meter_desc": "Teste o nível do sinal de entrada e a detecção de fala em tempo real.",
+    "audio_device_label": "Microfone (dispositivo de entrada)",
+    "audio_device_default": "Padrão (sistema)",
+    "audio_device_desc": "Selecione o microfone físico para gravação de voz.",
     "mic_meter_test_btn_start": "Iniciar teste",
     "mic_meter_test_btn_stop": "Parar teste",
     "mic_meter_speech": "Voz",
@@ -1432,17 +1440,14 @@ const i18nDict = {
     "streaming_desc": "Transkripsiyonu ekleme yöntemini seçin.",
     "streaming_checkbox": "Gerçek zamanlı akışlı metin girişi (deneysel)",
     "streaming_subdesc": "Kapatılırsa: metin sadece tuşu bıraktığınızda bir bütün olarak eklenir.",
-    "punct_title": "Akıllı Noktalama",
-    "punct_desc": "Konuşulan noktalama komutlarını (\"virgül\", \"nokta\") simgelere dönüştür.",
-    "punct_checkbox": "Sesli noktalama işaretlerini işlemeyi etkinleştir",
     "vocab_title": "Özel Sözlük",
     "vocab_desc": "Algılama kalitesini artırmak için özel terimleri, isimleri virgülle ayırarak girin.",
     "vocab_placeholder": "örn. Aura, commit, depo...",
-    "punct_model_label": "Noktalama (İngilizce için)",
-    "punct_model_name": "CT-Transformer (zh-en, int8)",
-    "punct_model_meta": "~62 MB — sesli noktalama",
     "engine_health_parakeet_running": "Parakeet: sunucu çalışıyor ({provider}, port {port})",
     "engine_health_parakeet_stopped": "Parakeet: sunucu çalışmıyor",
+    "engine_health_whisper_running": "Whisper: sunucu çalışıyor ({provider}, port {port})",
+    "engine_health_whisper_stopped": "Whisper: sunucu çalışmıyor",
+    "engine_starting": "Motor başlatılıyor…",
     "local_model_title": "Yerel Whisper Modülü",
     "local_model_desc": "Tam gizlilik için yerel bir konuşma tanıma motoru yapılandırın.",
     "local_model_label": "Model Boyutu",
@@ -1487,7 +1492,7 @@ const i18nDict = {
     "history_unit_ms": "ms",
     "history_unit_sec": "sn",
     "about_app_title": "Aura Sesli Giriş",
-    "about_version": "v1.0.8",
+    "about_version": "v1.0.9",
     "about_description": "Windows için genel sesli giriş aracı. Program, konuşmayı metne dönüştürür ve otomatik biçimlendirme ve noktalama işaretleriyle herhangi bir aktif pencereye ekler.",
     "status_ready": "Hazır",
     "btn_save": "Ayarları Kaydet",
@@ -1507,6 +1512,7 @@ const i18nDict = {
     "status_loaded": "Ayarlar yüklendi",
     "status_load_error": "Ayarlar yüklenemedi: ",
     "status_save_error": "Ayarlar kaydedilemedi: ",
+    "status_streaming_degraded": "Canlı Parakeet önizlemesi devre dışı — nihai metin toplu olarak hazırlanıyor",
     "model_downloading_pattern": "'{model}' modeli için indirme başlatılıyor...",
     "model_download_error_pattern": "İndirme hatası: {err}",
     "delete_model_title": "Modeli sil",
@@ -1566,6 +1572,9 @@ const i18nDict = {
     "overlay_timer_checkbox": "Arayüzde zamanlayıcıyı ve durumu göster",
     "mic_meter_title": "Mikrofon Kontrolü",
     "mic_meter_desc": "Giriş sinyali seviyesini ve gerçek zamanlı ses algılamayı test edin.",
+    "audio_device_label": "Mikrofon (giriş cihazı)",
+    "audio_device_default": "Varsayılan (sistem)",
+    "audio_device_desc": "Ses kaydı için fiziksel mikrofonu seçin.",
     "mic_meter_test_btn_start": "Testi Başlat",
     "mic_meter_test_btn_stop": "Testi Durdur",
     "mic_meter_speech": "Konuşma",
@@ -1797,6 +1806,7 @@ document.addEventListener("DOMContentLoaded", () => {
     tab.addEventListener("click", () => activateTab(tab));
   });
   bindTabKeyboardNavigation(tabs, activateTab);
+
   // Toggle API Key visibility
   const apiKeyInput = document.getElementById("input-api-key");
   const toggleKeyBtn = document.getElementById("btn-toggle-key");
@@ -1835,11 +1845,13 @@ const radioCloud = document.getElementById("radio-cloud");
     } else {
       if (localEngineSection) localEngineSection.style.display = "none";
       if (apiKeysCard) apiKeysCard.style.display = "flex";
-      if (cloudFunctionsCard) cloudFunctionsCard.style.display = "flex";
       if (fallbackCard) fallbackCard.style.display = "flex";
       if (langCard) langCard.style.display = "none";
       if (vocabCard) vocabCard.style.display = "none";
       if (streamingCard) streamingCard.style.display = "none";
+
+      const isHuggingFace = selectProvider && selectProvider.value === "huggingface";
+      if (cloudFunctionsCard) cloudFunctionsCard.style.display = isHuggingFace ? "none" : "flex";
     }
   }
 
@@ -1874,28 +1886,56 @@ async function refreshEngineHealth() {
     if (!chip) return;
     try {
       const health = await invoke("get_engine_health");
+      lastHealthState = health;
       chip.classList.remove("health-ok", "health-warn");
-      if (health.engine === "whisper" || health.engine === "parakeet-local-fallback") {
-        // The in-process Whisper engine has no server state to report, so the
-        // chip stays collapsed under the select instead of leaving a dead gap.
+      if (health.engine === "parakeet-local-fallback") {
         chip.textContent = "";
         chip.style.display = "none";
         return;
       }
       chip.style.display = "";
       if (health.running) {
-        chip.textContent = getTranslation("engine_health_parakeet_running", {
+        const runningKey = health.engine === "whisper"
+          ? "engine_health_whisper_running"
+          : "engine_health_parakeet_running";
+        chip.textContent = getTranslation(runningKey, {
           provider: health.provider || "cpu",
           port: health.port ?? "?",
         });
         chip.classList.add("health-ok");
-      } else {
-        chip.textContent = getTranslation("engine_health_parakeet_stopped");
-        chip.classList.add("health-warn");
+        return;
       }
+      if (Date.now() < engineStartNoticeUntil) {
+        chip.innerHTML = `<span class="spinner-inline" aria-hidden="true"></span> ${getTranslation("engine_starting")}`;
+        chip.classList.add("health-warn");
+        return;
+      }
+      const stoppedKey = health.engine === "whisper"
+        ? "engine_health_whisper_stopped"
+        : "engine_health_parakeet_stopped";
+      chip.textContent = getTranslation(stoppedKey);
+      chip.classList.add("health-warn");
     } catch (e) {
       console.error(e);
     }
+  }
+
+  // Right after the user switches the local engine (or its acceleration) the
+  // resident server needs seconds to boot and warm up. Poll fast until the
+  // server actually reports running (or the hard cap passes) and WITHOUT the
+  // focus gate: the settings window is usually unfocused while the user
+  // dictates, and a frozen "starting…" chip is worse than a cheap IPC poll.
+  function kickEngineStatusPolling(windowMs = 60000) {
+    engineStartNoticeUntil = Date.now() + windowMs;
+    if (engineFastPollTimer) return;
+    engineFastPollTimer = setInterval(() => {
+      const running = Boolean(lastHealthState && lastHealthState.running);
+      if (running || Date.now() >= engineStartNoticeUntil) {
+        clearInterval(engineFastPollTimer);
+        engineFastPollTimer = null;
+      }
+      refreshEngineHealth();
+    }, 700);
   }
 
   if (selectLocalEngine) {
@@ -1903,14 +1943,9 @@ async function refreshEngineHealth() {
       updateLocalEngineUI();
       markSettingsModified(true);
       refreshEngineHealth();
+      kickEngineStatusPolling();
     });
   }
-
-  document.addEventListener("change", (event) => {
-    if (event.target.matches("select.custom-select[data-preview]")) {
-      updateSelectPreview(event.target);
-    }
-  });
 
   radioCloud.addEventListener("change", updateEngineUI);
   radioLocal.addEventListener("change", updateEngineUI);
@@ -1955,7 +1990,6 @@ async function refreshEngineHealth() {
   const selectLanguage = document.getElementById("select-language");
   const textareaDictionary = document.getElementById("textarea-dictionary");
   const checkboxToggle = document.getElementById("checkbox-toggle");
-  const checkboxPunctuation = document.getElementById("checkbox-punctuation");
   const checkboxCloudFallback = document.getElementById("checkbox-cloud-fallback");
   const checkboxAutostart = document.getElementById("checkbox-autostart");
   const checkboxAutomaticUpdateChecks = document.getElementById("checkbox-automatic-update-checks");
@@ -1968,6 +2002,38 @@ const btnSaveSettings = document.getElementById("btn-save-settings");
   const selectSoundTheme = document.getElementById("select-sound-theme");
   const rangeVolume = document.getElementById("range-sound-volume");
   const volumeLabel = document.getElementById("volume-value-label");
+  const selectAudioDevice = document.getElementById("select-audio-device");
+
+  if (selectAudioDevice) {
+    selectAudioDevice.addEventListener("change", () => {
+      markSettingsModified(true);
+    });
+  }
+
+  async function loadAudioDevices(selectedDevice = "default") {
+    if (!selectAudioDevice) return;
+    try {
+      const devices = await invoke("get_audio_input_devices");
+      const currentVal = selectedDevice || selectAudioDevice.value || "default";
+      const dict = i18nDict[currentLanguage] || i18nDict.ru;
+      selectAudioDevice.innerHTML = `<option value="default" data-i18n="audio_device_default">${dict.audio_device_default || "По умолчанию (системное)"}</option>`;
+      if (Array.isArray(devices)) {
+        devices.forEach((dev) => {
+          if (dev && dev.trim() && dev !== "default") {
+            const opt = document.createElement("option");
+            opt.value = dev;
+            opt.textContent = dev;
+            selectAudioDevice.appendChild(opt);
+          }
+        });
+      }
+      selectAudioDevice.value = currentVal;
+      buildSelectPanel(selectAudioDevice);
+      syncPanelSelection(selectAudioDevice);
+    } catch (e) {
+      console.error("Failed to load audio input devices", e);
+    }
+  }
 
   if (rangeVolume) {
     rangeVolume.addEventListener("input", () => {
@@ -2129,6 +2195,15 @@ const providerDict = i18nDict[currentLanguage] || i18nDict.ru;
     apiKeys[provider] = apiKeyInput.value;
     apiKeyDirty[provider] = true;
   });
+
+  if (selectProvider) {
+    selectProvider.addEventListener("change", () => {
+      updateApiKeyLink();
+      updateCustomProviderUI();
+      renderProviderKeyInput();
+      updateEngineUI();
+    });
+  }
   
   const footerStatusText = document.getElementById("footer-status-text");
 
@@ -2139,10 +2214,16 @@ const providerDict = i18nDict[currentLanguage] || i18nDict.ru;
   let settingsModified = false;
   let isSettingsLoaded = false;
   let autoSaveTimeout = null;
+  let settingsRevision = 0;
+  let engineHealthTimer = null;
+  let engineFastPollTimer = null;
+  let engineStartNoticeUntil = 0;
+  let lastHealthState = null;
 
   function markSettingsModified(immediate = false) {
     if (!isSettingsLoaded) return;
     settingsModified = true;
+    settingsRevision += 1;
     showStatus(getTranslation("status_modified"), false, true);
 
     if (autoSaveTimeout) {
@@ -2167,7 +2248,7 @@ const providerDict = i18nDict[currentLanguage] || i18nDict.ru;
     const inputCustomModel = document.getElementById("input-custom-model");
     const inputs = [
       radioCloud, radioLocal, selectProvider, apiKeyInput, inputCustomUrl, inputCustomModel, selectHotkey,
-      selectLanguage, textareaDictionary, checkboxToggle, checkboxPunctuation, checkboxCloudFallback,
+      selectLanguage, textareaDictionary, checkboxToggle, checkboxCloudFallback,
       checkboxAutostart, checkboxAutomaticUpdateChecks, checkboxStreaming, checkboxSounds,
       selectSoundTheme, rangeVolume, selectLocalEngine, checkboxCopyContext, checkboxLogSpeechText,
       checkboxOverlayTimer
@@ -2319,9 +2400,6 @@ const providerDict = i18nDict[currentLanguage] || i18nDict.ru;
         if (checkboxToggle) {
           checkboxToggle.checked = !!settings.toggle_enabled;
         }
-        if (checkboxPunctuation) {
-          checkboxPunctuation.checked = !!settings.voice_punctuation;
-        }
         if (checkboxCloudFallback) {
           checkboxCloudFallback.checked = settings.cloud_fallback_enabled !== false;
         }
@@ -2366,6 +2444,7 @@ const providerDict = i18nDict[currentLanguage] || i18nDict.ru;
         updateSoundUI();
  
         updateEngineUI();
+        await loadAudioDevices(settings.audio_input_device || "default");
         await refreshDownloadedModels();
 
 activeLocalAcceleration = settings.local_acceleration || "cpu";
@@ -2376,11 +2455,16 @@ activeLocalAcceleration = settings.local_acceleration || "cpu";
         settingsModified = false;
         
         refreshEngineHealth();
-        setInterval(() => {
-          if (document.hasFocus()) {
-            refreshEngineHealth();
-          }
-        }, 10000);
+        if (radioLocal.checked) {
+          kickEngineStatusPolling();
+        }
+        if (!engineHealthTimer) {
+          engineHealthTimer = setInterval(() => {
+            if (document.hasFocus()) {
+              refreshEngineHealth();
+            }
+          }, 10000);
+        }
         
         showStatus(getTranslation("status_loaded"));
         
@@ -2449,14 +2533,18 @@ modelCards.forEach(card => {
 
   // Save Settings to Backend
   let saveInFlight = false;
+  let savePending = false;
 
   async function saveSettings() {
     // Guard against re-entrancy: rapid clicks or duplicate bindings must not
-    // start a second save while one is already running.
+    // start a second save while one is already running. A change arriving
+    // mid-flight re-schedules itself instead of being dropped.
     if (saveInFlight) {
+      savePending = true;
       return;
     }
     saveInFlight = true;
+    const revisionAtStart = settingsRevision;
     if (btnSaveSettings) {
       btnSaveSettings.disabled = true;
     }
@@ -2489,7 +2577,6 @@ modelCards.forEach(card => {
         toggle_enabled: checkboxToggle ? checkboxToggle.checked : false,
         language: selectLanguage ? selectLanguage.value : "auto",
         dictionary: textareaDictionary ? textareaDictionary.value : "",
-        voice_punctuation: checkboxPunctuation ? checkboxPunctuation.checked : false,
         cloud_fallback_enabled: checkboxCloudFallback ? checkboxCloudFallback.checked : true,
         autostart: checkboxAutostart ? checkboxAutostart.checked : false,
         automatic_update_checks: checkboxAutomaticUpdateChecks ? checkboxAutomaticUpdateChecks.checked : false,
@@ -2499,6 +2586,7 @@ modelCards.forEach(card => {
     overlay_sound_theme: selectSoundTheme ? selectSoundTheme.value : "zen",
     overlay_sound_volume: soundVolFloat,
     copy_context_on_start: checkboxCopyContext ? checkboxCopyContext.checked : false,
+    audio_input_device: selectAudioDevice ? selectAudioDevice.value : "default",
     log_speech_text: (() => {
       const el = document.getElementById("setting-log-speech-text");
       return el ? el.checked : false;
@@ -2528,7 +2616,12 @@ await invoke("set_settings", { settings });
         }
       }
       renderProviderKeyInput();
-      settingsModified = false;
+      if (radioLocal.checked) {
+        kickEngineStatusPolling();
+      }
+      if (settingsRevision === revisionAtStart) {
+        settingsModified = false;
+      }
       if (failedProviders.length > 0) {
         showStatus(
           `${getTranslation("status_save_error")} (${failedProviders.join(", ")})`,
@@ -2553,6 +2646,12 @@ await invoke("set_settings", { settings });
       if (btnSaveSettings) {
         btnSaveSettings.disabled = false;
       }
+      if ((savePending || settingsModified) && isSettingsLoaded) {
+        savePending = false;
+        markSettingsModified(true);
+      } else {
+        savePending = false;
+      }
     }
   }
 
@@ -2565,6 +2664,7 @@ async function downloadModelCard(model) {
     const progressEl = document.getElementById(`progress-${model}`);
     const fillEl = document.getElementById(`fill-${model}`);
     const pctEl = document.getElementById(`pct-${model}`);
+    const modelAtStart = selectedModelName;
 
     try {
       showStatus(getTranslation("model_downloading_pattern", { model }));
@@ -2601,7 +2701,9 @@ async function downloadModelCard(model) {
       }
 
       await invoke("download_model_command", { modelName: model });
-      if (model !== "punctuation") {
+      // Only auto-select when the user has not picked a different model
+      // during the (potentially long) download.
+      if (model !== "punctuation" && selectedModelName === modelAtStart) {
         selectModelCard(model);
       }
     } catch (err) {
@@ -2658,6 +2760,22 @@ showStatus(getTranslation("model_deleted_success"));
       showStatus(getTranslation("model_delete_error_pattern", { err }), true);
     }
   }
+
+  // Cross-window sync: tray-driven changes, live history updates and
+  // streaming degradation notices emitted by the Rust side.
+  listen("settings-changed", () => {
+    if (!isSettingsLoaded || saveInFlight || settingsModified) return;
+    loadSettings();
+  });
+
+  listen("history-updated", () => {
+    loadHistoryList();
+  });
+
+  listen("streaming-degraded", (event) => {
+    console.warn("Streaming degraded:", event.payload);
+    showStatus(getTranslation("status_streaming_degraded"), true);
+  });
 
   // Listen to model-download-progress events from Rust
   listen("model-download-progress", (event) => {
@@ -2894,6 +3012,7 @@ cancelBtn.addEventListener("click", (e) => {
       const installed = await checkGpuInstalled(provider);
       if (installed) {
         selectGpuProvider(provider);
+        kickEngineStatusPolling();
       }
     });
 
@@ -2907,6 +3026,7 @@ card.addEventListener("keydown", async (e) => {
         const installed = await checkGpuInstalled(provider);
         if (installed) {
           selectGpuProvider(provider);
+          kickEngineStatusPolling();
         }
         return;
       }

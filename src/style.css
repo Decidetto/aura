@@ -1685,6 +1685,31 @@ body {
   flex-shrink: 0;
 }
 
+.engine-health-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.02em;
+}
+
+.engine-health-chip.health-ok {
+  color: var(--accent-color);
+  background-color: rgba(var(--accent-color-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.2);
+}
+
+.engine-health-chip.health-warn {
+  color: var(--text-muted);
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+}
+
 .btn-delete-card-model {
   background: none;
   border: none;
